@@ -585,110 +585,6 @@ export default function App() {
         <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
       )}
 
-      {page === 'forecast' && (
-        <Forecast
-          forecast={forecast}
-          error={forecastError}
-          rows={rows}
-          colorOf={colorOf}
-          shortName={shortName}
-          entitlements={entitlements}
-          blocDefs={BLOCS}
-          majorityOf={(n) => Math.floor(n / 2) + 1}
-        />
-      )}
-
-      {page === 'electorates' && (
-      <>
-      <section className="sec">
-        <div className="kicker">Electorates</div>
-        <h2>Who is leading in each electorate</h2>
-        <NzMap
-          fills={fills}
-          progress={progress}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          aside={(
-            <div className="mapkey">
-              <h3 className="subhead">How to read these maps</h3>
-              <ul>
-                <li><b>Colour</b> is the party of the candidate currently leading the electorate vote.</li>
-                <li><b>Fainter colour</b> means fewer of the voting places are counted, so the lead is less certain. It firms up as the count completes.</li>
-                <li><b>Grey</b> means no votes counted there yet.</li>
-                <li><b>Click</b> any area for its results, booths and a street map.</li>
-                <li>The zoomed maps show the main cities. Māori electorates overlap the general ones, so they are shown separately.</li>
-              </ul>
-              <div className="leg">
-                {['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'TPMAO'].map((a) => (
-                  <span key={a}><span className="dot" style={{ background: colorOf(a) }} />{partyName(a)}</span>
-                ))}
-                <span><span className="dot" style={{ background: colorOf('?') }} />Other</span>
-                <span><span className="dot" style={{ background: '#c9ccd1' }} />No result yet</span>
-              </div>
-              <div className="leg fade-key" aria-hidden="true">
-                <span>Counted:</span>
-                <span className="fade" style={{ opacity: 0.3 }} /><span className="fade" style={{ opacity: 0.65 }} /><span className="fade" style={{ opacity: 1 }} />
-                <span>few → all</span>
-              </div>
-            </div>
-          )}
-        />
-      </section>
-      </>
-      )}
-
-      {page === 'watch' && (
-      <>
-        <section className="sec flips">
-          <div className="kicker">Seats to watch</div>
-          <h2>Seats that have flipped</h2>
-          {flips.length === 0 ? (
-            <p className="muted small">No seat has changed party yet compared with the notional 2023 result on the new boundaries (or too few votes are counted). Flips appear here as votes come in.</p>
-          ) : (
-            <>
-              <p className="flipnet">
-                {flips.length} seat{flips.length === 1 ? '' : 's'} flipped so far:{' '}
-                {Object.entries(flips.reduce((m, f) => { m[f.to] = (m[f.to] || 0) + 1; m[f.from] = (m[f.from] || 0) - 1; return m }, {}))
-                  .filter(([, n]) => n !== 0).sort((x, y) => y[1] - x[1])
-                  .map(([a, n]) => <span key={a} className="flipchip"><span className="dot" style={{ background: colorOf(a) }} />{a} <b>{n > 0 ? '+' : '−'}{Math.abs(n)}</b></span>)}
-              </p>
-              <ol className="closelist">
-                {flips.map((r) => (
-                  <RaceCard key={r.id} r={r} onOpen={setSelectedId} note={r.note} />
-                ))}
-              </ol>
-            </>
-          )}
-          {notionalOnly.length > 0 && (
-            <>
-              <h3 className="subhead">Boundary changes: held by the sitting party, but notionally a flip</h3>
-              <p className="muted small">The 2025 boundary review moved enough voters that these seats would have gone to a different party at the 2023 election. The sitting party is currently leading, so against the notional seat totals it counts as a gain.</p>
-              <ol className="closelist">
-                {notionalOnly.map((r) => <RaceCard key={r.id} r={r} onOpen={setSelectedId} note={r.note} />)}
-              </ol>
-            </>
-          )}
-          <p className="muted small">"Flipped" compares the current leader's party with the party that won the <b>predecessor seat in 2023</b>, following renamed seats (for example Wellington Central became Wellington North). Where the boundary changes would have changed the 2023 winner, the notional result (an estimate by The Tally Room) is noted. A flip is tentative until the electorate is fully counted, and tight races can flip back.</p>
-        </section>
-    <section className="sec close">
-      <div className="kicker">Seats to watch</div>
-      <h2>The closest races right now</h2>
-      {closeRaces.length === 0 ? (
-        <p className="muted small">No electorates are within 10 points yet (or too few votes are counted). Close races appear here as votes come in.</p>
-      ) : (
-        <>
-          <ol className="closelist">
-            {closeRaces.map((r) => (
-              <RaceCard key={r.id} r={r} onOpen={setSelectedId} />
-            ))}
-          </ol>
-          <p className="muted small">Up to 24 races where the top two candidates are within 10 points, smallest gap first, among electorates with at least 300 votes counted. Gaps in electorates with little counted can change a lot.</p>
-        </>
-      )}
-    </section>
-      </>
-      )}
-
       {page === 'about' && (
         <section className="sec about">
           <div className="kicker">About & data</div>
@@ -702,7 +598,7 @@ export default function App() {
           <h3 className="subhead">Polls and 2023 comparisons</h3>
           <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
           <h3 className="subhead">Maps and electorates</h3>
-          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. The Forecast tab compares each booth counted so far with the same booth in 2023 (matched by address) to estimate whether the booths still to come lean one way, then recomputes the party vote and seats on that basis; it is a rough guide, not a prediction. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. The Forecast tab compares each booth counted so far with the same booth in 2023 (matched by address) to estimate whether the booths still to come lean one way, then recomputes the party vote and seats on that basis; it is a rough guide, not a prediction. Seats to watch plots every seat that has flipped or is within 10 points on one scale. <b>Flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). Close races are listed up to 24 seats where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
           <h3 className="subhead">Live updates</h3>
           <p>A small service watches the Commission's feed every minute and records electorate seats changing hands, projected seat changes, overhang changes, voting places counted and finished electorates. It appears in the Updates panel on every page (a button on narrow screens) and started recording when this feature was switched on.</p>
           <h3 className="subhead">Data and licences</h3>
