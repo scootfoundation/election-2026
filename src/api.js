@@ -1,0 +1,85 @@
+// In dev, '/xml' is proxied by Vite. In production set VITE_DATA_BASE to your
+// CORS-enabled proxy (see worker/proxy.js), e.g. https://nz-election.you.workers.dev/xml
+export const DATA_BASE = (import.meta.env.VITE_DATA_BASE || '/xml').replace(/\/$/, '')
+
+const txt = (el, tag) => el?.getElementsByTagName(tag)[0]?.textContent?.trim() ?? ''
+const num = (el, tag) => Number(txt(el, tag)) || 0
+
+async function getXml(path) {
+  const res = await fetch(`${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
+  const doc = new DOMParser().parseFromString(await res.text(), 'application/xml')
+  if (doc.querySelector('parsererror')) throw new Error(`${path}: invalid XML`)
+  return doc
+}
+
+export async function loadParties() {
+  const doc = await getXml('parties.xml')
+  const out = {}
+  for (const p of doc.getElementsByTagName('party')) {
+    out[p.getAttribute('p_no')] = {
+      id: p.getAttribute('p_no'),
+      abbrev: txt(p, 'abbrev'),
+      name: txt(p, 'short_name'),
+      registered: txt(p, 'registered') === 'yes',
+    }
+  }
+  return out
+}
+
+export async function loadElectorates() {
+  const doc = await getXml('electorates.xml')
+  return [...doc.getElementsByTagName('electorate')].map((e) => ({
+    id: e.getAttribute('e_no'),
+    name: txt(e, 'electorate_name'),
+  }))
+}
+
+export async function loadCandidates() {
+  const doc = await getXml('candidates.xml')
+  const out = {}
+  for (const c of doc.getElementsByTagName('candidate')) {
+    out[c.getAttribute('c_no')] = { name: txt(c, 'candidate_name'), electorate: txt(c, 'electorate'), party: txt(c, 'party') }
+  }
+  return out
+}
+
+export async function loadNational() {
+  const doc = await getXml('election.xml')
+  const s = doc.getElementsByTagName('statistics')[0]
+  return {
+    updated: doc.documentElement.getAttribute('updated'),
+    stats: {
+      placesCounted: num(s, 'total_voting_places_counted'),
+      pctPlaces: num(s, 'percent_voting_places_counted'),
+      votesCast: num(s, 'total_votes_cast'),
+      electoratesFinal: num(s, 'total_electorates_final'),
+      specialVotes: num(s, 'total_special_votes'),
+    },
+    parties: [...doc.getElementsByTagName('partystatus')[0].getElementsByTagName('party')].map((p) => ({
+      id: p.getAttribute('p_no'),
+      votes: num(p, 'votes'),
+      pct: num(p, 'percent_votes'),
+      partySeats: num(p, 'party_seats'),
+      candSeats: num(p, 'candidate_seats'),
+      seats: num(p, 'total_seats'),
+    })),
+  }
+}
+
+// Per-electorate: party/candidate vote layout is unverified until results flow,
+// so this reads defensively and returns whatever <candidate> votes it finds.
+export async function loadElectorate(id) {
+  const doc = await getXml(`e${id}/e${id}.xml`)
+  const root = doc.documentElement
+  const stats = root.getElementsByTagName('statistics')[0]
+  const cands = [...root.getElementsByTagName('candidate')]
+    .map((c) => ({ id: c.getAttribute('c_no'), votes: num(c, 'votes') }))
+    .sort((a, b) => b.votes - a.votes)
+  return {
+    id,
+    final: root.getAttribute('final') === 'true',
+    pctPlaces: num(stats, 'percent_voting_places_counted'),
+    cands,
+  }
+}
