@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import Parliament from './Parliament.jsx'
 
 // "Forecast" page: compares the 2026 booths counted so far with the same booths in 2023
 // (matched by address) to say whether the booths still to come lean one way or the other,
@@ -34,7 +35,19 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
       : govt + cross >= majority ? 'National would need Opportunity'
       : opp + cross >= majority ? 'Labour would need Opportunity'
       : 'Neither side would have a majority'
-    return { govt, cross, opp, other, size, majority, verdict, seats }
+    // Chamber order (left bench -> right bench) and bloc groups, as on the Overview page.
+    const mk = (a) => ({ abbrev: a, name: shortName({ abbrev: a, name: a }), seats: seats[a] || 0, color: colorOf(a) })
+    const inBloc = (k) => blocDefs[k].abbrevs.filter((a) => (seats[a] || 0) > 0).map(mk)
+    const byBloc = { opp: inBloc('opp'), cross: inBloc('cross'), govt: inBloc('govt'), other: Object.keys(seats).filter((a) => !grouped.has(a) && seats[a] > 0).map(mk) }
+    const seated = [...byBloc.opp, ...byBloc.cross, ...byBloc.other, ...byBloc.govt]
+    const sum = (l) => l.reduce((t, x) => t + x.seats, 0)
+    const groups = [
+      { key: 'govt', label: blocDefs.govt.label, color: blocDefs.govt.color, seats: sum(byBloc.govt), parties: byBloc.govt, sub: 'NAT + ACT + NZF' },
+      { key: 'cross', label: blocDefs.cross.label, color: blocDefs.cross.color, seats: sum(byBloc.cross), parties: byBloc.cross, sub: 'Opportunity' },
+      { key: 'opp', label: blocDefs.opp.label, color: blocDefs.opp.color, seats: sum(byBloc.opp), parties: byBloc.opp, sub: 'LAB + GRN + TPM + TTT' },
+      ...(sum(byBloc.other) > 0 ? [{ key: 'other', label: 'Other parties', color: '#8a8f98', seats: sum(byBloc.other), parties: byBloc.other, sub: '' }] : []),
+    ]
+    return { govt, cross, opp, other, size, majority, verdict, seats, seated, groups }
   }, [f, rows, entitlements, blocDefs, majorityOf])
 
   if (error && !f) return <section className="sec"><div className="kicker">Forecast</div><h2>Where the incoming booths lean</h2><p className="muted small">The forecast isn't available right now ({error}).</p></section>
@@ -54,6 +67,28 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
         We compare each booth counted so far with <b>the same booth in 2023</b>, then apply that swing to the booths still to come
         (using how <i>they</i> voted in 2023). Updated {at}.
       </p>
+
+      {model && (
+        <div className="forecast-seats">
+          <h3 className="forecast-verdict">If the incoming booths follow the same pattern: {model.verdict}</h3>
+          <div className="blocs" role="group" aria-label="Forecast seats by bloc">
+            {model.groups.map((g) => (
+              <div key={g.key} className="bloc" style={{ borderTopColor: g.color }}>
+                <span className="bloc-name">{g.label}</span>
+                <b>{g.seats}</b>
+                <span className="bloc-sub">{g.sub}</span>
+                {g.key === 'govt' && <span className="bloc-note">{g.seats >= model.majority ? `majority of ${model.majority}` : `${model.majority - g.seats} short of ${model.majority}`}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="blocbar" aria-hidden="true">
+            {model.groups.filter((g) => g.seats > 0).map((g) => <i key={g.key} style={{ width: `${(g.seats / model.size) * 100}%`, background: g.color }} />)}
+            <span className="blocmark" style={{ left: `${(model.majority / model.size) * 100}%` }} title={`${model.majority} seats for a majority`} />
+          </div>
+          <Parliament parties={model.seated} groups={model.groups} />
+          <p className="muted small">Seats are recalculated from the projected national party vote (Sainte-Laguë), keeping each party's electorate seats as they stand now. This is a national forecast: it does not predict individual electorates, so electorate seats can still change hands.</p>
+        </div>
+      )}
 
       {top && (
         <p className="forecast-call">
@@ -91,14 +126,6 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           </tbody>
         </table>
       </div>
-
-      {model && (
-        <div className="forecast-seats">
-          <h3 className="subhead">If that pattern holds</h3>
-          <p className="forecast-call"><b>{model.verdict}</b> — Government {model.govt}, Cross-bench {model.cross}, Opposition {model.opp}{model.other ? `, other ${model.other}` : ''}; {model.majority} needed in a {model.size}-seat parliament.</p>
-          <p className="muted small">Seats are recalculated from the projected party vote (Sainte-Laguë), keeping each party's electorate seats as they stand now. It does not forecast individual electorates.</p>
-        </div>
-      )}
 
       <h3 className="subhead">How much this covers</h3>
       <ul className="forecast-cover">

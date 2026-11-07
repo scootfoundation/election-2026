@@ -196,3 +196,5 @@ h2 { font-size:1.3rem; }
 .forecast .lede { max-width:70ch; }
 .forecast-call { font:600 1rem/1.45 var(--sans); max-width:75ch; margin:10px 0; }
 .forecast-cover { line-height:1.55; max-width:75ch; }
+.forecast-verdict { font:700 1.35rem/1.25 var(--sans); margin:18px 0 6px; max-width:40ch; }
+.forecast-seats { max-width:520px; margin-bottom:18px; }
