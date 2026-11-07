@@ -28,6 +28,10 @@ const DEMOS = [
 
 const PROPER = ['Māori', 'Pacific', 'Asian', 'European', 'Christian', 'Bachelor’s']
 const lc = (l) => (PROPER.some((w) => l.startsWith(w)) ? l : l.charAt(0).toLowerCase() + l.slice(1))
+const GOVT = ['NAT', 'ACT', 'NZF']
+const OPPN = ['LAB', 'GP']
+const CLEAN = 0.2 // every party in both blocs must be at least this strongly aligned for a clean divide
+const SPLIT = 0.25 // a bloc is split when one of its parties is above +this and another below −this
 const sgn = (x, d = 2) => `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x).toFixed(d)}`
 const cell = (r) => { const a = Math.min(1, Math.abs(r)) * 0.7; return r > 0 ? `rgba(31,111,181,${a})` : `rgba(212,55,61,${a})` }
 
@@ -123,6 +127,23 @@ export default function Demographics({ pv, leaders, elecName, colorOf, name, onO
     ? `Where ${lc(dm.label)} is higher: ${pos.length ? `more votes for ${pos.map((x) => name(x.a)).join(', ')}` : ''}${pos.length && neg.length ? '; ' : ''}${neg.length ? `fewer for ${neg.map((x) => name(x.a)).join(', ')}` : ''}.`
     : `${dm.label} has no strong link with any party's vote across electorates.`
 
+  // Bloc patterns: which characteristics line the whole Government bloc up against the whole Opposition
+  // bloc, and which split a bloc internally.
+  const blocRows = DEMOS.map((d) => {
+    const g = GOVT.map((a) => cor[d.k][a].r), o = OPPN.map((a) => cor[d.k][a].r)
+    const gMin = Math.min(...g), gMax = Math.max(...g), oMin = Math.min(...o), oMax = Math.max(...o)
+    const up = Math.min(gMin, -oMax) // government up, opposition down
+    const down = Math.min(-gMax, oMin) // government down, opposition up
+    const dir = up >= down ? 1 : -1
+    const score = Math.max(up, down)
+    const gShare = rows.filter((r) => r.d[d.k] != null).map((r) => ({ x: r.d[d.k], y: GOVT.reduce((t, a) => t + r.share[a], 0) }))
+    return { d, score, dir, clean: score >= CLEAN, govtSplit: gMax >= SPLIT && gMin <= -SPLIT, oppSplit: oMax >= SPLIT && oMin <= -SPLIT, blocR: fit(gShare).r, g, o }
+  })
+  const clean = blocRows.filter((x) => x.clean).sort((a, b) => b.score - a.score)
+  const split = blocRows.filter((x) => x.govtSplit || x.oppSplit).sort((a, b) => (b.govtSplit + b.oppSplit) - (a.govtSplit + a.oppSplit) || Math.abs(b.blocR) - Math.abs(a.blocR))
+  const chip = (a, r) => <span key={a} className="dm-chip" style={{ borderColor: colorOf(a) }}>{name(a)} <b className={r > 0 ? 'pos' : 'neg'}>{sgn(r)}</b></span>
+  const splitWho = (x, list, ab, flag) => (flag ? `${list === 'g' ? 'Government' : 'Opposition'} parties disagree: ${ab.map((a, i) => ({ a, r: x[list][i] })).sort((p, q) => q.r - p.r).map(({ a, r }) => `${name(a)} ${sgn(r)}`).join(', ')}` : null)
+
   const groups = [...new Set(DEMOS.map((d) => d.g))]
   return (
     <>
@@ -134,6 +155,33 @@ export default function Demographics({ pv, leaders, elecName, colorOf, name, onO
             <p style={{ color: 'var(--fg)', margin: '2px 0 0' }}>{sentence(s)}</p>
           </div>
         ))}
+      </div>
+
+      <h4 className="ins-h">Do the blocs line up?</h4>
+      <p className="muted small">Government = National, ACT, NZ First; Opposition = Labour, Greens (Te Pāti Māori is left out: its party vote is too small here). A <b>clean divide</b> means every party in both blocs points the expected way (at least {CLEAN.toFixed(1)} each); a bloc is <b>split</b> when one of its parties is above +{SPLIT} and another below −{SPLIT}.</p>
+      <div className="dm-blocs">
+        <div>
+          <h5 className="dm-bh">Clean left–right divides ({clean.length})</h5>
+          {clean.length === 0 && <p className="muted small">None yet.</p>}
+          {clean.map((x) => (
+            <button type="button" key={x.d.k} className={`dm-brow ${sel === x.d.k ? 'on' : ''}`} onClick={() => setSel(x.d.k)}>
+              <span className="dm-bt"><b>{x.d.label}</b> <small>{x.dir > 0 ? 'Government parties up, Opposition parties down' : 'Opposition parties up, Government parties down'} · weakest link {x.score.toFixed(2)} · Government bloc {sgn(x.blocR)}</small></span>
+              <span className="dm-chips">{GOVT.map((a, i) => chip(a, x.g[i]))}<i>vs</i>{OPPN.map((a, i) => chip(a, x.o[i]))}</span>
+            </button>
+          ))}
+        </div>
+        <div>
+          <h5 className="dm-bh">Splits within a bloc ({split.length})</h5>
+          {split.length === 0 && <p className="muted small">None yet.</p>}
+          {split.length > 0 && !split.some((x) => x.govtSplit) && <p className="muted small">No characteristic splits the Government parties (National, ACT, NZ First) at this threshold.</p>}
+          {split.length > 0 && !split.some((x) => x.oppSplit) && <p className="muted small">No characteristic splits the Opposition parties (Labour, Greens) at this threshold.</p>}
+          {split.map((x) => (
+            <button type="button" key={x.d.k} className={`dm-brow ${sel === x.d.k ? 'on' : ''}`} onClick={() => setSel(x.d.k)}>
+              <span className="dm-bt"><b>{x.d.label}</b> <small>{[splitWho(x, 'g', GOVT, x.govtSplit), splitWho(x, 'o', OPPN, x.oppSplit)].filter(Boolean).join(' · ')}</small></span>
+              <span className="dm-chips">{GOVT.map((a, i) => chip(a, x.g[i]))}<i>vs</i>{OPPN.map((a, i) => chip(a, x.o[i]))}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <h4 className="ins-h">Correlation by party (click a row)</h4>
