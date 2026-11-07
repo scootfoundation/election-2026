@@ -9,6 +9,7 @@ import { NATIONAL_2023 } from './data2023.js'
 import UpdatesFeed from './UpdatesFeed.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
+import WINNERS_2023 from './winners2023.js'
 import './drawer.css'
 import './updates.css'
 
@@ -102,12 +103,36 @@ function PartyRow({ r, ent, compact }) {
   )
 }
 
+function RaceCard({ r, onOpen, note }) {
+  return (
+    <li>
+      <button type="button" onClick={() => onOpen(r.id)} title={`Open ${r.name}`}>
+                  <span className="cr-head">
+                    <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
+                    <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
+                  </span>
+                  {note && <span className="cr-note">{note}</span>}
+                        <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
+                    {r.shares.map((x, i) => (
+                      <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
+                        {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
+                      </i>
+                    ))}
+                  </span>
+                  <span className="cr-foot">
+                    <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
+                    <span>{Math.round(r.counted)}% of places counted</span>
+                  </span>
+                </button>
+    </li>
+  )
+}
+
 // Simple hash routing (#/electorates etc.) so it works on GitHub Pages with no server setup.
 const PAGES = [
   ['overview', 'Overview'],
   ['watch', 'Seats to watch'],
   ['electorates', 'Electorates'],
-  ['updates', 'Live updates'],
   ['about', 'About & data'],
 ]
 const readPage = () => {
@@ -126,6 +151,7 @@ function usePage() {
 
 export default function App() {
   const page = usePage()
+  const [feedOpen, setFeedOpen] = useState(false) // slide-over for screens too narrow for the sidebar
   const [meta, setMeta] = useState(null)
   const [nat, setNat] = useState(null)
   const [leaders, setLeaders] = useState({})
@@ -226,6 +252,31 @@ export default function App() {
       rows.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
     }
     return rows.filter((r) => r.marginPct <= 10).sort((x, y) => x.marginPct - y.marginPct).slice(0, 24)
+  }, [leaders, meta])
+
+  // Seats that have flipped: the current leader's party differs from the notional 2023
+  // winner on the new boundaries (src/winners2023.js). Tentative until counting finishes.
+  const flips = useMemo(() => {
+    if (!meta) return []
+    const out = []
+    for (const e of meta.electorates) {
+      const d = leaders[e.id]
+      const base = WINNERS_2023[e.id]
+      if (!d || !d.cands || d.cands.length < 2 || !base || !base.party) continue
+      const total = d.cands.reduce((t, c) => t + c.votes, 0)
+      const [a, b] = d.cands
+      if (total < 300 || a.votes <= 0) continue
+      const info = (c) => {
+        const cand = meta.candidates[c.id]
+        const abbrev = cand ? (meta.parties[cand.party]?.abbrev ?? 'Ind.') : ''
+        return { name: surname(cand?.name), abbrev, votes: c.votes, pct: (c.votes / total) * 100, color: colorOf(meta.parties[cand?.party]?.abbrev) }
+      }
+      const shares = d.cands.filter((c) => c.votes > 0).map(info)
+      const to = shares[0].abbrev
+      if (!to || to === base.party) continue
+      out.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final, from: base.party, to, baseMargin: base.margin })
+    }
+    return out.sort((x, y) => y.marginPct - x.marginPct)
   }, [leaders, meta])
 
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
@@ -380,11 +431,6 @@ export default function App() {
           {seated.length === 0 && (
             <p className="muted small">A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
           )}
-          {overhang > 0 && (
-            <p className="banner small">
-              <b>Overhang of {overhang}:</b> parliament has {parliamentSize} seats, and {majority} are needed for a majority. An overhang happens when a party wins more electorate seats than its share of the party vote entitles it to; those extra seats are added on top of the usual 120.
-            </p>
-          )}
         </section>
 
         <section>
@@ -476,6 +522,30 @@ export default function App() {
       )}
 
       {page === 'watch' && (
+      <>
+        <section className="sec flips">
+          <div className="kicker">Seats to watch</div>
+          <h2>Seats that have flipped</h2>
+          {flips.length === 0 ? (
+            <p className="muted small">No seat has changed party yet compared with the notional 2023 result on the new boundaries (or too few votes are counted). Flips appear here as votes come in.</p>
+          ) : (
+            <>
+              <p className="flipnet">
+                {flips.length} seat{flips.length === 1 ? '' : 's'} flipped so far:{' '}
+                {Object.entries(flips.reduce((m, f) => { m[f.to] = (m[f.to] || 0) + 1; m[f.from] = (m[f.from] || 0) - 1; return m }, {}))
+                  .filter(([, n]) => n !== 0).sort((x, y) => y[1] - x[1])
+                  .map(([a, n]) => <span key={a} className="flipchip"><span className="dot" style={{ background: colorOf(a) }} />{a} <b>{n > 0 ? '+' : '−'}{Math.abs(n)}</b></span>)}
+              </p>
+              <ol className="closelist">
+                {flips.map((r) => (
+                  <RaceCard key={r.id} r={r} onOpen={setSelectedId}
+                    note={`${r.from} held this seat in 2023 (notional${r.baseMargin != null ? `, by ${r.baseMargin} pts` : ''}) → ${r.to} leads by ${r.marginPct.toFixed(1)} pts`} />
+                ))}
+              </ol>
+            </>
+          )}
+          <p className="muted small">"Flipped" compares the current leader's party with the <b>notional 2023 result on the 2025 boundaries</b> (an estimate by The Tally Room; the old 2023 results don't map directly onto the new seats). A flip is tentative until the electorate is fully counted, and tight races can flip back.</p>
+        </section>
     <section className="sec close">
       <div className="kicker">Seats to watch</div>
       <h2>The closest races right now</h2>
@@ -485,40 +555,14 @@ export default function App() {
         <>
           <ol className="closelist">
             {closeRaces.map((r) => (
-              <li key={r.id}>
-                <button type="button" onClick={() => setSelectedId(r.id)} title={`Open ${r.name}`}>
-                  <span className="cr-head">
-                    <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
-                    <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
-                  </span>
-                  <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
-                    {r.shares.map((x, i) => (
-                      <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
-                        {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
-                      </i>
-                    ))}
-                  </span>
-                  <span className="cr-foot">
-                    <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
-                    <span>{Math.round(r.counted)}% of places counted</span>
-                  </span>
-                </button>
-              </li>
+              <RaceCard key={r.id} r={r} onOpen={setSelectedId} />
             ))}
           </ol>
           <p className="muted small">Up to 24 races where the top two candidates are within 10 points, smallest gap first, among electorates with at least 300 votes counted. Gaps in electorates with little counted can change a lot.</p>
         </>
       )}
     </section>
-      )}
-
-      {page === 'updates' && (
-        <section className="sec">
-          <div className="kicker">Live updates</div>
-          <h2>What has changed</h2>
-          <p className="muted small">Lead changes, projected seat changes and finished electorates, recorded every minute. Turn on <b>Show voting place updates</b> to also see each time more voting places are counted. History starts from when recording began, so earlier changes are not listed.</p>
-          <div className="updates-page" aria-label="Live updates">{feed}</div>
-        </section>
+      </>
       )}
 
       {page === 'about' && (
@@ -534,9 +578,9 @@ export default function App() {
           <h3 className="subhead">Polls and 2023 comparisons</h3>
           <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
           <h3 className="subhead">Maps and electorates</h3>
-          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Seats to watch lists up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the notional 2023 winner on the 2025 boundaries (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
           <h3 className="subhead">Live updates</h3>
-          <p>A small service watches the Commission's feed every minute and records lead changes, projected seat changes, voting places counted and finished electorates. It started recording when this feature was switched on.</p>
+          <p>A small service watches the Commission's feed every minute and records electorate seats changing hands, projected seat changes, overhang changes, voting places counted and finished electorates. It appears in the Updates panel on every page (a button on narrow screens) and started recording when this feature was switched on.</p>
           <h3 className="subhead">Data and licences</h3>
           <ul>
             <li>Results: New Zealand Electoral Commission preliminary results feed{asAt ? ` (feed updated ${asAt} NZ time)` : ''}.</li>
@@ -566,6 +610,18 @@ export default function App() {
         Electorate boundaries: Representation Commission 2025 (CC BY 4.0).
       </p>
     </main>
+    <aside className="updates-side" aria-label="Live updates">{feed}</aside>
+    <button type="button" className="feed-fab" onClick={() => setFeedOpen(true)} aria-haspopup="dialog">
+      <span className="feed-fab-dot" aria-hidden="true" /> Updates
+    </button>
+    {feedOpen && (
+      <div className="feed-overlay" role="dialog" aria-modal="true" aria-label="Live updates" onClick={(e) => { if (e.target === e.currentTarget) setFeedOpen(false) }}>
+        <div className="feed-sheet">
+          <button type="button" className="feed-close" onClick={() => setFeedOpen(false)} aria-label="Close updates">×</button>
+          {feed}
+        </div>
+      </div>
+    )}
     </div>
   )
 }
