@@ -6,7 +6,7 @@
 }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.45 var(--serif); }
-main { max-width:1100px; margin:0 auto; padding:24px 16px 40px; }
+main { max-width:1680px; margin:0 auto; padding:24px 16px 40px; }
 h1 { font:700 clamp(1.8rem,5vw,2.6rem)/1.1 var(--sans); margin:4px 0; letter-spacing:-.5px; }
 h2 { font:700 1.15rem var(--sans); margin:0 0 6px; }
 hr { border:0; border-top:2px solid var(--fg); margin:12px 0 18px; }
@@ -137,3 +137,14 @@ h2 { font-size:1.3rem; }
 .cr-foot { display:flex; align-items:center; gap:8px; margin-top:4px; font-size:.72rem; color:var(--mu); }
 .cr-prog { flex:0 0 70px; height:4px; background:var(--card); }
 .cr-prog i { display:block; height:100%; background:var(--mu); }
+
+/* Close races use the full page width as a grid of cards */
+.close .closelist { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr)); gap:4px 32px; }
+@media (max-width:700px) { .close .closelist { grid-template-columns:minmax(0,1fr); } }
+.closelist li { min-width:0; }
+
+/* Let grid columns shrink on narrow screens (prevents sideways scrolling) */
+.layout > section { min-width:0; }
+@media (max-width:900px) { .layout { grid-template-columns:minmax(0,1fr); } }
+.blocs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.bloc-sub { overflow-wrap:anywhere; }

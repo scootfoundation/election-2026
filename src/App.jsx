@@ -188,7 +188,7 @@ export default function App() {
       const shares = d.cands.filter((c) => c.votes > 0).map(info)
       rows.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
     }
-    return rows.sort((x, y) => x.marginPct - y.marginPct).slice(0, 10)
+    return rows.sort((x, y) => x.marginPct - y.marginPct).slice(0, 12)
   }, [leaders, meta])
 
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
@@ -318,40 +318,6 @@ export default function App() {
               <b>Overhang of {overhang}:</b> parliament has {parliamentSize} seats, and {majority} are needed for a majority. An overhang happens when a party wins more electorate seats than its share of the party vote entitles it to; those extra seats are added on top of the usual 120.
             </p>
           )}
-          <div className="close">
-            <div className="kicker">Close races</div>
-            <h2>Closest electorates</h2>
-            {closeRaces.length === 0 ? (
-              <p className="muted small">Close races appear here once votes are counted.</p>
-            ) : (
-              <>
-                <ol className="closelist">
-                  {closeRaces.map((r) => (
-                    <li key={r.id}>
-                      <button type="button" onClick={() => setSelectedId(r.id)} title={`Open ${r.name}`}>
-                        <span className="cr-head">
-                          <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
-                          <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
-                        </span>
-                        <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
-                          {r.shares.map((x, i) => (
-                            <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
-                              {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
-                            </i>
-                          ))}
-                        </span>
-                        <span className="cr-foot">
-                          <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
-                          <span>{Math.round(r.counted)}% of places counted</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <p className="muted small">Smallest gaps between the top two candidates, among electorates with at least 300 votes counted. Gaps in electorates with little counted can change a lot.</p>
-              </>
-            )}
-          </div>
         </section>
 
         <section>
@@ -389,10 +355,10 @@ export default function App() {
             </tbody>
           </table></div>
           <h3 className="subhead">Other parties</h3>
-          <table className="ptable small">
+          <div className="tscroll"><table className="ptable small">
             <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>Party vote</th><th>Electorates</th><th>Overhang</th><th>Total</th></tr></thead>
             <tbody>{otherRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} compact />)}</tbody>
-          </table>
+          </table></div>
           <p className="muted small">
             <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (▲) or under-performing (▼) it, in percentage points. Early counts are not a random sample of voters, so early gaps often shrink or flip as more votes come in.
           </p>
@@ -402,6 +368,41 @@ export default function App() {
           </p>
         </section>
       </div>
+
+    <section className="sec close">
+      <div className="kicker">Close races</div>
+      <h2>Closest electorates</h2>
+      {closeRaces.length === 0 ? (
+        <p className="muted small">Close races appear here once votes are counted.</p>
+      ) : (
+        <>
+          <ol className="closelist">
+            {closeRaces.map((r) => (
+              <li key={r.id}>
+                <button type="button" onClick={() => setSelectedId(r.id)} title={`Open ${r.name}`}>
+                  <span className="cr-head">
+                    <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
+                    <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
+                  </span>
+                  <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
+                    {r.shares.map((x, i) => (
+                      <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
+                        {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
+                      </i>
+                    ))}
+                  </span>
+                  <span className="cr-foot">
+                    <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
+                    <span>{Math.round(r.counted)}% of places counted</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <p className="muted small">The 12 smallest gaps between the top two candidates, among electorates with at least 300 votes counted. Gaps in electorates with little counted can change a lot.</p>
+        </>
+      )}
+    </section>
 
       <section className="sec">
         <div className="kicker">Electorates</div>
