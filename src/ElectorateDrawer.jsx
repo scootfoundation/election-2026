@@ -205,7 +205,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       const p = placeById.get(b.vpId)
       seen.add(b.vpId)
       rows.push({
-        key: `b-${b.vpNo || b.vpId}`,
+        key: `b-${b.vpId}-${rows.length}`,
         address: p?.address || (b.failed ? `Booth ${b.vpNo} (file unavailable)` : `Voting place ${b.vpId}`),
         lat: p?.lat ?? null,
         lon: p?.lon ?? null,
