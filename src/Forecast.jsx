@@ -183,23 +183,23 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           </div>
 
 
+          {els && (
+            <>
+              <h3 className="subhead">Electorates that could change hands</h3>
+              <p className="muted small fc-note">
+                {flips > 0 ? <><b>{flips}</b> {flips === 1 ? 'seat is' : 'seats are'} projected to end up with a different winner than the current leader. </> : 'No seat is projected to change leader. '}
+                Listed: projected flips and seats where the leader is less than 90% likely to hold on.
+              </p>
+              {open.length ? etable(open) : <p className="muted small">Every open seat looks safe on these numbers.</p>}
+              <details className="fc-more">
+                <summary>All {els.length} electorates</summary>
+                {etable([...els].sort((a, b) => a.name.localeCompare(b.name)))}
+              </details>
+            </>
+          )}
+
           </section>
         </div>
-        </>
-      )}
-
-      {els && (
-        <>
-          <h3 className="subhead">Electorates that could change hands</h3>
-          <p className="muted small fc-note">
-            {flips > 0 ? <><b>{flips}</b> {flips === 1 ? 'seat is' : 'seats are'} projected to end up with a different winner than the current leader. </> : 'No seat is projected to change leader. '}
-            Listed: projected flips and seats where the leader is less than 90% likely to hold on.
-          </p>
-          {open.length ? etable(open) : <p className="muted small">Every open seat looks safe on these numbers.</p>}
-          <details className="fc-more">
-            <summary>All {els.length} electorates</summary>
-            {etable([...els].sort((a, b) => a.name.localeCompare(b.name)))}
-          </details>
         </>
       )}
 
