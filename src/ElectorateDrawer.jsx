@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './electorateApi.js'
 import { loadBoundary } from './boundaries.js'
+import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
 
 const DETAIL_MS = 30_000
 const BOOTHS_MS = 60_000
@@ -277,13 +278,15 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       ]
     }
     const project = makeProjector(extent)
-    if (!project) return { mapped: [], paths: null }
+    if (!project) return { mapped: [], paths: null, bounds: null, pts }
     const inView = (q) => q.x >= 0 && q.x <= MAP_W && q.y >= 0 && q.y <= MAP_H
     const mapped = pts.map((p) => ({ ...p, ...project(p.lat, p.lon) })).filter(inView)
     const paths = boundary
       ? boundary.map((ring) => ring.map(([lon, lat], i) => { const q = project(lat, lon); return `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}` }).join('') + 'Z').join('')
       : null
-    return { mapped, paths }
+    const eb = box(extent)
+    const bounds = eb ? [[eb.minLon, eb.minLat], [eb.maxLon, eb.maxLat]] : null
+    return { mapped, paths, bounds, pts }
   }, [boothRows, boundary])
   const mapped = geo.mapped
   const unmappedCount = boothRows.length - mapped.length
@@ -322,6 +325,12 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         <section className="ed-section" aria-labelledby={`${titleId}-map`}>
           <h3 id={`${titleId}-map`} className="ed-kicker">Booth map</h3>
           {mapped.length > 0 || geo.paths ? (
+            <ElectorateMap
+              rings={boundary}
+              booths={geo.pts}
+              bounds={geo.bounds}
+              label={`Map of ${name} with booth positions`}
+              fallback={(
             <svg className="ed-map" style={{ overflow: 'hidden' }} viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Map of ${name} with booth positions`}>
               {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
               {mapped.map((p) =>
@@ -336,6 +345,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                 ),
               )}
             </svg>
+              )}
+            />
           ) : (
             <p className="ed-empty">{boothRows.length ? 'No booth coordinates published for this electorate yet.' : 'Loading booth positions…'}</p>
           )}
@@ -349,7 +360,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
               Waiting
             </span>
           </div>
-          <p className="ed-note">{geo.paths ? 'Boundary: Representation Commission 2025 (CC BY 4.0). Booth positions are approximate.' : 'Booth positions only — boundary not loaded.'}</p>
+          <p className="ed-note">{geo.paths ? `Boundary: Representation Commission 2025 (CC BY 4.0).${hasMapTiles ? ' Map © MapTiler © OpenStreetMap contributors.' : ''} Booth positions are approximate.` : 'Booth positions only — boundary not loaded.'}</p>
           {unmappedCount > 0 && mapped.length > 0 && (
             <p className="ed-note">{unmappedCount} booth{unmappedCount === 1 ? '' : 's'} without coordinates appear in the table only.</p>
           )}
