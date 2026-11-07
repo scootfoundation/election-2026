@@ -45,6 +45,15 @@ function entitlements(rows, seats = 120) {
 // Short display names for the parties people expect to see in the main views.
 const SHORT = { NAT: 'National', LAB: 'Labour', GP: 'Green', ACT: 'ACT', NZF: 'NZ First', OPP: 'Opportunity', TPMAO: 'Te Pāti Māori', TTTP: 'Te Tai Tokerau', NC: 'Conservative' }
 const shortName = (r) => SHORT[r.abbrev] ?? r.name
+// "UFFINDELL, Sam" -> "Uffindell"; leaves mixed-case surnames like "McKee" alone.
+function surname(full) {
+  const sn = String(full || '').split(',')[0].trim()
+  if (!sn) return ''
+  const cap = (t) => t.charAt(0) + t.slice(1).toLowerCase()
+  if (sn === sn.toUpperCase()) return sn.split(/([ -])/).map((t) => (/^[ -]$/.test(t) ? t : cap(t))).join('')
+  const m = /^(Mc|Mac)([A-Z]+)$/.exec(sn)
+  return m ? m[1] + cap(m[2]) : sn
+}
 const fmt = (n) => n.toLocaleString('en-NZ')
 
 // Over/under-performance vs the poll consensus, in percentage points. Arrows + sign
@@ -152,6 +161,27 @@ export default function App() {
     }
     return n
   }, [leaders, meta, nat])
+
+  // Closest electorates: smallest gap between the top two candidates, among electorates
+  // with enough votes counted for the gap to mean anything.
+  const closeRaces = useMemo(() => {
+    if (!meta) return []
+    const rows = []
+    for (const e of meta.electorates) {
+      const d = leaders[e.id]
+      if (!d || !d.cands || d.cands.length < 2) continue
+      const total = d.cands.reduce((t, c) => t + c.votes, 0)
+      const [a, b] = d.cands
+      if (total < 300 || a.votes <= 0) continue
+      const info = (c) => {
+        const cand = meta.candidates[c.id]
+        const abbrev = cand ? (meta.parties[cand.party]?.abbrev ?? 'Ind.') : ''
+        return { name: surname(cand?.name), abbrev, votes: c.votes, color: colorOf(meta.parties[cand?.party]?.abbrev) }
+      }
+      rows.push({ id: e.id, name: e.name, lead: info(a), second: info(b), margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
+    }
+    return rows.sort((x, y) => x.marginPct - y.marginPct).slice(0, 10)
+  }, [leaders, meta])
 
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
   const progress = useMemo(() => {
@@ -280,6 +310,32 @@ export default function App() {
               <b>Overhang of {overhang}:</b> parliament has {parliamentSize} seats, and {majority} are needed for a majority. An overhang happens when a party wins more electorate seats than its share of the party vote entitles it to; those extra seats are added on top of the usual 120.
             </p>
           )}
+          <div className="close">
+            <div className="kicker">Close races</div>
+            <h2>Closest electorates</h2>
+            {closeRaces.length === 0 ? (
+              <p className="muted small">Close races appear here once votes are counted.</p>
+            ) : (
+              <>
+                <ol className="closelist">
+                  {closeRaces.map((r) => (
+                    <li key={r.id}>
+                      <button type="button" onClick={() => setSelectedId(r.id)} title={`Open ${r.name}`}>
+                        <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
+                        <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
+                        <span className="cr-who">
+                          <span className="cr-c"><span className="dot" style={{ background: r.lead.color }} />{r.lead.abbrev} {r.lead.name} <b>{fmt(r.lead.votes)}</b></span>
+                          <span className="cr-c"><span className="dot" style={{ background: r.second.color }} />{r.second.abbrev} {r.second.name} <b>{fmt(r.second.votes)}</b></span>
+                        </span>
+                        <span className="cr-counted">{Math.round(r.counted)}% of places counted</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <p className="muted small">Smallest gaps between the top two candidates, among electorates with at least 300 votes counted. Gaps in electorates with little counted can change a lot.</p>
+              </>
+            )}
+          </div>
         </section>
 
         <section>
