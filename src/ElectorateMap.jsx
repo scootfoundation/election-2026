@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { clusterMarkup } from './dots.js'
+import { sa2Geo, dotGeo } from './sa2.js'
 
 // Real map (MapTiler tiles via MapLibre GL) with the electorate outline and booths
 // on top. Enabled only when VITE_MAPTILER_KEY is set at build time; otherwise, or if
@@ -32,15 +33,15 @@ function outlineFeature(rings) {
 
 const dotSize = (zoom) => Math.round(Math.min(12, Math.max(4, 4 + (zoom - 10) * 1.4)))
 
-export default function ElectorateMap({ rings, booths, bounds, label, fallback, fullscreen }) {
+export default function ElectorateMap({ rings, booths, bounds, label, fallback, fullscreen, mode = 'clusters', sa2, dots }) {
   const box = useRef(null)
   const mapRef = useRef(null)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false) // true once the style and our layers exist
   const markers = useRef([])
   const [zoom, setZoom] = useState(12)
-  const latest = useRef({ rings, booths, bounds })
-  latest.current = { rings, booths, bounds }
+  const latest = useRef({ rings, booths, bounds, sa2, dots, mode })
+  latest.current = { rings, booths, bounds, sa2, dots, mode }
 
   // Create the map once (lazy-load maplibre so it isn't in the main bundle).
   useEffect(() => {
@@ -69,6 +70,10 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
           map.addSource('outline', { type: 'geojson', data: outlineFeature(cur.rings) })
           map.addLayer({ id: 'outline-fill', type: 'fill', source: 'outline', paint: { 'fill-color': '#111827', 'fill-opacity': 0.06 } })
           map.addLayer({ id: 'outline-line', type: 'line', source: 'outline', paint: { 'line-color': '#111827', 'line-width': 2 } })
+          map.addSource('sa2', { type: 'geojson', data: sa2Geo(cur.sa2 || []) })
+          map.addLayer({ id: 'sa2-line', type: 'line', source: 'sa2', paint: { 'line-color': '#6b7280', 'line-width': 0.7, 'line-opacity': 0.55 } })
+          map.addSource('dots', { type: 'geojson', data: dotGeo(cur.dots || []) })
+          map.addLayer({ id: 'dots', type: 'circle', source: 'dots', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 1.6, 12, 3, 14, 4.5, 16, 6.5], 'circle-color': ['get', 'color'], 'circle-opacity': 0.9, 'circle-stroke-width': 0.4, 'circle-stroke-color': '#ffffff' } })
           map.addSource('booths', { type: 'geojson', data: boothFeatures(cur.booths) })
           map.addLayer({
             id: 'booths', type: 'circle', source: 'booths', filter: ['==', ['get', 'plain'], 1],
@@ -79,6 +84,14 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
               'circle-stroke-width': 1.5,
             },
           })
+          const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8, className: 'ed-pop' })
+          map.on('mousemove', 'booths', (e) => {
+            const f = e.features?.[0]
+            if (!f) return
+            map.getCanvas().style.cursor = 'pointer'
+            popup.setLngLat(f.geometry.coordinates).setText(String(f.properties.title || '')).addTo(map)
+          })
+          map.on('mouseleave', 'booths', () => { map.getCanvas().style.cursor = ''; popup.remove() })
           if (cur.bounds) map.fitBounds(cur.bounds, { padding: 24, animate: false, maxZoom: 15 })
           map.on('zoomend', () => setZoom(map.getZoom()))
           setZoom(map.getZoom())
@@ -99,7 +112,16 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
     if (!ready || !map) return
     map.getSource('outline')?.setData(outlineFeature(rings))
     map.getSource('booths')?.setData(boothFeatures(booths))
-  }, [ready, rings, booths])
+    map.getSource('sa2')?.setData(sa2Geo(mode === 'dots' && sa2 ? sa2 : []))
+    map.getSource('dots')?.setData(dotGeo(mode === 'dots' && dots ? dots : []))
+    if (map.getLayer('booths')) {
+      const dm = mode === 'dots'
+      map.setFilter('booths', dm ? null : ['==', ['get', 'plain'], 1])
+      map.setPaintProperty('booths', 'circle-radius', dm ? 3 : 5.5)
+      map.setPaintProperty('booths', 'circle-color', dm ? ['case', ['==', ['get', 'counted'], 1], '#111827', '#ffffff'] : ['case', ['==', ['get', 'counted'], 1], ['get', 'color'], '#ffffff'])
+      map.setPaintProperty('booths', 'circle-stroke-color', dm ? ['case', ['==', ['get', 'counted'], 1], '#ffffff', '#111827'] : ['case', ['==', ['get', 'counted'], 1], '#ffffff', '#5b6472'])
+    }
+  }, [ready, rings, booths, mode, sa2, dots])
   // Dot clusters (one dot per N votes per party) as HTML markers, largest first so small ones sit on top.
   useEffect(() => {
     const map = mapRef.current
@@ -110,6 +132,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
       if (cancelled || mapRef.current !== map) return
       markers.current.forEach((m) => m.remove())
       markers.current = []
+      if (mode === 'dots') return
       const D = dotSize(zoom)
       const list = (booths || []).filter((b) => b.counted && b.dots?.length).sort((a, b) => b.dots.length - a.dots.length)
       for (const b of list) {
@@ -122,7 +145,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
       }
     })()
     return () => { cancelled = true }
-  }, [ready, booths, zoom])
+  }, [ready, booths, zoom, mode])
   // Resize the canvas when switching to/from full screen.
   useEffect(() => {
     const map = mapRef.current

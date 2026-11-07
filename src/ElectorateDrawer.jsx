@@ -3,6 +3,7 @@ import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './elec
 import { loadBoundary } from './boundaries.js'
 import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
 import { dotColors, clusterMarkup } from './dots.js'
+import { loadSa2, buildDots, PER_DOT_OPTIONS } from './sa2.js'
 
 const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
 const BOOTHS_MS = 5 * 60_000
@@ -87,7 +88,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
   const [boundary, setBoundary] = useState(null)
   const [placesError, setPlacesError] = useState(null)
   const [voteType, setVoteType] = useState('party') // which vote the dots show: 'party' or 'candidate'
-  const [perDot, setPerDot] = useState(100)
+  const [perDot, setPerDot] = useState(null) // null = choose automatically
+  const [mapMode, setMapMode] = useState('dots') // 'dots' (scattered in SA2 areas) or 'clusters' (at the booth)
+  const [sa2, setSa2] = useState(null)
   const [fullscreen, setFullscreen] = useState(false)
 
   // Esc closes; focus moves into the dialog when it opens.
@@ -173,6 +176,15 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       clearInterval(timer)
     }
   }, [id, refreshKey])
+
+  // SA2 areas containing this electorate's voting places (for the dot map).
+  useEffect(() => {
+    if (!id) return undefined
+    let alive = true
+    setSa2(null)
+    loadSa2(id).then((v) => { if (alive) setSa2(v) }).catch(() => { if (alive) setSa2(false) })
+    return () => { alive = false }
+  }, [id])
 
   // Electorate outline (static; loaded once per electorate).
   useEffect(() => {
@@ -270,6 +282,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     return rows
   }, [booths, places, id, meta, colorOf])
 
+  const dotModel = useMemo(() => (mapMode === 'dots' && sa2 ? buildDots(boothRows, sa2, voteType, perDot) : null), [mapMode, sa2, boothRows, voteType, perDot])
+  const useDots = mapMode === 'dots' && !!dotModel
+  const effPerDot = useDots ? dotModel.perDot : perDot || 100
   const reportedCount = boothRows.filter((r) => r.counted).length
   const geo = useMemo(() => {
     const pts = boothRows
@@ -282,8 +297,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         const grouped = Object.values(byParty).sort((a, b) => b.votes - a.votes)
         return {
           key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, color: lead ? lead.color : null,
-          dots: dotColors(grouped, perDot), grouped, total: r.total,
-          title: r.counted ? `${r.address}\n${fmtInt(r.total)} votes (${voteType === 'party' ? 'party vote' : 'electorate vote'}; 1 dot = ${perDot}): ${grouped.slice(0, 6).map((x) => `${x.abbrev} ${fmtInt(x.votes)}`).join(', ')}` : `${r.address}: waiting`,
+          dots: dotColors(grouped, perDot || 100), grouped, total: r.total,
+          title: r.counted ? `${r.address}\n${fmtInt(r.total)} votes (${voteType === 'party' ? 'party vote' : 'electorate vote'}; 1 dot = ${perDot || 100}): ${grouped.slice(0, 6).map((x) => `${x.abbrev} ${fmtInt(x.votes)}`).join(', ')}` : `${r.address}: waiting`,
         }
       })
     const bExtent = boundary ? boundary.flatMap((ring) => ring.map(([lon, lat]) => ({ lat, lon }))) : []
@@ -320,13 +335,15 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     if (!project) return { mapped: [], paths: null, bounds: null, pts }
     const inView = (q) => q.x >= 0 && q.x <= MAP_W && q.y >= 0 && q.y <= MAP_H
     const mapped = pts.map((p) => ({ ...p, ...project(p.lat, p.lon) })).filter(inView)
+    const sa2Paths = useDots ? sa2.map((q) => q.p.map((poly) => poly.map((ring) => ring.map(([lon, lat], i) => { const z = project(lat, lon); return `${i ? 'L' : 'M'}${z.x.toFixed(1)} ${z.y.toFixed(1)}` }).join('') + 'Z').join('')).join('')).join('') : null
+    const dotXY = useDots ? dotModel.dots.map((d) => ({ ...project(d.lat, d.lon), color: d.color })).filter(inView) : null
     const paths = boundary
       ? boundary.map((ring) => ring.map(([lon, lat], i) => { const q = project(lat, lon); return `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}` }).join('') + 'Z').join('')
       : null
     const eb = box(extent)
     const bounds = eb ? [[eb.minLon, eb.minLat], [eb.maxLon, eb.maxLat]] : null
-    return { mapped, paths, bounds, pts }
-  }, [boothRows, boundary, voteType, perDot])
+    return { mapped, paths, bounds, pts, sa2Paths, dotXY }
+  }, [boothRows, boundary, voteType, perDot, useDots, sa2, dotModel])
   const mapped = geo.mapped
   const legend = useMemo(() => {
     const t = {}
@@ -370,13 +387,18 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
           <h3 id={`${titleId}-map`} className="ed-kicker">Booth map</h3>
           <div className={fullscreen ? 'ed-mapbox fs' : 'ed-mapbox'}>
           <div className="ed-ctl">
+            <div className="ed-seg" role="group" aria-label="Map style">
+              <button type="button" className={mapMode === 'dots' ? 'on' : ''} aria-pressed={mapMode === 'dots'} onClick={() => setMapMode('dots')}>Dot map</button>
+              <button type="button" className={mapMode === 'clusters' ? 'on' : ''} aria-pressed={mapMode === 'clusters'} onClick={() => setMapMode('clusters')}>Booth clusters</button>
+            </div>
             <div className="ed-seg" role="group" aria-label="Which vote the dots show">
               <button type="button" className={voteType === 'party' ? 'on' : ''} aria-pressed={voteType === 'party'} onClick={() => setVoteType('party')}>Party vote</button>
               <button type="button" className={voteType === 'candidate' ? 'on' : ''} aria-pressed={voteType === 'candidate'} onClick={() => setVoteType('candidate')}>Electorate vote</button>
             </div>
             <label className="ed-per">1 dot =
-              <select value={perDot} onChange={(e) => setPerDot(Number(e.target.value))}>
-                {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n} votes</option>)}
+              <select value={perDot ?? 'auto'} onChange={(e) => setPerDot(e.target.value === 'auto' ? null : Number(e.target.value))}>
+                <option value="auto">{useDots ? `auto (${dotModel.perDot})` : 'auto (100)'} votes</option>
+                {PER_DOT_OPTIONS.map((n) => <option key={n} value={n}>{n} votes</option>)}
               </select>
             </label>
             <button type="button" className="ed-fsbtn" onClick={() => setFullscreen((f) => !f)} aria-pressed={fullscreen}>{fullscreen ? '✕ Exit full screen' : '⤢ Full screen'}</button>
@@ -387,11 +409,16 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
               booths={geo.pts}
               bounds={geo.bounds}
               fullscreen={fullscreen}
+              mode={useDots ? 'dots' : 'clusters'}
+              sa2={useDots ? sa2 : null}
+              dots={useDots ? dotModel.dots : null}
               label={`Map of ${name} with booth positions`}
               fallback={(
             <svg className="ed-map" style={{ overflow: 'hidden' }} viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Map of ${name} with booth positions`}>
               {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
-              {[...mapped].sort((a, b) => (b.dots?.length || 0) - (a.dots?.length || 0)).map((p) => {
+              {useDots && geo.sa2Paths && <path d={geo.sa2Paths} fill="none" stroke="#6b7280" strokeOpacity="0.5" strokeWidth={0.5} />}
+              {useDots && geo.dotXY && geo.dotXY.map((d, i) => <circle key={i} cx={d.x} cy={d.y} r={1.5} fill={d.color} />)}
+              {useDots ? mapped.map((p) => <circle key={p.key} cx={p.x} cy={p.y} r={2.5} fill={p.counted ? '#111827' : 'var(--bg)'} stroke={p.counted ? '#fff' : '#111827'} strokeWidth={0.8}><title>{p.title}</title></circle>) : [...mapped].sort((a, b) => (b.dots?.length || 0) - (a.dots?.length || 0)).map((p) => {
                 if (p.counted && p.dots?.length) {
                   const { w, h, svg } = clusterMarkup(p.dots, 5)
                   return (
@@ -415,8 +442,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
             <p className="ed-empty">{boothRows.length ? 'No booth coordinates published for this electorate yet.' : 'Loading booth positions…'}</p>
           )}
           <div className="ed-legend">
-            <span><b>1 dot = {perDot} votes</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}; part-dots are not shown)</span>
-            <span>A single coloured circle = fewer than {perDot} votes for any party (colour = leader)</span>
+            <span><b>1 dot {useDots ? '≈' : '='} {effPerDot} votes</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}){useDots ? ': scattered at random inside the SA2 area of each voting place; the dark marks are the voting places' : '; part-dots are not shown'}</span>
+            {!useDots && <span>A single coloured circle = fewer than {effPerDot} votes for any party (colour = leader)</span>}
             {legend.map((x) => (
               <span key={x.abbrev}>
                 <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={x.color} /></svg>
