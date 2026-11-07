@@ -325,13 +325,6 @@ export default function App() {
       {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT. The data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
       {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
 
-      <section className="statbar" aria-label="Count progress">
-        <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
-        <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
-        <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
-        <div><b>{overhang}</b><span>overhang seats{overhang > 0 ? ` (${parliamentSize}-seat parliament)` : ''}</span></div>
-      </section>
-
       <nav className="pagenav" aria-label="Pages">
         {PAGES.map(([k, label]) => (
           <a key={k} href={`#/${k}`} className={page === k ? 'on' : ''} aria-current={page === k ? 'page' : undefined}>{label}</a>
@@ -339,6 +332,14 @@ export default function App() {
       </nav>
 
       {page === 'overview' && (
+      <>
+        <section className="statbar" aria-label="Count progress">
+          <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
+          <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
+          <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
+          <div><b>{overhang}</b><span>overhang seats{overhang > 0 ? ` (${parliamentSize}-seat parliament)` : ''}</span></div>
+        </section>
+
       <div className="layout">
         <section>
           <div className="kicker">Parliament</div>
@@ -421,6 +422,7 @@ export default function App() {
           </p>
         </section>
       </div>
+      </>
       )}
 
       {page === 'electorates' && (
