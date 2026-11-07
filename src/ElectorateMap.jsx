@@ -16,7 +16,7 @@ function boothFeatures(booths) {
     type: 'FeatureCollection',
     features: booths.map((b) => ({
       type: 'Feature',
-      properties: { counted: b.counted ? 1 : 0, title: b.title },
+      properties: { counted: b.counted ? 1 : 0, color: b.color || AMBER, title: b.title },
       geometry: { type: 'Point', coordinates: [b.lon, b.lat] },
     })),
   }
@@ -69,7 +69,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
             id: 'booths', type: 'circle', source: 'booths',
             paint: {
               'circle-radius': 5.5,
-              'circle-color': ['case', ['==', ['get', 'counted'], 1], AMBER, '#ffffff'],
+              'circle-color': ['case', ['==', ['get', 'counted'], 1], ['get', 'color'], '#ffffff'],
               'circle-stroke-color': ['case', ['==', ['get', 'counted'], 1], '#ffffff', '#5b6472'],
               'circle-stroke-width': 1.5,
             },

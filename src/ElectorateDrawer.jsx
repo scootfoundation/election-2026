@@ -40,6 +40,18 @@ function leaderLabel(b, meta) {
   return null
 }
 
+// Share of the electorate (candidate) vote each candidate got in one booth, largest first.
+function boothShares(b, meta, colorOf) {
+  const list = (b.candidateVotes || []).filter((v) => v.votes > 0)
+  const total = list.reduce((t, v) => t + v.votes, 0)
+  if (!total) return null
+  return [...list].sort((x, y) => y.votes - x.votes).map((v) => {
+    const c = meta?.candidates?.[v.c_no]
+    const abbrev = c ? partyAbbrev(meta, c.party) : ''
+    return { key: v.c_no, name: c?.name ?? `Candidate ${v.c_no}`, abbrev, votes: v.votes, pct: (v.votes / total) * 100, color: (abbrev && colorOf && colorOf(abbrev)) || '#8a8f98' }
+  })
+}
+
 // Linear projection with a cos(latitude) correction so east-west distances look
 // right. Aspect ratio is preserved and the result is centred in the viewBox.
 function makeProjector(coords) {
@@ -221,6 +233,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         lon: p?.lon ?? null,
         issued: b.failed ? null : b.issued,
         leader: b.counted ? leaderLabel(b, meta) : null,
+        shares: b.counted ? boothShares(b, meta, colorOf) : null,
         counted: !!b.counted,
         order: Number(b.vpNo) || NO_ORDER,
       })
@@ -235,19 +248,26 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         lon: p.lon,
         issued: null,
         leader: null,
+        shares: null,
         counted: false,
         order: NO_ORDER,
       })
     }
     rows.sort((a, b) => a.order - b.order)
     return rows
-  }, [booths, places, id, meta])
+  }, [booths, places, id, meta, colorOf])
 
   const reportedCount = boothRows.filter((r) => r.counted).length
   const geo = useMemo(() => {
     const pts = boothRows
       .filter((r) => r.lat != null && r.lon != null)
-      .map((r) => ({ key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, title: `${r.address} — ${r.counted ? 'Reported' : 'Waiting'}` }))
+      .map((r) => {
+        const lead = r.shares?.[0]
+        return {
+          key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, color: lead ? lead.color : null,
+          title: `${r.address} — ${lead ? `${lead.abbrev || lead.name} ${lead.pct.toFixed(0)}% (${r.shares.slice(0, 3).map((x) => `${x.abbrev || x.name} ${x.pct.toFixed(0)}%`).join(', ')})` : r.counted ? 'Reported' : 'Waiting'}`,
+        }
+      })
     const bExtent = boundary ? boundary.flatMap((ring) => ring.map(([lon, lat]) => ({ lat, lon }))) : []
     const box = (list) => {
       if (!list.length) return null
@@ -336,7 +356,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
               {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
               {mapped.map((p) =>
                 p.counted ? (
-                  <circle key={p.key} cx={p.x} cy={p.y} r={5} fill={AMBER} stroke="var(--bg)" strokeWidth={1}>
+                  <circle key={p.key} cx={p.x} cy={p.y} r={5} fill={p.color || AMBER} stroke="var(--bg)" strokeWidth={1}>
                     <title>{p.title}</title>
                   </circle>
                 ) : (
@@ -354,7 +374,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
           <div className="ed-legend">
             <span>
               <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={AMBER} /></svg>
-              Booth reporting
+              Booth reporting (colour = party leading there)
             </span>
             <span>
               <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="var(--bg)" stroke="var(--mu)" strokeWidth="1.5" /></svg>
@@ -464,7 +484,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                   <tr>
                     <th scope="col">Address</th>
                     <th scope="col">Issued</th>
-                    <th scope="col">Leading</th>
+                    <th scope="col">Result (electorate vote)</th>
                     <th scope="col">Status</th>
                   </tr>
                 </thead>
@@ -473,7 +493,16 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                     <tr key={r.key}>
                       <td className="ed-addr">{r.address}</td>
                       <td>{r.counted ? fmtInt(r.issued) : '—'}</td>
-                      <td className="ed-addr">{r.leader ?? '—'}</td>
+                      <td className="ed-result">
+                        {r.shares ? (
+                          <>
+                            <div className="ed-stack" role="img" aria-label={r.shares.slice(0, 4).map((x) => `${x.name} ${x.pct.toFixed(0)}%`).join(', ')}>
+                              {r.shares.map((x) => <i key={x.key} style={{ width: `${x.pct}%`, background: x.color }} title={`${x.name} (${x.abbrev}) ${x.pct.toFixed(1)}%`} />)}
+                            </div>
+                            <div className="ed-lead">{r.shares[0].abbrev || r.shares[0].name} <b>{r.shares[0].pct.toFixed(0)}%</b>{r.shares[1] && <span className="ed-muted"> · {r.shares[1].abbrev || r.shares[1].name} {r.shares[1].pct.toFixed(0)}%</span>}</div>
+                          </>
+                        ) : '—'}
+                      </td>
                       <td>
                         <span className={r.counted ? 'ed-status ed-status-in' : 'ed-status'}>
                           {r.counted ? 'Reported' : 'Waiting'}

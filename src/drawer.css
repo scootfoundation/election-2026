@@ -288,3 +288,10 @@
 }
 
 .ed-map-gl { width: 100%; height: 300px; background: var(--card); border: 1px solid var(--ln); }
+
+/* Per-booth result: stacked share bar + leader share */
+.ed-result { min-width: 120px; }
+.ed-stack { display: flex; height: 9px; width: 100%; background: var(--card); overflow: hidden; border-radius: 1px; }
+.ed-stack i { display: block; height: 100%; }
+.ed-lead { font-size: 0.78rem; margin-top: 2px; white-space: nowrap; }
+.ed-status-in { color: var(--fg) !important; }
