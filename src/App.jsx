@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  loadParties, loadElectorates, loadCandidates, loadNational, loadElectorate,
+  loadParties, loadElectorates, loadCandidates, loadNational, loadElectorate, DATA_BASE,
 } from './api.js'
 import Parliament from './Parliament.jsx'
 import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
+import UpdatesFeed from './UpdatesFeed.jsx'
+import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
 import './drawer.css'
+import './updates.css'
 
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const COLORS = {
@@ -63,13 +66,14 @@ function ink(hex) {
 }
 const fmt = (n) => n.toLocaleString('en-NZ')
 
-// Over/under-performance vs the poll consensus, in percentage points. Arrows + sign
-// (no red/green, which would clash with party colours).
-function PollGap({ d }) {
+// Over/under-performance vs the poll consensus, in percentage points: green when the
+// party is doing better than the polls, red when worse. The poll figure is in the tooltip.
+function PollGap({ d, poll }) {
   if (d == null) return <td className="pollgap">–</td>
-  if (Math.abs(d) < 0.05) return <td className="pollgap">0.0</td>
+  const tip = poll != null ? `Poll consensus ${poll.toFixed(1)}%` : ''
+  if (Math.abs(d) < 0.05) return <td className="pollgap" title={tip}>0.0</td>
   return (
-    <td className={`pollgap ${d > 0 ? 'over' : 'under'}`} title={`${Math.abs(d).toFixed(1)} points ${d > 0 ? 'above' : 'below'} the poll consensus`}>
+    <td className={`pollgap ${d > 0 ? 'over' : 'under'}`} title={`${Math.abs(d).toFixed(1)} points ${d > 0 ? 'above' : 'below'} the poll consensus. ${tip}`}>
       {d > 0 ? '▲' : '▼'} {d > 0 ? '+' : '−'}{Math.abs(d).toFixed(1)}
     </td>
   )
@@ -88,8 +92,7 @@ function PartyRow({ r, ent, compact }) {
       <td className="pname"><span className="dot" style={{ background: colorOf(r.abbrev) }} />{compact ? r.name : shortName(r)}</td>
       <td>{compact ? r.pct.toFixed(1) : <b>{r.pct.toFixed(1)}</b>}</td>
       <td>{fmt(r.votes)}</td>
-      {!compact && <td className="pollcell">{poll != null ? poll.toFixed(1) : '–'}</td>}
-      {!compact && <PollGap d={vsPoll} />}
+      {!compact && <PollGap d={vsPoll} poll={poll} />}
       {!compact && <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`}</td>}
       <td>{pv}</td>
       <td>{r.candSeats}</td>
@@ -99,7 +102,29 @@ function PartyRow({ r, ent, compact }) {
   )
 }
 
+// Simple hash routing (#/electorates etc.) so it works on GitHub Pages with no server setup.
+const PAGES = [
+  ['overview', 'Overview'],
+  ['electorates', 'Electorates'],
+  ['updates', 'Live updates'],
+  ['about', 'About & data'],
+]
+const readPage = () => {
+  const p = (typeof location !== 'undefined' ? location.hash : '').replace(/^#\/?/, '').split(/[/?]/)[0]
+  return PAGES.some(([k]) => k === p) ? p : 'overview'
+}
+function usePage() {
+  const [page, setPage] = useState(readPage)
+  useEffect(() => {
+    const onHash = () => { setPage(readPage()); window.scrollTo(0, 0) }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  return page
+}
+
 export default function App() {
+  const page = usePage()
   const [meta, setMeta] = useState(null)
   const [nat, setNat] = useState(null)
   const [leaders, setLeaders] = useState({})
@@ -126,6 +151,17 @@ export default function App() {
     loadNational()
       .then((n) => { if (live) { setNat(n); setLastOk(new Date()); setError(null) } })
       .catch((e) => { if (live) setError(e.message) })
+    return () => { live = false }
+  }, [cycle])
+
+  // Live feed of changes recorded by the Worker (lead changes, projected seat changes, ...).
+  const [events, setEvents] = useState(null)
+  const [eventsError, setEventsError] = useState(null)
+  useEffect(() => {
+    let live = true
+    fetchEvents(DATA_BASE)
+      .then((r) => { if (live) { setEvents(r.events); setEventsError(null) } })
+      .catch((e) => { if (live) setEventsError(e.message) })
     return () => { live = false }
   }, [cycle])
 
@@ -256,7 +292,20 @@ export default function App() {
     return `${h % 12 || 12}:${m[2]} ${h >= 12 ? 'pm' : 'am'}`
   })()
 
+  const feed = (
+    <UpdatesFeed
+      events={events}
+      error={eventsError}
+      loading={!events && !eventsError}
+      colorOf={colorOf}
+      onSelectElectorate={(e) => setSelectedId(String(Number(e)))}
+    />
+  )
+
+  const showSide = page === 'overview' || page === 'electorates'
+
   return (
+    <div className={`shell${showSide ? ' has-side' : ''}`}>
     <main>
       <div className="topbar">
         <div className="kicker">New Zealand General Election 2026 · <span className="pill">PRELIMINARY</span></div>
@@ -284,6 +333,15 @@ export default function App() {
         <div><b>{overhang}</b><span>overhang seats{overhang > 0 ? ` (${parliamentSize}-seat parliament)` : ''}</span></div>
       </section>
 
+      <nav className="pagenav" aria-label="Pages">
+        {PAGES.map(([k, label]) => (
+          <a key={k} href={`#/${k}`} className={page === k ? 'on' : ''} aria-current={page === k ? 'page' : undefined}>{label}</a>
+        ))}
+      </nav>
+
+      {page === 'overview' && <aside className="updates-inline" aria-label="Live updates">{feed}</aside>}
+
+      {page === 'overview' && (
       <div className="layout">
         <section>
           <div className="kicker">Parliament</div>
@@ -327,14 +385,13 @@ export default function App() {
             <thead>
               <tr className="grp">
                 <th rowSpan={2}>Party</th>
-                <th colSpan={5} className="grpcell">Party vote</th>
+                <th colSpan={4} className="grpcell">Party vote</th>
                 <th colSpan={4} className="grpcell">Seats</th>
               </tr>
               <tr>
                 <th>Vote %</th>
                 <th>Votes</th>
-                <th title={`${POLLS.source}, as at ${POLLS.asAt}`}>Polls</th>
-                <th title="Party vote share minus the poll consensus, in percentage points. ▲ = doing better than polls, ▼ = worse.">vs polls</th>
+                <th title="Party vote share minus the poll consensus, in percentage points. ▲ = doing better than polls, ▼ = worse. Hover a figure to see the poll number.">vs polls</th>
                 <th title="Change in party vote share since the 2023 election, in percentage points">vs 2023</th>
                 <th title="Seats the party is entitled to from its share of the party vote">Party vote</th>
                 <th title="Electorate seats the party is currently leading (confirmed as each electorate finishes counting)">Electorates</th>
@@ -348,8 +405,7 @@ export default function App() {
                 <td className="pname">All other parties</td>
                 <td>{othersPct.toFixed(1)}</td>
                 <td>{fmt(othersVotes)}</td>
-                <td className="pollcell">{POLLS.other.toFixed(1)}</td>
-                <PollGap d={started ? othersPct - POLLS.other : null} />
+                <PollGap d={started ? othersPct - POLLS.other : null} poll={POLLS.other} />
                 <td>–</td><td>0</td><td>0</td><td className="muted">–</td><td>0</td>
               </tr>
             </tbody>
@@ -360,7 +416,7 @@ export default function App() {
             <tbody>{otherRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} compact />)}</tbody>
           </table></div>
           <p className="muted small">
-            <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (▲) or under-performing (▼) it, in percentage points. Early counts are not a random sample of voters, so early gaps often shrink or flip as more votes come in.
+            <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (<span className="pollgap over">▲ green</span>) or under-performing (<span className="pollgap under">▼ red</span>) it, in percentage points; hover a figure to see the poll number itself. Early counts are not a random sample of voters, so early gaps often shrink or flip as more votes come in.
           </p>
           <p className="muted small">
             <b>From party vote</b> is each party's proportional share of the 120 seats (only parties with 5% of the party vote or an electorate seat qualify).
@@ -368,7 +424,10 @@ export default function App() {
           </p>
         </section>
       </div>
+      )}
 
+      {page === 'electorates' && (
+      <>
     <section className="sec close">
       <div className="kicker">Close races</div>
       <h2>Closest electorates</h2>
@@ -438,6 +497,45 @@ export default function App() {
           )}
         />
       </section>
+      </>
+      )}
+
+      {page === 'updates' && (
+        <section className="sec">
+          <div className="kicker">Live updates</div>
+          <h2>What has changed</h2>
+          <p className="muted small">Lead changes, projected seat changes and finished electorates, recorded every minute. Turn on <b>Show voting place updates</b> to also see each time more voting places are counted. History starts from when recording began, so earlier changes are not listed.</p>
+          <div className="updates-page" aria-label="Live updates">{feed}</div>
+        </section>
+      )}
+
+      {page === 'about' && (
+        <section className="sec about">
+          <div className="kicker">About & data</div>
+          <h2>Where the numbers come from</h2>
+          <h3 className="subhead">Results</h3>
+          <p>Preliminary results come straight from the New Zealand Electoral Commission's public results feed, refreshed every 5 minutes (press Refresh to reload the page). They are not final: special votes are counted later and official results are due 27 November.</p>
+          <h3 className="subhead">Projected seats and overhang</h3>
+          <p>Each party's <b>party-vote seats</b> are calculated from its share of the party vote using the Sainte-Laguë method over 120 seats, among parties with at least 5% of the party vote or one electorate seat. <b>Electorates</b> are the seats a party is currently leading. If a party leads more electorates than its party-vote seats, the extra seats are an <b>overhang</b>, added on top of the usual 120, and the number needed for a majority rises accordingly. Early in the count these projections can swing a lot.</p>
+          <h3 className="subhead">Blocs</h3>
+          <p>Government: National + ACT + NZ First. Cross-bench: Opportunity. Opposition: Labour + Greens + Te Pāti Māori + Te Tai Tokerau Party + independents (counted from electorates where an independent leads, as the Commission's party totals don't include them). Any other party that wins seats is shown as "Other parties".</p>
+          <h3 className="subhead">Polls and 2023 comparisons</h3>
+          <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
+          <h3 className="subhead">Maps and electorates</h3>
+          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Close races lists the 12 smallest gaps between the top two candidates among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <h3 className="subhead">Live updates</h3>
+          <p>A small service watches the Commission's feed every minute and records lead changes, projected seat changes, voting places counted and finished electorates. It started recording when this feature was switched on.</p>
+          <h3 className="subhead">Data and licences</h3>
+          <ul>
+            <li>Results: New Zealand Electoral Commission preliminary results feed{asAt ? ` (feed updated ${asAt} NZ time)` : ''}.</li>
+            <li>Electorate boundaries: Representation Commission 2025 (CC BY 4.0), clipped to the coastline using Stats NZ Statistical Area 2 2023 boundaries.</li>
+            <li>Street maps: © MapTiler © OpenStreetMap contributors.</li>
+            <li>2023 results: Electoral Commission official results (as published; small differences between sources are possible).</li>
+            <li>Poll consensus: ŌVERHANG.</li>
+          </ul>
+          <p className="muted small">This is an unofficial dashboard and is not endorsed by the Electoral Commission.</p>
+        </section>
+      )}
 
       {selected && (
         <ElectorateDrawer
@@ -456,5 +554,7 @@ export default function App() {
         Electorate boundaries: Representation Commission 2025 (CC BY 4.0).
       </p>
     </main>
+    {showSide && <aside className="updates-side" aria-label="Live updates">{feed}</aside>}
+    </div>
   )
 }

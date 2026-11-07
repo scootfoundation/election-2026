@@ -96,8 +96,8 @@ h2 { font-size:1.3rem; }
 .seatkey li { display:flex; align-items:center; gap:6px; }
 .seatkey b { margin-left:auto; }
 .pollgap { white-space:nowrap; font-weight:600; }
-.pollgap.over { color:var(--fg); }
-.pollgap.under { color:var(--mu); }
+.pollgap.over { color:var(--good); }
+.pollgap.under { color:var(--bad); }
 .pollcell { color:var(--mu); }
 .ptable tr.allother td { color:var(--mu); font-style:italic; }
 .ptable td.pname { white-space:nowrap; }
@@ -148,3 +148,25 @@ h2 { font-size:1.3rem; }
 @media (max-width:900px) { .layout { grid-template-columns:minmax(0,1fr); } }
 .blocs { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .bloc-sub { overflow-wrap:anywhere; }
+
+/* Live updates: sticky sidebar on wide screens, inline panel (above the stats) otherwise */
+.shell { max-width:1680px; margin:0 auto; }
+.shell > main { max-width:none; margin:0; }
+.updates-side { display:none; }
+.updates-inline { display:flex; flex-direction:column; height:360px; margin:0 0 18px; border:1px solid var(--ln); background:var(--bg); }
+@media (min-width:1400px) {
+  .shell.has-side { display:grid; grid-template-columns:minmax(0,1fr) 380px; align-items:start; }
+  .updates-inline { display:none; }
+  .updates-side { display:flex; flex-direction:column; position:sticky; top:0; height:100vh; padding:16px 16px 16px 0; box-sizing:border-box; }
+  .updates-side > * { flex:1; min-height:0; border:1px solid var(--ln); background:var(--bg); }
+}
+
+/* Page navigation */
+.pagenav { display:flex; flex-wrap:wrap; gap:4px 22px; border-bottom:2px solid var(--fg); margin:0 0 22px; }
+.pagenav a { font:700 .82rem var(--sans); letter-spacing:.06em; text-transform:uppercase; color:var(--mu); text-decoration:none; padding:10px 2px 8px; margin-bottom:-2px; border-bottom:4px solid transparent; }
+.pagenav a:hover { color:var(--fg); }
+.pagenav a.on { color:var(--fg); border-bottom-color:var(--ac); }
+.updates-page { display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:420px; border:1px solid var(--ln); background:var(--bg); margin-top:10px; }
+.about { max-width:820px; }
+.about p, .about li { line-height:1.55; }
+.pagenav + section.sec { border-top:0; margin-top:0; padding-top:0; }
