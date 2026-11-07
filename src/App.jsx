@@ -16,8 +16,8 @@ const COLORS = {
 }
 export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
-const SEAT_LEFT = ['GP', 'TPMAO', 'LAB']
-const SEAT_RIGHT = ['NAT', 'NZF', 'ACT']
+const SEAT_LEFT = ['LAB', 'TPMAO', 'GP'] // left bench, then round the top
+const SEAT_RIGHT = ['ACT', 'NZF', 'NAT'] // ...down to the right bench
 // Parties expected to be competitive for seats, shown in the main list. Everything
 // else registered goes in the "Other parties" list below. Edit by feed abbreviation.
 const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TPMAO', 'TTTP', 'OPP']
@@ -215,14 +215,8 @@ export default function App() {
             <p className="muted small">Based on {nat.stats.pctPlaces.toFixed(1)}% of voting places counted so far. Early projections can swing a lot as more results arrive.</p>
           )}
           <Parliament parties={seated} />
-          {seated.length > 0 ? (
-            <ul className="seatkey">
-              {seated.map((p) => (
-                <li key={p.abbrev}><span className="dot" style={{ background: p.color }} />{p.name} <b>{p.seats}</b></li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted small">Seats appear here as results come in. A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
+          {seated.length === 0 && (
+            <p className="muted small">A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
           )}
           {overhang > 0 && (
             <p className="banner small">
