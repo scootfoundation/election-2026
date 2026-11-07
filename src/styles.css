@@ -85,3 +85,6 @@ h2 { font-size:1.3rem; }
 @media (max-width:900px) { .layout { grid-template-columns:1fr; } }
 /* Faint sea tint + frame so each pane reads as a map now that the ocean is clipped out */
 .nzpane svg { background:#eaf0f6; border:1px solid var(--ln); }
+.fade-key { margin-top:8px; align-items:center; }
+.fade { display:inline-block; width:22px; height:12px; background:#1f6fb5; border-radius:2px; }
+.mapkey .leg.fade-key { flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; }

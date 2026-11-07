@@ -78,6 +78,13 @@ export default function App() {
     return out
   }, [leaders, meta])
 
+  // Share of each electorate's voting places counted (0-1); drives the map's opacity.
+  const progress = useMemo(() => {
+    const out = {}
+    for (const [id, d] of Object.entries(leaders)) out[id] = Math.min(1, Math.max(0, (d.pctPlaces || 0) / 100))
+    return out
+  }, [leaders])
+
   if (!meta || !nat) {
     return <main><h1>NZ General Election 2026</h1><p className="muted">{error ? `Can't reach the results feed (${error}).` : 'Loading…'}</p></main>
   }
@@ -210,6 +217,7 @@ export default function App() {
         <h2>Who is leading in each electorate</h2>
         <NzMap
           fills={fills}
+          progress={progress}
           selectedId={selectedId}
           onSelect={setSelectedId}
           aside={(
@@ -217,6 +225,7 @@ export default function App() {
               <h3 className="subhead">How to read these maps</h3>
               <ul>
                 <li><b>Colour</b> is the party of the candidate currently leading the electorate vote.</li>
+                <li><b>Fainter colour</b> means fewer of the voting places are counted, so the lead is less certain. It firms up as the count completes.</li>
                 <li><b>Grey</b> means no votes counted there yet.</li>
                 <li><b>Click</b> any area for its results, booths and a street map.</li>
                 <li>The zoomed maps show the main cities. Māori electorates overlap the general ones, so they are shown separately.</li>
@@ -227,6 +236,11 @@ export default function App() {
                 ))}
                 <span><span className="dot" style={{ background: colorOf('?') }} />Other</span>
                 <span><span className="dot" style={{ background: '#c9ccd1' }} />No result yet</span>
+              </div>
+              <div className="leg fade-key" aria-hidden="true">
+                <span>Counted:</span>
+                <span className="fade" style={{ opacity: 0.3 }} /><span className="fade" style={{ opacity: 0.65 }} /><span className="fade" style={{ opacity: 1 }} />
+                <span>few → all</span>
               </div>
             </div>
           )}

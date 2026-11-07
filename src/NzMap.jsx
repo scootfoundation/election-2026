@@ -47,7 +47,14 @@ function pathFor(feat, view) {
   return d
 }
 
-function Pane({ title, view, feats, fills, selectedId, onSelect, focusable, frames, stroke = 0.5 }) {
+// Colour fades with the share of the electorate's voting places counted: 30% opacity
+// when almost nothing is in, 100% when it's all counted. Unknown progress = full colour.
+const opacityFor = (progress, id) => {
+  const f = progress?.[id]
+  return f == null ? 1 : 0.3 + 0.7 * Math.min(1, Math.max(0, f))
+}
+
+function Pane({ title, view, feats, fills, progress, selectedId, onSelect, focusable, frames, stroke = 0.5 }) {
   const items = useMemo(() => feats.map((f) => ({ id: f.id, name: f.name, d: pathFor(f, view) })).filter((x) => x.d), [feats, view])
   const sel = items.find((x) => x.id === selectedId)
   return (
@@ -60,6 +67,7 @@ function Pane({ title, view, feats, fills, selectedId, onSelect, focusable, fram
             d={x.d}
             className="nzpath"
             fill={fills[x.id] || DEFAULT_FILL}
+            fillOpacity={fills[x.id] ? opacityFor(progress, x.id) : 1}
             fillRule="evenodd"
             strokeWidth={stroke}
             role={focusable ? 'button' : undefined}
@@ -81,7 +89,7 @@ function Pane({ title, view, feats, fills, selectedId, onSelect, focusable, fram
   )
 }
 
-export default function NzMap({ fills = {}, selectedId, onSelect, aside }) {
+export default function NzMap({ fills = {}, progress, selectedId, onSelect, aside }) {
   const [feats, setFeats] = useState(null)
   const [error, setError] = useState(null)
   useEffect(() => {
@@ -103,6 +111,10 @@ export default function NzMap({ fills = {}, selectedId, onSelect, aside }) {
     return Object.fromEntries(feats.map((f, i) => [f.id, c[(i * 7 + (f.maori ? 3 : 0)) % c.length]]))
   }, [feats])
   const paint = demo || fills
+  const prog = useMemo(() => {
+    if (!demo) return progress
+    return Object.fromEntries(Object.keys(demo).map((id, i) => [id, ((i * 37) % 100) / 100]))
+  }, [demo, progress])
 
   if (error) return <p className="muted">Couldn't load electorate boundaries ({error}).</p>
   if (!feats) return <p className="muted">Loading map…</p>
@@ -111,13 +123,13 @@ export default function NzMap({ fills = {}, selectedId, onSelect, aside }) {
   return (
     <div className="nzmaps">
       <div className="nzmaps-top">
-        <Pane title="General electorates" view={views.nz} feats={general} fills={paint} selectedId={selectedId} onSelect={onSelect} focusable frames={URBAN} />
-        <Pane title="Māori electorates" view={views.maori} feats={maori} fills={paint} selectedId={selectedId} onSelect={onSelect} focusable />
+        <Pane title="General electorates" view={views.nz} feats={general} fills={paint} progress={prog} selectedId={selectedId} onSelect={onSelect} focusable frames={URBAN} />
+        <Pane title="Māori electorates" view={views.maori} feats={maori} fills={paint} progress={prog} selectedId={selectedId} onSelect={onSelect} focusable />
         {aside}
       </div>
       <div className="nzmaps-urban">
         {views.urban.map(({ u, view }) => (
-          <Pane key={u.key} title={u.title} view={view} feats={general} fills={paint} selectedId={selectedId} onSelect={onSelect} stroke={1} />
+          <Pane key={u.key} title={u.title} view={view} feats={general} fills={paint} progress={prog} selectedId={selectedId} onSelect={onSelect} stroke={1} />
         ))}
       </div>
     </div>
