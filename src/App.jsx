@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   loadParties, loadElectorates, loadCandidates, loadNational, loadElectorate,
 } from './api.js'
 import Parliament from './Parliament.jsx'
-import HexMap from './HexMap.jsx'
+import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import './drawer.css'
 
-const POLL_MS = 30_000
-const ELECTORATE_POLL_MS = 60_000
+const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const COLORS = {
   NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#e8a317', NZF: '#3a3a3a',
   TPMAO: '#b8432f', OPP: '#7a5ea8', NC: '#3aa6c4', ALCP: '#6aa84f', APN: '#c0508a',
@@ -19,16 +18,6 @@ export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 const SEAT_LEFT = ['GP', 'TPMAO', 'LAB']
 const SEAT_RIGHT = ['NAT', 'NZF', 'ACT']
 const fmt = (n) => n.toLocaleString('en-NZ')
-
-function useInterval(fn, ms) {
-  const ref = useRef(fn)
-  ref.current = fn
-  useEffect(() => {
-    ref.current()
-    const t = setInterval(() => ref.current(), ms)
-    return () => clearInterval(t)
-  }, [ms])
-}
 
 export default function App() {
   const [meta, setMeta] = useState(null)
@@ -44,14 +33,26 @@ export default function App() {
       .catch((e) => setError(e.message))
   }, [])
 
-  useInterval(async () => {
-    try { setNat(await loadNational()); setLastOk(new Date()); setError(null) }
-    catch (e) { setError(e.message) }
-  }, POLL_MS)
+  // One refresh "cycle" drives everything (national, per-electorate leaders, the open
+  // drawer). It ticks every 5 minutes and when the Refresh button is pressed.
+  const [cycle, setCycle] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  useEffect(() => {
+    const t = setInterval(() => setCycle((c) => c + 1), POLL_MS)
+    return () => clearInterval(t)
+  }, [])
 
-  // Leading candidate per electorate (drives the hexagon colours).
-  const [electorateTick, setTick] = useState(0)
-  useInterval(() => setTick((t) => t + 1), ELECTORATE_POLL_MS)
+  useEffect(() => {
+    let live = true
+    setRefreshing(true)
+    loadNational()
+      .then((n) => { if (live) { setNat(n); setLastOk(new Date()); setError(null) } })
+      .catch((e) => { if (live) setError(e.message) })
+      .finally(() => { if (live) setRefreshing(false) })
+    return () => { live = false }
+  }, [cycle])
+
+  // Leading candidate per electorate (drives the map colours).
   useEffect(() => {
     if (!meta) return
     let live = true
@@ -59,10 +60,10 @@ export default function App() {
       if (!live) return
       const next = {}
       rs.forEach((r, i) => { if (r.status === 'fulfilled') next[meta.electorates[i].id] = r.value })
-      setLeaders(next)
+      setLeaders((prev) => (Object.keys(next).length ? next : prev))
     })
     return () => { live = false }
-  }, [meta, electorateTick])
+  }, [meta, cycle])
 
   const fills = useMemo(() => {
     if (!meta) return {}
@@ -98,10 +99,20 @@ export default function App() {
 
   return (
     <main>
-      <div className="kicker">New Zealand General Election 2026 · <span className="pill">PRELIMINARY</span></div>
+      <div className="topbar">
+        <div className="kicker">New Zealand General Election 2026 · <span className="pill">PRELIMINARY</span></div>
+        <div className="refresh">
+          <span className="muted" aria-live="polite">
+            {lastOk ? `Last refreshed ${lastOk.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'Pacific/Auckland', timeZoneName: 'short' })}` : 'Loading…'}
+          </span>
+          <button type="button" className="refresh-btn" onClick={() => setCycle((c) => c + 1)} disabled={refreshing}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+      </div>
       <h1>{headline}</h1>
       <hr />
-      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT; this page refreshes automatically.</p>}
+      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT; this page refreshes every 5 minutes (or press Refresh).</p>}
       {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
 
       <div className="layout">
@@ -141,9 +152,9 @@ export default function App() {
         </div>
 
         <div>
-          <div className="kicker">Electorates · click a hexagon for results</div>
-          <h2>71 electorates, one hexagon each</h2>
-          <HexMap fills={fills} selectedId={selectedId} onSelect={setSelectedId} />
+          <div className="kicker">Electorates · click an area for results</div>
+          <h2>Who is leading in each electorate</h2>
+          <NzMap fills={fills} selectedId={selectedId} onSelect={setSelectedId} />
           <div className="leg">
             <span>Leader:</span>
             {['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'TPMAO'].map((a) => (
@@ -156,6 +167,7 @@ export default function App() {
 
       {selected && (
         <ElectorateDrawer
+          refreshKey={cycle}
           electorate={selected}
           meta={meta}
           colorOf={colorOf}
@@ -167,7 +179,6 @@ export default function App() {
       <p className="foot">
         Unofficial dashboard. Data: New Zealand Electoral Commission preliminary results; official results due 27 November.
         {nat.updated && ` Feed updated ${nat.updated.replace('T', ' ')} NZ time.`}
-        {lastOk && ` Checked ${lastOk.toLocaleTimeString('en-NZ')}.`}
       </p>
     </main>
   )

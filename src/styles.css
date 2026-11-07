@@ -32,4 +32,23 @@ th { font:700 .66rem var(--sans); letter-spacing:.1em; text-transform:uppercase;
 .leg { display:flex; flex-wrap:wrap; gap:6px 14px; font:.72rem var(--sans); color:var(--mu); margin-top:6px; align-items:center; }
 .foot { margin-top:26px; }
 @media (max-width:820px) { .layout { grid-template-columns:1fr; } .bw { display:none; } }
-@media (max-width:640px) { .hex-label { display:none; } }
+
+/* Electorate map panes */
+.nzmaps { display:flex; flex-direction:column; gap:16px; }
+.nzmaps-top { display:grid; grid-template-columns:1.25fr 1fr; gap:14px; align-items:start; }
+.nzmaps-urban { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; align-items:start; }
+.nzpane { margin:0; }
+.nzpane svg { display:block; width:100%; height:auto; }
+.nzpane-title { font:700 .7rem var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--mu); margin-bottom:4px; }
+.nzpath { stroke:var(--bg); stroke-linejoin:round; cursor:pointer; }
+.nzpath:hover, .nzpath:focus-visible { stroke:var(--fg); stroke-width:1.5; outline:none; }
+.nzsel { stroke:var(--fg); stroke-width:2.5; stroke-linejoin:round; }
+.nzframe { fill:none; stroke:var(--fg); stroke-width:1; stroke-dasharray:3 2; }
+@media (max-width:640px) { .nzmaps-urban { grid-template-columns:1fr 1fr 1fr; gap:8px; } }
+
+/* Top bar: title kicker left, last-refreshed + Refresh button right */
+.topbar { display:flex; justify-content:space-between; align-items:center; gap:8px 16px; flex-wrap:wrap; }
+.refresh { display:flex; align-items:center; gap:10px; font-size:.82rem; }
+.refresh-btn { font:600 .78rem var(--sans); padding:5px 12px; border:1px solid var(--fg); background:var(--bg); color:var(--fg); border-radius:3px; cursor:pointer; }
+.refresh-btn:hover:not(:disabled) { background:var(--fg); color:var(--bg); }
+.refresh-btn:disabled { opacity:.55; cursor:default; }

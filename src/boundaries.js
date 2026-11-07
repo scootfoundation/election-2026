@@ -14,6 +14,8 @@ function loadAll() {
   return cache
 }
 
+export const loadBoundaries = loadAll
+
 // Polygons of one electorate as [[ [lon,lat], ... ], ...] outer rings. Polygons
 // outside mainland NZ (the Chatham Islands are bundled with Wellington Bays and
 // Te Tai Tonga) are dropped so they don't stretch the map.

@@ -3,8 +3,8 @@ import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './elec
 import { loadBoundary } from './boundaries.js'
 import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
 
-const DETAIL_MS = 30_000
-const BOOTHS_MS = 60_000
+const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
+const BOOTHS_MS = 5 * 60_000
 const AMBER = '#e0a526'
 const MAP_W = 320
 const MAP_H = 260
@@ -59,7 +59,7 @@ function makeProjector(coords) {
   return (lat, lon) => ({ x: offX + (lon - minLon) * kx * scale, y: offY + (maxLat - lat) * scale })
 }
 
-export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, baseline2023 }) {
+export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, baseline2023, refreshKey = 0 }) {
   const id = electorate?.id
   const name = electorate?.name ?? ''
   const titleId = useId()
@@ -117,7 +117,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       alive = false
       clearInterval(timer)
     }
-  }, [id])
+  }, [id, refreshKey])
 
   // Booth results and voting-place locations, every 60s while open.
   useEffect(() => {
@@ -152,7 +152,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       alive = false
       clearInterval(timer)
     }
-  }, [id])
+  }, [id, refreshKey])
 
   // Electorate outline (static; loaded once per electorate).
   useEffect(() => {
