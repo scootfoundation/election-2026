@@ -77,6 +77,12 @@ const ArrowIcon = ({ up }) => (
   </svg>
 )
 
+const StackIcon = () => (
+  <Svg className="uf-icon uf-icon--overhang">
+    <path d="M4 8h16M6 12.5h12M8 17h8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </Svg>
+)
+
 function Card({ t, icon, label, children }) {
   const time = fmtTime(t)
   return (
@@ -117,12 +123,21 @@ function CandRow({ p, colorOf, margin }) {
   )
 }
 
-function renderEvent(ev, colorOf, onSelect) {
+function renderEvent(ev, colorOf, onSelect, overhang) {
   switch (ev.type) {
-    case 'lead':
+    case 'lead': {
+      const from = ev.previous?.abbrev
+      const to = ev.lead?.abbrev
+      const swing = from && to && from !== to
       return (
-        <Card t={ev.t} icon={<SwapIcon />} label="Lead change">
+        <Card t={ev.t} icon={<SwapIcon />} label="Electorate seat changes hands">
           <Chip eNo={ev.e_no} name={ev.electorate} onSelect={onSelect} />
+          {swing && <p className="uf-seatmove"><b>{from}</b> → <b>{to}</b></p>}
+          {overhang && (
+            <p className="uf-badge" title="This change happened in the same minute as an overhang change">
+              Affects overhang: {overhang.from} → {overhang.to}{overhang.parties?.length ? ` (${overhang.parties.map((x) => `${x.abbrev} ${x.to > x.from ? '+' : '−'}${Math.abs(x.to - x.from)}`).join(', ')})` : ''}
+            </p>
+          )}
           <CandRow p={ev.lead} colorOf={colorOf} margin={ev.margin} />
           <CandRow p={ev.second} colorOf={colorOf} />
           {ev.previous && (
@@ -132,6 +147,22 @@ function renderEvent(ev, colorOf, onSelect) {
           )}
         </Card>
       )
+    }
+    case 'overhang': {
+      const grew = ev.to > ev.from
+      return (
+        <Card t={ev.t} icon={<StackIcon />} label={grew ? 'Overhang grew' : ev.to < ev.from ? 'Overhang shrank' : 'Overhang changed'}>
+          <p className="uf-overhang-line"><b>{fmtInt(ev.from)} → {fmtInt(ev.to)}</b> overhang seats ({fmtInt(120 + ev.to)}-seat parliament)</p>
+          {(ev.parties || []).map((x) => (
+            <div className="uf-cand" key={x.abbrev}>
+              <i className="uf-cand-bar" style={{ background: colorOf(x.abbrev) }} aria-hidden="true" />
+              <div className="uf-cand-body"><div className="uf-cand-name"><b>{x.party || x.abbrev}</b></div></div>
+              <div className="uf-cand-votes">{fmtInt(x.from)} → {fmtInt(x.to)}</div>
+            </div>
+          ))}
+        </Card>
+      )
+    }
     case 'seats': {
       const up = ev.to > ev.from
       const down = ev.to < ev.from
@@ -180,6 +211,10 @@ export default function UpdatesFeed({ events, error, loading, colorOf, onSelectE
     writeStored(next)
   }
 
+  // Seat changes in the same cron run (same timestamp) as an overhang change are flagged.
+  const overhangAt = new Map()
+  if (Array.isArray(events)) for (const ev of events) if (ev && ev.type === 'overhang' && !overhangAt.has(ev.t)) overhangAt.set(ev.t, ev)
+
   const visible = Array.isArray(events)
     ? events.filter((ev) => ev && typeof ev === 'object' && (ev.type !== 'places' || showPlaces)).slice(0, MAX_ROWS)
     : []
@@ -200,7 +235,7 @@ export default function UpdatesFeed({ events, error, loading, colorOf, onSelectE
     body = (
       <ol className="uf-list" aria-label="Live updates">
         {visible.map((ev, i) => {
-          const content = renderEvent(ev, colorOf, onSelectElectorate)
+          const content = renderEvent(ev, colorOf, onSelectElectorate, ev.type === 'lead' ? overhangAt.get(ev.t) : null)
           if (!content) return null
           return <li key={`${ev.type}-${ev.id ?? i}`} className={`uf-card uf-card--${ev.type}`}>{content}</li>
         })}

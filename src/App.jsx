@@ -271,7 +271,18 @@ export default function App() {
     ...(blocSeats.other > 0 ? [{ key: 'other', label: 'Other parties', color: IND_COLOR, seats: blocSeats.other, parties: bloc.other }] : []),
   ]
   const top = rows[0]
-  const headline = started ? `${shortName(top)} leads early count` : 'Counting is about to begin'
+  // Headline: party-vote lead, worded by how close it is; the lede notes when the seat leader differs.
+  const second = rows[1]
+  const pvGap = started && second ? top.pct - second.pct : 0
+  const seatLeader = [...rows].sort((a, b) => b.seats - a.seats)[0]
+  const headline = !started
+    ? 'Counting is about to begin'
+    : pvGap < 0.5 ? `${shortName(top)} and ${shortName(second)} level on the party vote`
+    : pvGap < 2 ? `${shortName(top)} narrowly leads the party vote`
+    : `${shortName(top)} leads the party vote`
+  const seatNote = started && seatLeader && seatLeader.id !== top.id && seatLeader.seats > top.seats
+    ? `On projected seats, ${shortName(seatLeader)} is ahead (${seatLeader.seats} to ${top.seats}). `
+    : ''
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
   const ent = entitlements(rows)
   // Everyone not named in the poll chart (includes Te Tai Tokerau Party and the parties below).
@@ -319,7 +330,7 @@ export default function App() {
       </div>
       <h1>{headline}</h1>
       <p className="lede muted">
-        {started && asAt ? `Results as at ${asAt} NZ time. ` : ''}Preliminary results only; special votes are counted later and official results are due 27 November.
+        {started && asAt ? `Results as at ${asAt} NZ time. ` : ''}{seatNote}Preliminary results only; special votes are counted later and official results are due 27 November.
       </p>
       <hr />
       {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT. The data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}

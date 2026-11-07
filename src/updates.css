@@ -59,3 +59,10 @@
   .uf-cand { grid-template-columns:4px minmax(0,1fr); }
   .uf-cand-votes { grid-column:2; justify-content:flex-start; text-align:left; margin-top:2px; }
 }
+
+/* Seat changes and overhang */
+.uf-seatmove { margin: 4px 0 2px; font: 600 0.82rem var(--sans, sans-serif); }
+.uf-badge { margin: 4px 0; padding: 3px 8px; display: inline-block; font: 700 0.74rem var(--sans, sans-serif); background: var(--ac); color: var(--bg); border-radius: 2px; }
+.uf-card--overhang { border-left: 3px solid var(--ac); background: var(--card); }
+.uf-icon--overhang { color: var(--ac); }
+.uf-overhang-line { margin: 4px 0 6px; font: 0.9rem var(--sans, sans-serif); }
