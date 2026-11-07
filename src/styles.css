@@ -276,3 +276,12 @@ h2 { font-size:1.3rem; }
   .stw-lead { order:2; text-align:right; }
   .stw-state { grid-column:1 / -1; order:4; justify-content:flex-start; }
 }
+
+/* History charts */
+.hist .hist-svg { display:block; width:100%; height:auto; }
+.hist-tick { font:10px var(--sans); fill:var(--mu); }
+.hist-end { font:700 11px var(--sans); }
+.hist-val { fill:var(--fg); font-weight:400; }
+.hist-row { font:600 11px var(--sans); fill:var(--fg); }
+.hist-legend { display:flex; flex-wrap:wrap; gap:4px 14px; font:.78rem var(--sans); margin:4px 0 8px; }
+.hist-legend i { display:inline-block; width:12px; height:3px; margin-right:5px; vertical-align:middle; }

@@ -9,6 +9,7 @@ import { NATIONAL_2023 } from './data2023.js'
 import UpdatesFeed from './UpdatesFeed.jsx'
 import Forecast from './Forecast.jsx'
 import SeatsToWatch from './SeatsToWatch.jsx'
+import { SeatsOverTime, SeatChangesTimeline } from './History.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
 import WINNERS_2023 from './winners2023.js'
@@ -526,6 +527,7 @@ export default function App() {
           </p>
         </section>
       </div>
+      <SeatsOverTime events={events} rows={rows} colorOf={colorOf} shortName={shortName} />
       </>
       )}
 
@@ -582,7 +584,10 @@ export default function App() {
       )}
 
       {page === 'watch' && (
-        <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
+        <>
+          <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
+          <SeatChangesTimeline events={events} colorOf={colorOf} />
+        </>
       )}
 
       {page === 'about' && (
