@@ -81,7 +81,7 @@ function Pane({ title, view, feats, fills, selectedId, onSelect, focusable, fram
   )
 }
 
-export default function NzMap({ fills = {}, selectedId, onSelect }) {
+export default function NzMap({ fills = {}, selectedId, onSelect, aside }) {
   const [feats, setFeats] = useState(null)
   const [error, setError] = useState(null)
   useEffect(() => {
@@ -113,6 +113,7 @@ export default function NzMap({ fills = {}, selectedId, onSelect }) {
       <div className="nzmaps-top">
         <Pane title="General electorates" view={views.nz} feats={general} fills={paint} selectedId={selectedId} onSelect={onSelect} focusable frames={URBAN} />
         <Pane title="Māori electorates" view={views.maori} feats={maori} fills={paint} selectedId={selectedId} onSelect={onSelect} focusable />
+        {aside}
       </div>
       <div className="nzmaps-urban">
         {views.urban.map(({ u, view }) => (

@@ -88,6 +88,10 @@ export default function App() {
     .sort((a, b) => b.votes - a.votes || b.seats - a.seats || a.name.localeCompare(b.name))
   const maxPct = Math.max(5, ...rows.map((r) => r.pct))
   const totalSeats = rows.reduce((s, r) => s + r.seats, 0)
+  // Overhang: parliament grows beyond 120 when a party wins more electorate seats than its party vote entitles it to.
+  const parliamentSize = Math.max(120, totalSeats)
+  const overhang = parliamentSize - 120
+  const majority = Math.floor(parliamentSize / 2) + 1
   const seatOrder = (r) => (SEAT_LEFT.includes(r.abbrev) ? SEAT_LEFT.indexOf(r.abbrev)
     : SEAT_RIGHT.includes(r.abbrev) ? 1000 + SEAT_RIGHT.indexOf(r.abbrev) : 100)
   const seated = rows.filter((r) => r.seats > 0).sort((a, b) => seatOrder(a) - seatOrder(b) || b.seats - a.seats)
@@ -95,23 +99,25 @@ export default function App() {
   const top = rows[0]
   const headline = started ? `${top.name} leads early count` : 'Counting is about to begin'
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
-
   const registered = rows.filter((r) => r.registered)
-  const partyRow = (r) => {
-                  const base = baseline[r.abbrev]
-                  const d = started && base != null ? r.pct - base : null
-                  return (
-                    <tr key={r.id}>
-                      <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
-                      <td className="bw"><div className="bar"><i style={{ width: `${(r.pct / maxPct) * 100}%`, background: colorOf(r.abbrev) }} /></div></td>
-                      <td>{fmt(r.votes)}</td>
-                      <td>{r.pct.toFixed(1)}</td>
-                      <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : ''}${d.toFixed(1)}`}</td>
-                      <td><b>{r.seats}</b></td>
-                    </tr>
-                  )
-  }
+  const mainRows = registered.filter((r) => MAIN_PARTIES.includes(r.abbrev))
+  const otherRows = registered.filter((r) => !MAIN_PARTIES.includes(r.abbrev))
   const selected = selectedId ? meta.electorates.find((e) => e.id === selectedId) : null
+  const partyName = (abbrev) => Object.values(meta.parties).find((p) => p.abbrev === abbrev)?.name ?? abbrev
+  // Feed timestamp is NZ local time, e.g. 2026-11-07T19:14:02 -> "7:14 pm"
+  const asAt = (() => {
+    const m = /T(\d{2}):(\d{2})/.exec(nat.updated || '')
+    if (!m) return null
+    const h = Number(m[1])
+    return `${h % 12 || 12}:${m[2]} ${h >= 12 ? 'pm' : 'am'}`
+  })()
+
+  const changeCell = (r) => {
+    const base = baseline[r.abbrev]
+    if (!started || base == null) return <td className="delta">–</td>
+    const d = r.pct - base
+    return <td className={`delta ${d >= 0 ? 'up' : 'down'}`}>{d >= 0 ? '+' : '−'}{Math.abs(d).toFixed(1)}</td>
+  }
 
   return (
     <main>
@@ -127,48 +133,105 @@ export default function App() {
         </div>
       </div>
       <h1>{headline}</h1>
+      <p className="lede muted">
+        {started && asAt ? `Results as at ${asAt} NZ time. ` : ''}Preliminary results only; special votes are counted later and official results are due 27 November.
+      </p>
       <hr />
-      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT; the data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
+      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT. The data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
       {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
 
+      <section className="statbar" aria-label="Count progress">
+        <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
+        <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
+        <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
+        <div><b>{totalSeats} <small>of {parliamentSize}</small></b><span>seats allocated</span></div>
+      </section>
+
       <div className="layout">
-        <div>
+        <section>
           <div className="kicker">Parliament</div>
           <h2>Seats won so far</h2>
           <Parliament parties={seated} />
-          <div className="sec">
-            <div className="kicker">Party vote</div>
-            <h2>Share of party vote, change on 2023</h2>
-            <div className="stats">
-              <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>voting places counted</span></div>
-              <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes</span></div>
-              <div><b>{nat.stats.electoratesFinal} / 71</b><span>electorates final</span></div>
-            </div>
-            <table>
-              <thead><tr><th>Party</th><th className="bw" /><th>Votes</th><th>%</th><th>vs 2023</th><th>Seats</th></tr></thead>
-              <tbody>
-                {registered.filter((r) => MAIN_PARTIES.includes(r.abbrev)).map(partyRow)}
-                <tr className="grouprow"><th colSpan={6}>Other parties</th></tr>
-                {registered.filter((r) => !MAIN_PARTIES.includes(r.abbrev)).map(partyRow)}
-              </tbody>
-            </table>
-            <p className="muted">{totalSeats} of 120 seats allocated so far. 2023 comparison is nationwide party vote.</p>
-          </div>
-        </div>
+          {seated.length > 0 ? (
+            <ul className="seatkey">
+              {seated.map((p) => (
+                <li key={p.abbrev}><span className="dot" style={{ background: p.color }} />{p.name} <b>{p.seats}</b></li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small">Seats appear here as results come in. A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
+          )}
+          {overhang > 0 && (
+            <p className="banner small">
+              <b>Overhang of {overhang}:</b> parliament has {parliamentSize} seats, and {majority} are needed for a majority. An overhang happens when a party wins more electorate seats than its share of the party vote entitles it to; those extra seats are added on top of the usual 120.
+            </p>
+          )}
+        </section>
 
-        <div>
-          <div className="kicker">Electorates · click an area for results</div>
-          <h2>Who is leading in each electorate</h2>
-          <NzMap fills={fills} selectedId={selectedId} onSelect={setSelectedId} />
-          <div className="leg">
-            <span>Leader:</span>
-            {['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'TPMAO'].map((a) => (
-              <span key={a}><span className="dot" style={{ background: colorOf(a) }} />{meta.parties && Object.values(meta.parties).find((p) => p.abbrev === a)?.name}</span>
-            ))}
-            <span><span className="dot" style={{ background: '#a8a8a8' }} />No result yet</span>
-          </div>
-        </div>
+        <section>
+          <div className="kicker">Party vote</div>
+          <h2>How each party is polling</h2>
+          <table className="ptable">
+            <thead>
+              <tr><th>Party</th><th className="bw" aria-label="Bar" /><th>Vote %</th><th>Votes</th><th title="Change in party vote share since the 2023 election, in percentage points">Change on 2023 (pts)</th><th title="Total seats: electorate wins plus list seats">Seats</th></tr>
+            </thead>
+            <tbody>
+              {mainRows.map((r) => (
+                <tr key={r.id}>
+                  <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
+                  <td className="bw"><div className="bar"><i style={{ width: `${(r.pct / maxPct) * 100}%`, background: colorOf(r.abbrev) }} /></div></td>
+                  <td><b>{r.pct.toFixed(1)}</b></td>
+                  <td>{fmt(r.votes)}</td>
+                  {changeCell(r)}
+                  <td><b>{r.seats}</b></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <h3 className="subhead">Other parties</h3>
+          <table className="ptable small">
+            <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>Seats</th></tr></thead>
+            <tbody>
+              {otherRows.map((r) => (
+                <tr key={r.id}>
+                  <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
+                  <td>{r.pct.toFixed(1)}</td>
+                  <td>{fmt(r.votes)}</td>
+                  <td>{r.seats}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       </div>
+
+      <section className="sec">
+        <div className="kicker">Electorates</div>
+        <h2>Who is leading in each electorate</h2>
+        <NzMap
+          fills={fills}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          aside={(
+            <div className="mapkey">
+              <h3 className="subhead">How to read these maps</h3>
+              <ul>
+                <li><b>Colour</b> is the party of the candidate currently leading the electorate vote.</li>
+                <li><b>Grey</b> means no votes counted there yet.</li>
+                <li><b>Click</b> any area for its results, booths and a street map.</li>
+                <li>The zoomed maps show the main cities. Māori electorates overlap the general ones, so they are shown separately.</li>
+              </ul>
+              <div className="leg">
+                {['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'TPMAO'].map((a) => (
+                  <span key={a}><span className="dot" style={{ background: colorOf(a) }} />{partyName(a)}</span>
+                ))}
+                <span><span className="dot" style={{ background: colorOf('?') }} />Other</span>
+                <span><span className="dot" style={{ background: '#c9ccd1' }} />No result yet</span>
+              </div>
+            </div>
+          )}
+        />
+      </section>
 
       {selected && (
         <ElectorateDrawer
@@ -182,8 +245,9 @@ export default function App() {
       )}
 
       <p className="foot">
-        Unofficial dashboard. Data: New Zealand Electoral Commission preliminary results; official results due 27 November.
-        {nat.updated && ` Feed updated ${nat.updated.replace('T', ' ')} NZ time.`}
+        Unofficial dashboard. Data: New Zealand Electoral Commission preliminary results
+        {asAt ? ` (feed updated ${asAt} NZ time)` : ''}. 2023 comparisons use the nationwide 2023 party vote.
+        Electorate boundaries: Representation Commission 2025 (CC BY 4.0).
       </p>
     </main>
   )

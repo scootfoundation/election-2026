@@ -97,7 +97,8 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-variant-caps: all-small-caps;
+  font-family: var(--sans, sans-serif);
+  font-size: 0.74rem;
   color: var(--ac);
 }
 
