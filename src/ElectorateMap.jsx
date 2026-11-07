@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 // the tiles/style fail to load, `fallback` (the schematic SVG) is rendered instead.
 // The key is a browser key: restrict it to this site's origin in the MapTiler dashboard.
 const KEY = import.meta.env.VITE_MAPTILER_KEY
-const STYLE = `https://api.maptiler.com/maps/dataviz-light/style.json?key=${KEY}`
+const CUSTOM_STYLE = import.meta.env.VITE_MAP_STYLE_URL // dev/testing override
+const STYLE = CUSTOM_STYLE || `https://api.maptiler.com/maps/dataviz-light/style.json?key=${KEY}`
 const AMBER = '#e0a526'
 
-export const hasMapTiles = Boolean(KEY)
+export const hasMapTiles = Boolean(KEY || CUSTOM_STYLE)
 
 function boothFeatures(booths) {
   return {
@@ -32,6 +33,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
   const box = useRef(null)
   const mapRef = useRef(null)
   const [failed, setFailed] = useState(false)
+  const [ready, setReady] = useState(false) // true once the style and our layers exist
   const latest = useRef({ rings, booths, bounds })
   latest.current = { rings, booths, bounds }
 
@@ -51,6 +53,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
           cooperativeGestures: true,
         })
         mapRef.current = map
+        if (import.meta.env.DEV) window.__edMap = map
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
         map.on('error', (e) => {
           // Style/tile auth or network failure before the first render: use the SVG map.
@@ -72,26 +75,29 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
             },
           })
           if (cur.bounds) map.fitBounds(cur.bounds, { padding: 24, animate: false, maxZoom: 15 })
+          setReady(true)
         })
       } catch {
         if (!cancelled) setFailed(true)
       }
     })()
-    return () => { cancelled = true; map?.remove(); mapRef.current = null }
+    return () => { cancelled = true; setReady(false); map?.remove(); mapRef.current = null }
   }, [failed])
 
-  // Update data / view when the electorate or booth results change.
+  // Push new data / view into the map when the electorate or booth results change.
+  // (Don't gate on map.isStyleLoaded(): it is briefly false while tiles load, which
+  // dropped updates and left the map stuck on the first electorate.)
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !map.isStyleLoaded() || !map.getSource('outline')) return
-    map.getSource('outline').setData(outlineFeature(rings))
-    map.getSource('booths').setData(boothFeatures(booths))
-  }, [rings, booths])
+    if (!ready || !map) return
+    map.getSource('outline')?.setData(outlineFeature(rings))
+    map.getSource('booths')?.setData(boothFeatures(booths))
+  }, [ready, rings, booths])
   const boundsKey = bounds ? bounds.flat().join(',') : ''
   useEffect(() => {
     const map = mapRef.current
-    if (map && bounds && map.isStyleLoaded()) map.fitBounds(bounds, { padding: 24, animate: false, maxZoom: 15 })
-  }, [boundsKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (ready && map && bounds) map.fitBounds(bounds, { padding: 24, animate: false, maxZoom: 15 })
+  }, [ready, boundsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!hasMapTiles || failed) return fallback
   return <div ref={box} className="ed-map ed-map-gl" role="img" aria-label={label} />

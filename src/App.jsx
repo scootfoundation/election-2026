@@ -19,7 +19,7 @@ const SEAT_LEFT = ['GP', 'TPMAO', 'LAB']
 const SEAT_RIGHT = ['NAT', 'NZF', 'ACT']
 // Parties expected to be competitive for seats, shown in the main list. Everything
 // else registered goes in the "Other parties" list below. Edit by feed abbreviation.
-const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TTTP', 'OPP']
+const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TPMAO', 'TTTP', 'OPP']
 const fmt = (n) => n.toLocaleString('en-NZ')
 
 export default function App() {
@@ -39,7 +39,6 @@ export default function App() {
   // One refresh "cycle" drives everything (national, per-electorate leaders, the open
   // drawer). It ticks every 5 minutes and when the Refresh button is pressed.
   const [cycle, setCycle] = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
   useEffect(() => {
     const t = setInterval(() => setCycle((c) => c + 1), POLL_MS)
     return () => clearInterval(t)
@@ -47,11 +46,9 @@ export default function App() {
 
   useEffect(() => {
     let live = true
-    setRefreshing(true)
     loadNational()
       .then((n) => { if (live) { setNat(n); setLastOk(new Date()); setError(null) } })
       .catch((e) => { if (live) setError(e.message) })
-      .finally(() => { if (live) setRefreshing(false) })
     return () => { live = false }
   }, [cycle])
 
@@ -124,14 +121,14 @@ export default function App() {
           <span className="muted" aria-live="polite">
             {lastOk ? `Last refreshed ${lastOk.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'Pacific/Auckland', timeZoneName: 'short' })}` : 'Loading…'}
           </span>
-          <button type="button" className="refresh-btn" onClick={() => setCycle((c) => c + 1)} disabled={refreshing}>
-            {refreshing ? 'Refreshing…' : 'Refresh'}
+          <button type="button" className="refresh-btn" title="Reload the page (also picks up any new version of the dashboard)" onClick={() => window.location.reload()}>
+            Refresh
           </button>
         </div>
       </div>
       <h1>{headline}</h1>
       <hr />
-      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT; this page refreshes every 5 minutes (or press Refresh).</p>}
+      {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT; the data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
       {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
 
       <div className="layout">
