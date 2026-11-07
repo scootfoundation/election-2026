@@ -44,7 +44,7 @@ export async function loadCandidates() {
   const doc = await getXml('candidates.xml')
   const out = {}
   for (const c of doc.getElementsByTagName('candidate')) {
-    out[c.getAttribute('c_no')] = { name: txt(c, 'candidate_name'), electorate: txt(c, 'electorate'), party: txt(c, 'party') }
+    out[c.getAttribute('c_no')] = { name: txt(c, 'candidate_name'), electorate: txt(c, 'electorate'), party: txt(c, 'party'), listNo: Number(txt(c, 'list_no')) || null }
   }
   return out
 }

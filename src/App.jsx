@@ -9,6 +9,7 @@ import { NATIONAL_2023 } from './data2023.js'
 import UpdatesFeed from './UpdatesFeed.jsx'
 import Forecast from './Forecast.jsx'
 import SeatsToWatch from './SeatsToWatch.jsx'
+import Parliamentarians from './Parliamentarians.jsx'
 import { SeatsOverTime, SeatChangesTimeline } from './History.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
@@ -137,6 +138,7 @@ const PAGES = [
   ['overview', 'Overview'],
   ['watch', 'Seats to watch'],
   ['forecast', 'Forecast'],
+  ['mps', 'Parliamentarians'],
   ['electorates', 'Electorates'],
   ['about', 'About & data'],
 ]
@@ -588,6 +590,10 @@ export default function App() {
           <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
           <SeatChangesTimeline events={events} colorOf={colorOf} />
         </>
+      )}
+
+      {page === 'mps' && (
+        <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
       )}
 
       {page === 'about' && (
