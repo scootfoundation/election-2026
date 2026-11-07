@@ -1,0 +1,274 @@
+/* Electorate drawer. Uses the app's CSS variables: --bg --fg --mu --ln --card --ac. */
+
+.ed-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(640px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  color: var(--fg);
+  border-left: 1px solid var(--ln);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.ed-drawer *,
+.ed-drawer *::before,
+.ed-drawer *::after {
+  box-sizing: border-box;
+}
+
+.ed-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--ln);
+}
+
+.ed-title {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.ed-sub {
+  margin: 2px 0;
+  font-size: 0.95rem;
+}
+
+.ed-sub strong {
+  font-weight: 700;
+}
+
+.ed-final {
+  color: var(--ac);
+  font-weight: 700;
+}
+
+.ed-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--ln);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ed-close:hover,
+.ed-close:focus-visible {
+  border-color: var(--ac);
+  color: var(--ac);
+}
+
+.ed-body {
+  padding: 4px 20px 40px;
+}
+
+.ed-section {
+  padding-top: 14px;
+  margin-top: 14px;
+  border-top: 1px solid var(--fg);
+}
+
+.ed-kicker {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-variant-caps: all-small-caps;
+  color: var(--ac);
+}
+
+.ed-kicker .ed-muted {
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-variant-caps: normal;
+  color: var(--mu);
+  font-weight: 400;
+}
+
+.ed-muted {
+  color: var(--mu);
+}
+
+.ed-note {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--mu);
+}
+
+.ed-empty {
+  margin: 4px 0;
+  font-size: 0.9rem;
+  color: var(--mu);
+  font-style: italic;
+}
+
+/* Booth map */
+
+.ed-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--card);
+  border: 1px solid var(--ln);
+}
+
+.ed-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--mu);
+}
+
+.ed-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ed-legend svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* Tables */
+
+.ed-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ed-table th,
+.ed-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--ln);
+  text-align: right;
+  vertical-align: top;
+}
+
+.ed-table th:first-child,
+.ed-table td:first-child {
+  text-align: left;
+}
+
+.ed-table th {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mu);
+}
+
+.ed-table td:first-child {
+  overflow-wrap: anywhere;
+}
+
+.ed-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.ed-barhead {
+  width: 36%;
+}
+
+.ed-barcell {
+  min-width: 120px;
+}
+
+.ed-bar {
+  height: 8px;
+  margin-bottom: 3px;
+  background: var(--card);
+}
+
+.ed-bar i {
+  display: block;
+  height: 100%;
+}
+
+.ed-barcell span {
+  white-space: nowrap;
+}
+
+.ed-places .ed-addr {
+  text-align: left;
+  overflow-wrap: anywhere;
+  min-width: 140px;
+}
+
+.ed-places td:nth-child(2),
+.ed-places td:nth-child(4) {
+  white-space: nowrap;
+}
+
+.ed-status {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mu);
+}
+
+.ed-status-in {
+  color: var(--ac);
+}
+
+/* Narrow screens: full width, tighter padding. */
+@media (max-width: 520px) {
+  .ed-drawer {
+    width: 100vw;
+    border-left: 0;
+  }
+
+  .ed-head {
+    padding: 14px 16px 10px;
+  }
+
+  .ed-body {
+    padding: 4px 16px 32px;
+  }
+
+  .ed-title {
+    font-size: 1.35rem;
+  }
+
+  .ed-table {
+    font-size: 0.86rem;
+  }
+}
