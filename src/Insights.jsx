@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { REGIONS, REGION_OF } from './regions.js'
+import Demographics from './Demographics.jsx'
 
 // "Insights" tab: swing by region (same booths as 2023, from forecast.json), where each party is
 // strongest, ticket-splitting, the 5% threshold and other things worth noticing. Party-vote
@@ -209,6 +210,9 @@ export default function Insights({ meta, leaders, nat, forecast, colorOf, shortN
           </div>
         </>
       )}
+
+      <h3 className="subhead">Who votes for whom: demographics and results</h3>
+      <Demographics pv={pv} leaders={leaders} elecName={elecName} colorOf={colorOf} name={name} onOpen={onOpen} />
 
       <h3 className="subhead">Where each party is strongest</h3>
       <div className="ins-cards ins-strong">

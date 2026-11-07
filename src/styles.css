@@ -328,3 +328,13 @@ h2 { font-size:1.3rem; }
 .ins-track i { position:absolute; top:2px; bottom:2px; }
 .ins-bv { text-align:right; font-weight:600; }
 .ins-strong .ins-bar { grid-template-columns:1fr auto; }
+
+/* Demographics correlations */
+.dm-matrix td.pname { white-space:normal; }
+.dm-group td { font:700 .7rem var(--sans); text-transform:uppercase; letter-spacing:.06em; color:var(--mu); background:var(--card); padding:3px 7px; }
+.dm-row { cursor:pointer; }
+.dm-row:hover td.pname, .dm-row.on td.pname { background:rgba(0,0,0,.06); font-weight:700; }
+.dm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr)); gap:10px 16px; margin:8px 0; }
+.dm-cell { min-width:0; }
+.dm-h { display:flex; justify-content:space-between; font:700 .85rem var(--sans); padding:0 4px; }
+.dm-svg { display:block; width:100%; height:auto; }
