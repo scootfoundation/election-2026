@@ -54,6 +54,13 @@ function surname(full) {
   const m = /^(Mc|Mac)([A-Z]+)$/.exec(sn)
   return m ? m[1] + cap(m[2]) : sn
 }
+// Black or white text, whichever reads better on this fill.
+function ink(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '')
+  if (!m) return '#fff'
+  const n = parseInt(m[1], 16)
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6 ? '#111' : '#fff'
+}
 const fmt = (n) => n.toLocaleString('en-NZ')
 
 // Over/under-performance vs the poll consensus, in percentage points. Arrows + sign
@@ -176,9 +183,10 @@ export default function App() {
       const info = (c) => {
         const cand = meta.candidates[c.id]
         const abbrev = cand ? (meta.parties[cand.party]?.abbrev ?? 'Ind.') : ''
-        return { name: surname(cand?.name), abbrev, votes: c.votes, color: colorOf(meta.parties[cand?.party]?.abbrev) }
+        return { name: surname(cand?.name), abbrev, votes: c.votes, pct: (c.votes / total) * 100, color: colorOf(meta.parties[cand?.party]?.abbrev) }
       }
-      rows.push({ id: e.id, name: e.name, lead: info(a), second: info(b), margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
+      const shares = d.cands.filter((c) => c.votes > 0).map(info)
+      rows.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
     }
     return rows.sort((x, y) => x.marginPct - y.marginPct).slice(0, 10)
   }, [leaders, meta])
@@ -321,13 +329,21 @@ export default function App() {
                   {closeRaces.map((r) => (
                     <li key={r.id}>
                       <button type="button" onClick={() => setSelectedId(r.id)} title={`Open ${r.name}`}>
-                        <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
-                        <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
-                        <span className="cr-who">
-                          <span className="cr-c"><span className="dot" style={{ background: r.lead.color }} />{r.lead.abbrev} {r.lead.name} <b>{fmt(r.lead.votes)}</b></span>
-                          <span className="cr-c"><span className="dot" style={{ background: r.second.color }} />{r.second.abbrev} {r.second.name} <b>{fmt(r.second.votes)}</b></span>
+                        <span className="cr-head">
+                          <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
+                          <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
                         </span>
-                        <span className="cr-counted">{Math.round(r.counted)}% of places counted</span>
+                        <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
+                          {r.shares.map((x, i) => (
+                            <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
+                              {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
+                            </i>
+                          ))}
+                        </span>
+                        <span className="cr-foot">
+                          <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
+                          <span>{Math.round(r.counted)}% of places counted</span>
+                        </span>
                       </button>
                     </li>
                   ))}

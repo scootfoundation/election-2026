@@ -118,20 +118,22 @@ h2 { font-size:1.3rem; }
 .blocbar i { display:block; height:100%; }
 .blocmark { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--fg); }
 
-/* Close races */
+/* Close races: one stacked share bar per electorate */
 .close { margin-top:26px; }
 .closelist { list-style:none; margin:8px 0; padding:0; }
 .closelist li { border-bottom:1px solid var(--ln); }
-.closelist button { all:unset; display:grid; grid-template-columns:1fr auto; gap:1px 10px; width:100%; box-sizing:border-box; padding:8px 4px; cursor:pointer; }
+.closelist button { all:unset; display:block; width:100%; box-sizing:border-box; padding:9px 4px 8px; cursor:pointer; }
 .closelist button:hover, .closelist button:focus-visible { background:var(--card); }
+.cr-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:4px; }
 .cr-name { font:700 .92rem var(--sans); }
 .cr-name em { font-weight:400; color:var(--mu); font-style:normal; }
-.cr-gap { font:700 .9rem var(--sans); text-align:right; }
+.cr-gap { font:700 .86rem var(--sans); white-space:nowrap; }
 .cr-gap small { font-weight:400; color:var(--mu); }
-.cr-who { grid-column:1; font-size:.82rem; display:flex; flex-wrap:wrap; align-items:center; gap:0 4px; }
-.cr-v { color:var(--mu); margin:0 4px; }
-.cr-counted { grid-column:2; grid-row:2; text-align:right; font-size:.74rem; color:var(--mu); align-self:end; }
-@media (max-width:560px) { .cr-who { grid-column:1 / -1; } .cr-counted { grid-column:1 / -1; grid-row:auto; text-align:left; } }
-.cr-who { flex-direction:column !important; align-items:flex-start !important; gap:1px 0 !important; }
-.cr-c { white-space:nowrap; }
-.cr-counted { grid-row:2 / span 1; }
+.cr-bar { display:flex; height:26px; width:100%; background:var(--card); }
+.cr-bar i { display:flex; align-items:center; height:100%; overflow:hidden; white-space:nowrap; font:.74rem var(--sans); border-right:1px solid var(--bg); }
+.cr-bar i:last-child { border-right:0; }
+.cr-bar i span { padding:0 6px; }
+.cr-bar i b { font-weight:700; }
+.cr-foot { display:flex; align-items:center; gap:8px; margin-top:4px; font-size:.72rem; color:var(--mu); }
+.cr-prog { flex:0 0 70px; height:4px; background:var(--card); }
+.cr-prog i { display:block; height:100%; background:var(--mu); }
