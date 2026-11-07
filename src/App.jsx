@@ -17,6 +17,9 @@ export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
 const SEAT_LEFT = ['GP', 'TPMAO', 'LAB']
 const SEAT_RIGHT = ['NAT', 'NZF', 'ACT']
+// Parties expected to be competitive for seats, shown in the main list. Everything
+// else registered goes in the "Other parties" list below. Edit by feed abbreviation.
+const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TTTP', 'OPP']
 const fmt = (n) => n.toLocaleString('en-NZ')
 
 export default function App() {
@@ -95,6 +98,22 @@ export default function App() {
   const top = rows[0]
   const headline = started ? `${top.name} leads early count` : 'Counting is about to begin'
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
+
+  const registered = rows.filter((r) => r.registered)
+  const partyRow = (r) => {
+                  const base = baseline[r.abbrev]
+                  const d = started && base != null ? r.pct - base : null
+                  return (
+                    <tr key={r.id}>
+                      <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
+                      <td className="bw"><div className="bar"><i style={{ width: `${(r.pct / maxPct) * 100}%`, background: colorOf(r.abbrev) }} /></div></td>
+                      <td>{fmt(r.votes)}</td>
+                      <td>{r.pct.toFixed(1)}</td>
+                      <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : ''}${d.toFixed(1)}`}</td>
+                      <td><b>{r.seats}</b></td>
+                    </tr>
+                  )
+  }
   const selected = selectedId ? meta.electorates.find((e) => e.id === selectedId) : null
 
   return (
@@ -131,20 +150,9 @@ export default function App() {
             <table>
               <thead><tr><th>Party</th><th className="bw" /><th>Votes</th><th>%</th><th>vs 2023</th><th>Seats</th></tr></thead>
               <tbody>
-                {rows.filter((r) => r.registered).map((r) => {
-                  const base = baseline[r.abbrev]
-                  const d = started && base != null ? r.pct - base : null
-                  return (
-                    <tr key={r.id}>
-                      <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
-                      <td className="bw"><div className="bar"><i style={{ width: `${(r.pct / maxPct) * 100}%`, background: colorOf(r.abbrev) }} /></div></td>
-                      <td>{fmt(r.votes)}</td>
-                      <td>{r.pct.toFixed(1)}</td>
-                      <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : ''}${d.toFixed(1)}`}</td>
-                      <td><b>{r.seats}</b></td>
-                    </tr>
-                  )
-                })}
+                {registered.filter((r) => MAIN_PARTIES.includes(r.abbrev)).map(partyRow)}
+                <tr className="grouprow"><th colSpan={6}>Other parties</th></tr>
+                {registered.filter((r) => !MAIN_PARTIES.includes(r.abbrev)).map(partyRow)}
               </tbody>
             </table>
             <p className="muted">{totalSeats} of 120 seats allocated so far. 2023 comparison is nationwide party vote.</p>
