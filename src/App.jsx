@@ -640,6 +640,8 @@ export default function App() {
           colorOf={colorOf}
           baseline2023={{ parties: baseline }}
           onClose={() => setSelectedId(null)}
+          onSelect={setSelectedId}
+          electorates={meta.electorates}
         />
       )}
 

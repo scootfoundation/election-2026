@@ -311,3 +311,8 @@
 .ed-mapbox.fs .ed-map-gl { flex:1; min-height:0; height:auto; }
 .ed-mapbox.fs svg.ed-map { flex:1; min-height:0; width:100%; height:100%; }
 .ed-mapbox.fs .ed-ctl { margin:0; }
+
+.ed-switch { display:inline-flex; align-items:center; gap:4px; }
+.ed-switch button { border:1px solid var(--ln); background:var(--bg); color:var(--fg); padding:4px 8px; cursor:pointer; border-radius:4px; font-size:.75rem; }
+.ed-switch button:hover { border-color:var(--fg); }
+.ed-switch select { font:600 .85rem var(--sans, inherit); padding:4px 6px; max-width:200px; }

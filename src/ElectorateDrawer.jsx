@@ -3,7 +3,7 @@ import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './elec
 import { loadBoundary } from './boundaries.js'
 import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
 import { dotColors, clusterMarkup } from './dots.js'
-import { loadSa2, buildDots, PER_DOT_OPTIONS } from './sa2.js'
+import { loadSa3, buildDots, SCALES } from './sa3.js'
 
 const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
 const BOOTHS_MS = 5 * 60_000
@@ -74,7 +74,7 @@ function makeProjector(coords) {
   return (lat, lon) => ({ x: offX + (lon - minLon) * kx * scale, y: offY + (maxLat - lat) * scale })
 }
 
-export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, baseline2023, refreshKey = 0 }) {
+export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, electorates = [], colorOf, baseline2023, refreshKey = 0 }) {
   const id = electorate?.id
   const name = electorate?.name ?? ''
   const titleId = useId()
@@ -88,9 +88,10 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
   const [boundary, setBoundary] = useState(null)
   const [placesError, setPlacesError] = useState(null)
   const [voteType, setVoteType] = useState('party') // which vote the dots show: 'party' or 'candidate'
-  const [perDot, setPerDot] = useState(null) // null = choose automatically
+  const [perDot, setPerDot] = useState(null) // null = scale follows the map zoom
+  const [zoomScale, setZoomScale] = useState(null)
   const [mapMode, setMapMode] = useState('dots') // 'dots' (scattered in SA2 areas) or 'clusters' (at the booth)
-  const [sa2, setSa2] = useState(null)
+  const [sa3, setSa3] = useState(null)
   const [fullscreen, setFullscreen] = useState(false)
 
   // Esc closes; focus moves into the dialog when it opens.
@@ -104,7 +105,6 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, fullscreen])
   useEffect(() => { dialogRef.current?.focus() }, [])
-  useEffect(() => { setFullscreen(false) }, [id])
 
   // Clear previous electorate's data when the selection changes.
   useEffect(() => {
@@ -177,12 +177,12 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     }
   }, [id, refreshKey])
 
-  // SA2 areas containing this electorate's voting places (for the dot map).
+  // SA3 areas containing this electorate's voting places (for the dot map).
   useEffect(() => {
     if (!id) return undefined
     let alive = true
-    setSa2(null)
-    loadSa2(id).then((v) => { if (alive) setSa2(v) }).catch(() => { if (alive) setSa2(false) })
+    setSa3(null)
+    loadSa3(id).then((v) => { if (alive) setSa3(v) }).catch(() => { if (alive) setSa3(false) })
     return () => { alive = false }
   }, [id])
 
@@ -282,9 +282,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     return rows
   }, [booths, places, id, meta, colorOf])
 
-  const dotModel = useMemo(() => (mapMode === 'dots' && sa2 ? buildDots(boothRows, sa2, voteType, perDot) : null), [mapMode, sa2, boothRows, voteType, perDot])
+  const dotModel = useMemo(() => (mapMode === 'dots' && sa3 ? buildDots(boothRows, sa3, voteType) : null), [mapMode, sa3, boothRows, voteType])
   const useDots = mapMode === 'dots' && !!dotModel
-  const effPerDot = useDots ? dotModel.perDot : perDot || 100
+  const effPerDot = useDots ? perDot || zoomScale || 1 : perDot || 100
   const reportedCount = boothRows.filter((r) => r.counted).length
   const geo = useMemo(() => {
     const pts = boothRows
@@ -335,15 +335,16 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     if (!project) return { mapped: [], paths: null, bounds: null, pts }
     const inView = (q) => q.x >= 0 && q.x <= MAP_W && q.y >= 0 && q.y <= MAP_H
     const mapped = pts.map((p) => ({ ...p, ...project(p.lat, p.lon) })).filter(inView)
-    const sa2Paths = useDots ? sa2.map((q) => q.p.map((poly) => poly.map((ring) => ring.map(([lon, lat], i) => { const z = project(lat, lon); return `${i ? 'L' : 'M'}${z.x.toFixed(1)} ${z.y.toFixed(1)}` }).join('') + 'Z').join('')).join('')).join('') : null
-    const dotXY = useDots ? dotModel.dots.map((d) => ({ ...project(d.lat, d.lon), color: d.color })).filter(inView) : null
+    const svgK = useDots ? perDot || SCALES.find((n) => dotModel.total / n <= 1500) || 500 : 1
+    const sa2Paths = useDots ? sa3.map((q) => q.p.map((poly) => poly.map((ring) => ring.map(([lon, lat], i) => { const z = project(lat, lon); return `${i ? 'L' : 'M'}${z.x.toFixed(1)} ${z.y.toFixed(1)}` }).join('') + 'Z').join('')).join('')).join('') : null
+    const dotXY = useDots ? dotModel.dots.filter((d) => d.i % svgK === 0).map((d) => ({ ...project(d.lat, d.lon), color: d.color })).filter(inView) : null
     const paths = boundary
       ? boundary.map((ring) => ring.map(([lon, lat], i) => { const q = project(lat, lon); return `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}` }).join('') + 'Z').join('')
       : null
     const eb = box(extent)
     const bounds = eb ? [[eb.minLon, eb.minLat], [eb.maxLon, eb.maxLat]] : null
     return { mapped, paths, bounds, pts, sa2Paths, dotXY }
-  }, [boothRows, boundary, voteType, perDot, useDots, sa2, dotModel])
+  }, [boothRows, boundary, voteType, perDot, useDots, sa3, dotModel])
   const mapped = geo.mapped
   const legend = useMemo(() => {
     const t = {}
@@ -397,10 +398,24 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
             </div>
             <label className="ed-per">1 dot =
               <select value={perDot ?? 'auto'} onChange={(e) => setPerDot(e.target.value === 'auto' ? null : Number(e.target.value))}>
-                <option value="auto">{useDots ? `auto (${dotModel.perDot})` : 'auto (100)'} votes</option>
-                {PER_DOT_OPTIONS.map((n) => <option key={n} value={n}>{n} votes</option>)}
+                <option value="auto">{useDots ? `auto (${zoomScale || 1} here; changes as you zoom)` : 'auto (100)'}</option>
+                {SCALES.map((n) => <option key={n} value={n}>{n} vote{n === 1 ? '' : 's'}</option>)}
               </select>
             </label>
+            {fullscreen && electorates.length > 0 && onSelect && (() => {
+              const sorted = [...electorates].sort((a, b) => a.name.localeCompare(b.name))
+              const at = sorted.findIndex((e) => String(e.id) === String(id))
+              const go = (d) => onSelect(sorted[(at + d + sorted.length) % sorted.length].id)
+              return (
+                <div className="ed-switch">
+                  <button type="button" onClick={() => go(-1)} aria-label="Previous electorate">◀</button>
+                  <select value={String(id)} onChange={(e) => onSelect(e.target.value)} aria-label="Electorate">
+                    {sorted.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                  <button type="button" onClick={() => go(1)} aria-label="Next electorate">▶</button>
+                </div>
+              )
+            })()}
             <button type="button" className="ed-fsbtn" onClick={() => setFullscreen((f) => !f)} aria-pressed={fullscreen}>{fullscreen ? '✕ Exit full screen' : '⤢ Full screen'}</button>
           </div>
           {mapped.length > 0 || geo.paths ? (
@@ -410,8 +425,10 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
               bounds={geo.bounds}
               fullscreen={fullscreen}
               mode={useDots ? 'dots' : 'clusters'}
-              sa2={useDots ? sa2 : null}
+              areas={useDots ? sa3 : null}
               dots={useDots ? dotModel.dots : null}
+              fixedScale={perDot}
+              onScale={setZoomScale}
               label={`Map of ${name} with booth positions`}
               fallback={(
             <svg className="ed-map" style={{ overflow: 'hidden' }} viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Map of ${name} with booth positions`}>
@@ -442,7 +459,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
             <p className="ed-empty">{boothRows.length ? 'No booth coordinates published for this electorate yet.' : 'Loading booth positions…'}</p>
           )}
           <div className="ed-legend">
-            <span><b>1 dot {useDots ? '≈' : '='} {effPerDot} votes</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}){useDots ? ': scattered at random inside the SA2 area of each voting place; the dark marks are the voting places' : '; part-dots are not shown'}</span>
+            <span><b>1 dot {useDots ? '=' : '='} {effPerDot} vote{effPerDot === 1 ? '' : 's'} at this zoom</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}){useDots ? ': scattered at random inside the SA3 area of each voting place. Zoom in for one dot per vote; zoomed out, each dot stands for more. Dark marks are the voting places' : '; part-dots are not shown'}</span>
             {!useDots && <span>A single coloured circle = fewer than {effPerDot} votes for any party (colour = leader)</span>}
             {legend.map((x) => (
               <span key={x.abbrev}>
