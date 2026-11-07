@@ -6,12 +6,13 @@ import Parliament from './Parliament.jsx'
 import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
+import { POLLS } from './polls.js'
 import './drawer.css'
 
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const COLORS = {
-  NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#e8a317', NZF: '#3a3a3a',
-  TPMAO: '#b8432f', OPP: '#0b8a8a', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
+  NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#f2b705', NZF: '#3a3a3a',
+  TPMAO: '#e8590c', OPP: '#0b8a8a', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
 }
 export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
@@ -34,7 +35,22 @@ function entitlements(rows, seats = 120) {
   }
   return ent
 }
+// Short display names for the parties people expect to see in the main views.
+const SHORT = { NAT: 'National', LAB: 'Labour', GP: 'Green', ACT: 'ACT', NZF: 'NZ First', OPP: 'Opportunity', TPMAO: 'Te Pāti Māori', TTTP: 'Te Tai Tokerau', NC: 'Conservative' }
+const shortName = (r) => SHORT[r.abbrev] ?? r.name
 const fmt = (n) => n.toLocaleString('en-NZ')
+
+// Over/under-performance vs the poll consensus, in percentage points. Arrows + sign
+// (no red/green, which would clash with party colours).
+function PollGap({ d }) {
+  if (d == null) return <td className="pollgap">–</td>
+  if (Math.abs(d) < 0.05) return <td className="pollgap">0.0</td>
+  return (
+    <td className={`pollgap ${d > 0 ? 'over' : 'under'}`} title={`${Math.abs(d).toFixed(1)} points ${d > 0 ? 'above' : 'below'} the poll consensus`}>
+      {d > 0 ? '▲' : '▼'} {d > 0 ? '+' : '−'}{Math.abs(d).toFixed(1)}
+    </td>
+  )
+}
 
 function PartyRow({ r, ent, compact }) {
   const pv = ent[r.id] ?? 0
@@ -42,11 +58,15 @@ function PartyRow({ r, ent, compact }) {
   const base = NATIONAL_2023.parties[r.abbrev]?.pct
   const started = r.votes > 0
   const d = !compact && started && base != null ? r.pct - base : null
+  const poll = POLLS.parties[r.abbrev]
+  const vsPoll = !compact && started && poll != null ? r.pct - poll : null
   return (
     <tr>
-      <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
+      <td className="pname"><span className="dot" style={{ background: colorOf(r.abbrev) }} />{compact ? r.name : shortName(r)}</td>
       <td>{compact ? r.pct.toFixed(1) : <b>{r.pct.toFixed(1)}</b>}</td>
       <td>{fmt(r.votes)}</td>
+      {!compact && <td className="pollcell">{poll != null ? poll.toFixed(1) : '–'}</td>}
+      {!compact && <PollGap d={vsPoll} />}
       {!compact && <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`}</td>}
       <td>{pv}</td>
       <td>{r.candSeats}</td>
@@ -135,16 +155,22 @@ export default function App() {
   const seatOrder = (r) => (SEAT_LEFT.includes(r.abbrev) ? SEAT_LEFT.indexOf(r.abbrev)
     : SEAT_RIGHT.includes(r.abbrev) ? 1000 + SEAT_RIGHT.indexOf(r.abbrev) : 100)
   const seated = rows.filter((r) => r.seats > 0).sort((a, b) => seatOrder(a) - seatOrder(b) || b.seats - a.seats)
-    .map((r) => ({ abbrev: r.abbrev, name: r.name, seats: r.seats, color: colorOf(r.abbrev) }))
+    .map((r) => ({ abbrev: r.abbrev, name: shortName(r), seats: r.seats, color: colorOf(r.abbrev) }))
   const top = rows[0]
-  const headline = started ? `${top.name} leads early count` : 'Counting is about to begin'
+  const headline = started ? `${shortName(top)} leads early count` : 'Counting is about to begin'
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
   const ent = entitlements(rows)
+  // Everyone not named in the poll chart (includes Te Tai Tokerau Party and the parties below).
+  const polled = Object.keys(POLLS.parties)
+  const others = rows.filter((r) => !polled.includes(r.abbrev))
+  const othersVotes = others.reduce((t, r) => t + r.votes, 0)
+  const totalVotes = rows.reduce((t, r) => t + r.votes, 0)
+  const othersPct = totalVotes > 0 ? (othersVotes / totalVotes) * 100 : 0
   const registered = rows.filter((r) => r.registered)
   const mainRows = registered.filter((r) => MAIN_PARTIES.includes(r.abbrev))
   const otherRows = registered.filter((r) => !MAIN_PARTIES.includes(r.abbrev))
   const selected = selectedId ? meta.electorates.find((e) => e.id === selectedId) : null
-  const partyName = (abbrev) => Object.values(meta.parties).find((p) => p.abbrev === abbrev)?.name ?? abbrev
+  const partyName = (abbrev) => SHORT[abbrev] ?? Object.values(meta.parties).find((p) => p.abbrev === abbrev)?.name ?? abbrev
   // Feed timestamp is NZ local time, e.g. 2026-11-07T19:14:02 -> "7:14 pm"
   const asAt = (() => {
     const m = /T(\d{2}):(\d{2})/.exec(nat.updated || '')
@@ -208,30 +234,45 @@ export default function App() {
         <section>
           <div className="kicker">Party vote</div>
           <h2>How each party is polling</h2>
-          <table className="ptable">
+          <div className="tscroll"><table className="ptable">
             <thead>
               <tr className="grp">
                 <th rowSpan={2}>Party</th>
-                <th colSpan={3} className="grpcell">Party vote</th>
+                <th colSpan={5} className="grpcell">Party vote</th>
                 <th colSpan={4} className="grpcell">Seats</th>
               </tr>
               <tr>
                 <th>Vote %</th>
                 <th>Votes</th>
-                <th title="Change in party vote share since the 2023 election, in percentage points">Change on 2023 (pts)</th>
-                <th title="Seats the party is entitled to from its share of the party vote">From party vote</th>
+                <th title={`${POLLS.source}, as at ${POLLS.asAt}`}>Polls</th>
+                <th title="Party vote share minus the poll consensus, in percentage points. ▲ = doing better than polls, ▼ = worse.">vs polls</th>
+                <th title="Change in party vote share since the 2023 election, in percentage points">vs 2023</th>
+                <th title="Seats the party is entitled to from its share of the party vote">Party vote</th>
                 <th title="Electorate seats the party is currently leading (confirmed as each electorate finishes counting)">Electorates</th>
                 <th title="Electorate seats beyond the party's party-vote entitlement. These are added on top of the 120.">Overhang</th>
                 <th title="Total seats: the larger of party-vote seats and electorate seats">Total</th>
               </tr>
             </thead>
-            <tbody>{mainRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} />)}</tbody>
-          </table>
+            <tbody>
+              {mainRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} />)}
+              <tr className="allother">
+                <td className="pname">All other parties</td>
+                <td>{othersPct.toFixed(1)}</td>
+                <td>{fmt(othersVotes)}</td>
+                <td className="pollcell">{POLLS.other.toFixed(1)}</td>
+                <PollGap d={started ? othersPct - POLLS.other : null} />
+                <td>–</td><td>0</td><td>0</td><td className="muted">–</td><td>0</td>
+              </tr>
+            </tbody>
+          </table></div>
           <h3 className="subhead">Other parties</h3>
           <table className="ptable small">
-            <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>From party vote</th><th>Electorates</th><th>Overhang</th><th>Total</th></tr></thead>
+            <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>Party vote</th><th>Electorates</th><th>Overhang</th><th>Total</th></tr></thead>
             <tbody>{otherRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} compact />)}</tbody>
           </table>
+          <p className="muted small">
+            <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (▲) or under-performing (▼) it, in percentage points. Early counts are not a random sample of voters, so early gaps often shrink or flip as more votes come in.
+          </p>
           <p className="muted small">
             <b>From party vote</b> is each party's proportional share of the 120 seats (only parties with 5% of the party vote or an electorate seat qualify).
             <b> Electorates</b> are the seats a party is currently leading, so early numbers will move. If a party wins more electorates than its party-vote share, the extra seats are an <b>overhang</b> and parliament grows beyond 120.

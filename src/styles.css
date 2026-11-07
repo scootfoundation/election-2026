@@ -95,3 +95,14 @@ h2 { font-size:1.3rem; }
 @media (max-width:560px) { .ptable { font-size:.8rem; } .ptable td, .ptable th { padding:5px 2px; } }
 .seatkey li { display:flex; align-items:center; gap:6px; }
 .seatkey b { margin-left:auto; }
+.pollgap { white-space:nowrap; font-weight:600; }
+.pollgap.over { color:var(--fg); }
+.pollgap.under { color:var(--mu); }
+.pollcell { color:var(--mu); }
+.ptable tr.allother td { color:var(--mu); font-style:italic; }
+.ptable td.pname { white-space:nowrap; }
+.ptable.small td.pname { white-space:normal; }
+.tscroll { overflow-x:auto; }
+.ptable { font-size:.88rem; }
+.ptable td, .ptable th { padding-left:3px; padding-right:3px; }
+.ptable th { font-size:.62rem; letter-spacing:.06em; }

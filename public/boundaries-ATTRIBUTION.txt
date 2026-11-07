@@ -17,9 +17,8 @@ clipped to the coastline (see land mask below) and simplified, coordinates round
 The derived file is not an official product and is not the Representation Commission's data itself.
 
 Land mask (boundaries clipped to coastline, land only):
-- Source: Natural Earth 10m Land (ne_10m_land), version 5.1.1: see https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-land/
-- Download: https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip (accessed 2026-11-07)
-- Licence: public domain (Natural Earth terms of use: https://www.naturalearthdata.com/about/terms-of-use/). No attribution is legally required; credit to Natural Earth is appreciated.
-- Method: all 11 land polygons dissolved into one mask; each electorate clipped separately to the mask (mapshaper), then simplified (Visvalingam, 5% of vertices, shapes kept), sliver parts under 0.5 km2 dropped, coordinates rounded to 4 decimal places.
-- Note: the Natural Earth 10m mask is generalised. Small harbours and inlets may be filled or coarsely drawn, and islands under about 1 km2 are excluded.
-- Not used: the Stats NZ Territorial Authority 2025 and Regional Council 2025 layers, which are not clipped to the coastline (their total area is about 429,000 km2 against about 265,000 km2 of land).
+- Source: Stats NZ Statistical Area 2 2023 (SA2 2023), layer SA22023: https://services2.arcgis.com/vKb0s8tBIA3bdocZ/ArcGIS/rest/services/SA22023/FeatureServer/0 (accessed 2026-11-07)
+- Licence: Creative Commons Attribution 4.0 International (CC BY 4.0), the same licence as the electorate data. The layer's ArcGIS item record has no licence field, so this follows Stats NZ's licence for its statistical boundary data.
+- Required attribution: "Statistical Area 2 2023 © Stats NZ, licensed under CC BY 4.0."
+- Method: all 2,311 SA2 polygons (land and inland water) were dissolved into one mask (mapshaper). Their geometry area matches the area fields in the layer to within 0.2%, so they follow the coastline closely. Enclosed harbours are kept as open water (holes in the mask), and no holes were filled. Each electorate was clipped separately to the mask. Boundaries were then simplified (Visvalingam, 1.9% of vertices, shapes kept), parts under 0.3 km2 were dropped (each electorate keeps its largest part), and coordinates were rounded to 4 decimal places (about 10 m).
+- Not used: the SA3 2023 Clipped layer (SA32023_V1_00_Clipped). Its geometry is about 1.3% larger than its own area fields (about 271,600 km2 against 268,150 km2), so it extends into the sea. The earlier Natural Earth 10m land mask (public domain) was also replaced because it was too generalised for harbours and inlets.
