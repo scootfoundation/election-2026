@@ -106,17 +106,18 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
       <div className="fc-titlerow">
         <div>
           <div className="kicker">Forecast</div>
-          <h2>Where the incoming booths lean</h2>
+          <h2>{nearlyDone ? 'What special votes could change' : 'Where the incoming booths lean'}</h2>
         </div>
         {hasSp && (
-          <label className="fc-toggle" title={`Adds about ${fmt(f.progress.specialVotes)} special votes (${Math.round(f.progress.specialShare * 100)}% on top), split the way 2023 specials split: more Green, Te Pāti Māori and Opportunity, less NZ First, ACT and National`}>
+          <label className="fc-toggle" title={`Adds about ${fmt(f.progress.specialVotes)} more special votes still to be counted (specials were about ${Math.round(f.progress.specialShare * 100)}% of all votes in 2023${f.progress.specialCounted ? `; ${fmt(f.progress.specialCounted)} are already in the count` : ''}), split the way 2023 specials split: more Green, Te Pāti Māori and Opportunity, less NZ First, ACT and National`}>
             <button type="button" role="switch" aria-checked={withSp} className="uf-switch" onClick={() => setWithSp(!withSp)} />
             <span>Estimated special votes</span>
           </label>
         )}
       </div>
       <p className="lede muted fc-lede">
-        Each booth counted so far is compared with <b>the same booth in 2023</b>; that swing is applied to the booths still to come, nationally and seat by seat. Updated {at}.
+        {nearlyDone ? <>Nearly every voting place has reported, so this is mainly an estimate of the <b>special votes</b> still to be counted (they tend to lean towards smaller parties, the Greens and Te Pāti Māori). Switch the special votes toggle off to see the booth-only result. Updated {at}.</> : <>Each booth counted so far is compared</>}
+        {!nearlyDone && <> with <b>the same booth in 2023</b>; that swing is applied to the booths still to come, nationally and seat by seat. Updated {at}.</>}
       </p>
 
       {model && (
@@ -216,7 +217,7 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           {els && <li><b>Seat by seat:</b> for each electorate we use only its own matched booths (voters enrolled there who voted in the same electorate) to estimate how many votes are still to come and how the incoming booths lean. 2023 booth data is party vote only and boundaries changed, so the party's 2023 lean is applied to its candidate as a proxy. Seats with no matched booths use the national turnout ratio and no lean. “Hold chance” is a rough allowance for booth-to-booth variation and (with the toggle off) special votes, not a calibrated probability.</li>}
         </ul>
         <p className="muted small">
-          <b>Special votes:</b> {hasSp ? 'estimated by assuming 2026 specials are the same share of the vote as in 2023 (19%) and split between parties as they were then; switch the toggle off to see booths only.' : 'not included.'} <b>Not included:</b> mobile teams, care homes and unmatched booths. Booths are matched by address, so a few matches may be wrong where venues moved.
+          <b>Special votes:</b> {hasSp ? 'estimated by assuming 2026 specials end up the same share of the vote as in 2023 (19%), subtracting those already counted, and splitting the rest between parties as in 2023; switch the toggle off to see booths only.' : 'not included.'} <b>Not included:</b> mobile teams, care homes and unmatched booths. Booths are matched by address, so a few matches may be wrong where venues moved.
           Early booths aren't a random sample, which is why we look at the lean, but this remains a rough guide, not a prediction of the official result.
         </p>
       </details>
