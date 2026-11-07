@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './electorateApi.js'
 import { loadBoundary } from './boundaries.js'
 import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
+import { dotColors, clusterMarkup } from './dots.js'
 
 const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
 const BOOTHS_MS = 5 * 60_000
@@ -85,16 +86,22 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
   const [places, setPlaces] = useState(null)
   const [boundary, setBoundary] = useState(null)
   const [placesError, setPlacesError] = useState(null)
+  const [voteType, setVoteType] = useState('party') // which vote the dots show: 'party' or 'candidate'
+  const [perDot, setPerDot] = useState(100)
+  const [fullscreen, setFullscreen] = useState(false)
 
   // Esc closes; focus moves into the dialog when it opens.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key !== 'Escape') return
+      if (fullscreen) setFullscreen(false)
+      else onClose?.()
     }
     window.addEventListener('keydown', onKey)
-    dialogRef.current?.focus()
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, fullscreen])
+  useEffect(() => { dialogRef.current?.focus() }, [])
+  useEffect(() => { setFullscreen(false) }, [id])
 
   // Clear previous electorate's data when the selection changes.
   useEffect(() => {
@@ -235,7 +242,11 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         leader: b.counted ? leaderLabel(b, meta) : null,
         shares: b.counted ? boothShares(b, meta, colorOf) : null,
         counted: !!b.counted,
-        order: Number(b.vpNo) || NO_ORDER,
+        total: b.counted && !b.failed ? sum(b.partyVotes) || sum(b.candidateVotes) : 0,
+        voteLists: b.counted && !b.failed ? {
+          party: b.partyVotes.filter((v) => v.votes > 0).map((v) => { const a = partyAbbrev(meta, v.p_no); return { abbrev: a, votes: v.votes, color: colorOf(a) } }),
+          candidate: b.candidateVotes.filter((v) => v.votes > 0).map((v) => { const c = meta?.candidates?.[v.c_no]; const a = c ? partyAbbrev(meta, c.party) : 'Independent'; return { abbrev: a, votes: v.votes, color: colorOf(a), name: c?.name } }),
+        } : null,
       })
     }
     const eNo = Number(id)
@@ -250,10 +261,12 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
         leader: null,
         shares: null,
         counted: false,
-        order: NO_ORDER,
+        total: 0,
+        voteLists: null,
       })
     }
-    rows.sort((a, b) => a.order - b.order)
+    // Biggest booths first (by votes counted); places still waiting go last, by address.
+    rows.sort((a, b) => (b.total - a.total) || String(a.address).localeCompare(String(b.address)))
     return rows
   }, [booths, places, id, meta, colorOf])
 
@@ -263,9 +276,14 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       .filter((r) => r.lat != null && r.lon != null)
       .map((r) => {
         const lead = r.shares?.[0]
+        const list = r.voteLists?.[voteType] || []
+        const byParty = {}
+        for (const x of list) byParty[x.abbrev] = { ...(byParty[x.abbrev] || { abbrev: x.abbrev, color: x.color, votes: 0 }), votes: (byParty[x.abbrev]?.votes || 0) + x.votes }
+        const grouped = Object.values(byParty).sort((a, b) => b.votes - a.votes)
         return {
           key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, color: lead ? lead.color : null,
-          title: `${r.address} — ${lead ? `${lead.abbrev || lead.name} ${lead.pct.toFixed(0)}% (${r.shares.slice(0, 3).map((x) => `${x.abbrev || x.name} ${x.pct.toFixed(0)}%`).join(', ')})` : r.counted ? 'Reported' : 'Waiting'}`,
+          dots: dotColors(grouped, perDot), grouped, total: r.total,
+          title: r.counted ? `${r.address}\n${fmtInt(r.total)} votes (${voteType === 'party' ? 'party vote' : 'electorate vote'}; 1 dot = ${perDot}): ${grouped.slice(0, 6).map((x) => `${x.abbrev} ${fmtInt(x.votes)}`).join(', ')}` : `${r.address}: waiting`,
         }
       })
     const bExtent = boundary ? boundary.flatMap((ring) => ring.map(([lon, lat]) => ({ lat, lon }))) : []
@@ -308,8 +326,13 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     const eb = box(extent)
     const bounds = eb ? [[eb.minLon, eb.minLat], [eb.maxLon, eb.maxLat]] : null
     return { mapped, paths, bounds, pts }
-  }, [boothRows, boundary])
+  }, [boothRows, boundary, voteType, perDot])
   const mapped = geo.mapped
+  const legend = useMemo(() => {
+    const t = {}
+    for (const p of geo.pts) for (const g of p.grouped || []) t[g.abbrev] = { abbrev: g.abbrev, color: g.color, votes: (t[g.abbrev]?.votes || 0) + g.votes }
+    return Object.values(t).sort((a, b) => b.votes - a.votes).slice(0, 7)
+  }, [geo.pts])
   const unmappedCount = boothRows.length - mapped.length
 
   const pctText = detail ? `${Math.round(detail.pctPlaces)}%` : '—'
@@ -345,17 +368,37 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       <div className="ed-body">
         <section className="ed-section" aria-labelledby={`${titleId}-map`}>
           <h3 id={`${titleId}-map`} className="ed-kicker">Booth map</h3>
+          <div className={fullscreen ? 'ed-mapbox fs' : 'ed-mapbox'}>
+          <div className="ed-ctl">
+            <div className="ed-seg" role="group" aria-label="Which vote the dots show">
+              <button type="button" className={voteType === 'party' ? 'on' : ''} aria-pressed={voteType === 'party'} onClick={() => setVoteType('party')}>Party vote</button>
+              <button type="button" className={voteType === 'candidate' ? 'on' : ''} aria-pressed={voteType === 'candidate'} onClick={() => setVoteType('candidate')}>Electorate vote</button>
+            </div>
+            <label className="ed-per">1 dot =
+              <select value={perDot} onChange={(e) => setPerDot(Number(e.target.value))}>
+                {[25, 50, 100, 200, 500].map((n) => <option key={n} value={n}>{n} votes</option>)}
+              </select>
+            </label>
+            <button type="button" className="ed-fsbtn" onClick={() => setFullscreen((f) => !f)} aria-pressed={fullscreen}>{fullscreen ? '✕ Exit full screen' : '⤢ Full screen'}</button>
+          </div>
           {mapped.length > 0 || geo.paths ? (
             <ElectorateMap
               rings={boundary}
               booths={geo.pts}
               bounds={geo.bounds}
+              fullscreen={fullscreen}
               label={`Map of ${name} with booth positions`}
               fallback={(
             <svg className="ed-map" style={{ overflow: 'hidden' }} viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Map of ${name} with booth positions`}>
               {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
-              {mapped.map((p) =>
-                p.counted ? (
+              {[...mapped].sort((a, b) => (b.dots?.length || 0) - (a.dots?.length || 0)).map((p) => {
+                if (p.counted && p.dots?.length) {
+                  const { w, h, svg } = clusterMarkup(p.dots, 5)
+                  return (
+                    <g key={p.key} transform={`translate(${(p.x - w / 2).toFixed(1)} ${(p.y - h / 2).toFixed(1)})`} dangerouslySetInnerHTML={{ __html: `${svg.replace(/^<svg[^>]*>/, '').replace('</svg>', '')}<title>${String(p.title).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>` }} />
+                  )
+                }
+                return p.counted ? (
                   <circle key={p.key} cx={p.x} cy={p.y} r={5} fill={p.color || AMBER} stroke="var(--bg)" strokeWidth={1}>
                     <title>{p.title}</title>
                   </circle>
@@ -363,8 +406,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                   <circle key={p.key} cx={p.x} cy={p.y} r={4.5} fill="var(--bg)" stroke="var(--mu)" strokeWidth={1.5}>
                     <title>{p.title}</title>
                   </circle>
-                ),
-              )}
+                )
+              })}
             </svg>
               )}
             />
@@ -372,14 +415,19 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
             <p className="ed-empty">{boothRows.length ? 'No booth coordinates published for this electorate yet.' : 'Loading booth positions…'}</p>
           )}
           <div className="ed-legend">
-            <span>
-              <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={AMBER} /></svg>
-              Booth reporting (colour = party leading there)
-            </span>
+            <span><b>1 dot = {perDot} votes</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}; part-dots are not shown)</span>
+            <span>A single coloured circle = fewer than {perDot} votes for any party (colour = leader)</span>
+            {legend.map((x) => (
+              <span key={x.abbrev}>
+                <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={x.color} /></svg>
+                {x.abbrev}
+              </span>
+            ))}
             <span>
               <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="var(--bg)" stroke="var(--mu)" strokeWidth="1.5" /></svg>
               Waiting
             </span>
+          </div>
           </div>
           <p className="ed-note">{geo.paths ? `Boundary: Representation Commission 2025 (CC BY 4.0).${hasMapTiles ? ' Map © MapTiler © OpenStreetMap contributors.' : ''} Booth positions are approximate.` : 'Booth positions only — boundary not loaded.'}</p>
           {unmappedCount > 0 && mapped.length > 0 && (
@@ -468,7 +516,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
 
         <section className="ed-section" aria-labelledby={`${titleId}-pl`}>
           <h3 id={`${titleId}-pl`} className="ed-kicker">
-            Polling places
+            Polling places, biggest first
             {booths && <span className="ed-muted"> · {reportedCount} of {boothRows.length} reported</span>}
           </h3>
           {boothError && <p className="ed-note">Booth results unavailable ({boothError}). Retrying.</p>}
@@ -483,7 +531,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                 <thead>
                   <tr>
                     <th scope="col">Address</th>
-                    <th scope="col">Issued</th>
+                    <th scope="col" title="Valid party votes counted at this place; biggest first">Votes ▼</th>
                     <th scope="col">Result (electorate vote)</th>
                     <th scope="col">Status</th>
                   </tr>
@@ -492,7 +540,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
                   {boothRows.map((r) => (
                     <tr key={r.key}>
                       <td className="ed-addr">{r.address}</td>
-                      <td>{r.counted ? fmtInt(r.issued) : '—'}</td>
+                      <td>{r.counted ? fmtInt(r.total) : '—'}</td>
                       <td className="ed-result">
                         {r.shares ? (
                           <>

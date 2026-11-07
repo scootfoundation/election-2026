@@ -295,3 +295,19 @@
 .ed-stack i { display: block; height: 100%; }
 .ed-lead { font-size: 0.78rem; margin-top: 2px; white-space: nowrap; }
 .ed-status-in { color: var(--fg) !important; }
+
+/* Booth map: dot clusters, controls, full screen */
+.ed-ctl { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin:0 0 8px; font-size:.82rem; }
+.ed-seg { display:inline-flex; border:1px solid var(--fg); }
+.ed-seg button { border:0; background:var(--bg); color:var(--fg); font:600 .78rem var(--sans, inherit); padding:5px 10px; cursor:pointer; }
+.ed-seg button.on { background:var(--fg); color:var(--bg); }
+.ed-per { display:inline-flex; align-items:center; gap:6px; color:var(--mu); }
+.ed-per select { font:inherit; padding:2px 4px; }
+.ed-fsbtn { margin-left:auto; border:1px solid var(--ln); background:var(--bg); color:var(--fg); font:600 .78rem var(--sans, inherit); padding:5px 10px; border-radius:4px; cursor:pointer; }
+.ed-fsbtn:hover { border-color:var(--fg); }
+.ed-cluster { cursor:default; line-height:0; }
+.ed-cluster svg { display:block; filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.25)); }
+.ed-mapbox.fs { position:fixed; inset:0; z-index:10; background:var(--bg); padding:10px 12px; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; }
+.ed-mapbox.fs .ed-map-gl { flex:1; min-height:0; height:auto; }
+.ed-mapbox.fs svg.ed-map { flex:1; min-height:0; width:100%; height:100%; }
+.ed-mapbox.fs .ed-ctl { margin:0; }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { clusterMarkup } from './dots.js'
 
 // Real map (MapTiler tiles via MapLibre GL) with the electorate outline and booths
 // on top. Enabled only when VITE_MAPTILER_KEY is set at build time; otherwise, or if
@@ -16,7 +17,7 @@ function boothFeatures(booths) {
     type: 'FeatureCollection',
     features: booths.map((b) => ({
       type: 'Feature',
-      properties: { counted: b.counted ? 1 : 0, color: b.color || AMBER, title: b.title },
+      properties: { counted: b.counted ? 1 : 0, color: b.color || AMBER, title: b.title, plain: !b.counted || !b.dots?.length ? 1 : 0 },
       geometry: { type: 'Point', coordinates: [b.lon, b.lat] },
     })),
   }
@@ -29,11 +30,15 @@ function outlineFeature(rings) {
   }
 }
 
-export default function ElectorateMap({ rings, booths, bounds, label, fallback }) {
+const dotSize = (zoom) => Math.round(Math.min(12, Math.max(4, 4 + (zoom - 10) * 1.4)))
+
+export default function ElectorateMap({ rings, booths, bounds, label, fallback, fullscreen }) {
   const box = useRef(null)
   const mapRef = useRef(null)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false) // true once the style and our layers exist
+  const markers = useRef([])
+  const [zoom, setZoom] = useState(12)
   const latest = useRef({ rings, booths, bounds })
   latest.current = { rings, booths, bounds }
 
@@ -66,7 +71,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
           map.addLayer({ id: 'outline-line', type: 'line', source: 'outline', paint: { 'line-color': '#111827', 'line-width': 2 } })
           map.addSource('booths', { type: 'geojson', data: boothFeatures(cur.booths) })
           map.addLayer({
-            id: 'booths', type: 'circle', source: 'booths',
+            id: 'booths', type: 'circle', source: 'booths', filter: ['==', ['get', 'plain'], 1],
             paint: {
               'circle-radius': 5.5,
               'circle-color': ['case', ['==', ['get', 'counted'], 1], ['get', 'color'], '#ffffff'],
@@ -75,13 +80,15 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
             },
           })
           if (cur.bounds) map.fitBounds(cur.bounds, { padding: 24, animate: false, maxZoom: 15 })
+          map.on('zoomend', () => setZoom(map.getZoom()))
+          setZoom(map.getZoom())
           setReady(true)
         })
       } catch {
         if (!cancelled) setFailed(true)
       }
     })()
-    return () => { cancelled = true; setReady(false); map?.remove(); mapRef.current = null }
+    return () => { cancelled = true; setReady(false); markers.current.forEach((m) => m.remove()); markers.current = []; map?.remove(); mapRef.current = null }
   }, [failed])
 
   // Push new data / view into the map when the electorate or booth results change.
@@ -93,6 +100,40 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback }
     map.getSource('outline')?.setData(outlineFeature(rings))
     map.getSource('booths')?.setData(boothFeatures(booths))
   }, [ready, rings, booths])
+  // Dot clusters (one dot per N votes per party) as HTML markers, largest first so small ones sit on top.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return undefined
+    let cancelled = false
+    ;(async () => {
+      const { default: maplibregl } = await import('maplibre-gl')
+      if (cancelled || mapRef.current !== map) return
+      markers.current.forEach((m) => m.remove())
+      markers.current = []
+      const D = dotSize(zoom)
+      const list = (booths || []).filter((b) => b.counted && b.dots?.length).sort((a, b) => b.dots.length - a.dots.length)
+      for (const b of list) {
+        const { svg } = clusterMarkup(b.dots, D)
+        const el = document.createElement('div')
+        el.className = 'ed-cluster'
+        el.innerHTML = svg
+        el.title = b.title || ''
+        markers.current.push(new maplibregl.Marker({ element: el }).setLngLat([b.lon, b.lat]).addTo(map))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [ready, booths, zoom])
+  // Resize the canvas when switching to/from full screen.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!ready || !map) return undefined
+    const t = setTimeout(() => {
+      map.resize()
+      if (bounds) map.fitBounds(bounds, { padding: 24, animate: false, maxZoom: 15 })
+      if (fullscreen) map.cooperativeGestures?.disable?.(); else map.cooperativeGestures?.enable?.()
+    }, 60)
+    return () => clearTimeout(t)
+  }, [fullscreen, ready]) // eslint-disable-line react-hooks/exhaustive-deps
   const boundsKey = bounds ? bounds.flat().join(',') : ''
   useEffect(() => {
     const map = mapRef.current
