@@ -10,6 +10,7 @@ import UpdatesFeed from './UpdatesFeed.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
 import WINNERS_2023 from './winners2023.js'
+import PREV_2023 from './prev2023.js'
 import './drawer.css'
 import './updates.css'
 
@@ -254,15 +255,21 @@ export default function App() {
     return rows.filter((r) => r.marginPct <= 10).sort((x, y) => x.marginPct - y.marginPct).slice(0, 24)
   }, [leaders, meta])
 
-  // Seats that have flipped: the current leader's party differs from the notional 2023
-  // winner on the new boundaries (src/winners2023.js). Tentative until counting finishes.
-  const flips = useMemo(() => {
-    if (!meta) return []
-    const out = []
+  // Seats that have flipped. Baseline = the party that won the *predecessor* seat in 2023
+  // (src/prev2023.js follows renamed seats, e.g. Wellington Central -> Wellington North).
+  // The notional 2023 result on the new boundaries (src/winners2023.js) is shown as context:
+  // `flips` are leaders that differ from the sitting party; `notionalOnly` are seats where the
+  // sitting party is leading but the boundary changes had notionally handed the seat to
+  // another party (so it counts as a gain/loss against the notional seat totals).
+  const { flips, notionalOnly } = useMemo(() => {
+    const flips = []
+    const notionalOnly = []
+    if (!meta) return { flips, notionalOnly }
     for (const e of meta.electorates) {
       const d = leaders[e.id]
-      const base = WINNERS_2023[e.id]
-      if (!d || !d.cands || d.cands.length < 2 || !base || !base.party) continue
+      const prev = PREV_2023[e.id]
+      const notional = WINNERS_2023[e.id]
+      if (!d || !d.cands || d.cands.length < 2 || !prev || !prev.prevParty) continue
       const total = d.cands.reduce((t, c) => t + c.votes, 0)
       const [a, b] = d.cands
       if (total < 300 || a.votes <= 0) continue
@@ -273,10 +280,19 @@ export default function App() {
       }
       const shares = d.cands.filter((c) => c.votes > 0).map(info)
       const to = shares[0].abbrev
-      if (!to || to === base.party) continue
-      out.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final, from: base.party, to, baseMargin: base.margin })
+      if (!to) continue
+      const row = { id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final, to, prev, notionalParty: notional?.party ?? prev.notionalParty }
+      const seatName = prev.renamed ? `${prev.prevSeat} (now ${e.name})` : e.name
+      if (to !== prev.prevParty) {
+        const expected = row.notionalParty === to
+        flips.push({ ...row, from: prev.prevParty, note: `${seatName} was held by ${prev.prevParty} in 2023${prev.prevMargin != null ? ` (by ${prev.prevMargin} pts)` : ''} → ${to} leads by ${row.marginPct.toFixed(1)} pts${expected ? `. Expected on the new boundaries (notional ${row.notionalParty}${notional?.margin != null ? ` by ${notional.margin} pts` : ''}).` : '.'}` })
+      } else if (row.notionalParty && row.notionalParty !== to) {
+        notionalOnly.push({ ...row, from: row.notionalParty, note: `${seatName}: ${prev.prevParty} held it in 2023, but boundary changes made it a notional ${row.notionalParty} seat${notional?.margin != null ? ` (by ${notional.margin} pts)` : ''}. ${to} leads by ${row.marginPct.toFixed(1)} pts, so against the notional seat it is a ${to} gain.` })
+      }
     }
-    return out.sort((x, y) => y.marginPct - x.marginPct)
+    flips.sort((x, y) => y.marginPct - x.marginPct)
+    notionalOnly.sort((x, y) => y.marginPct - x.marginPct)
+    return { flips, notionalOnly }
   }, [leaders, meta])
 
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
@@ -322,18 +338,33 @@ export default function App() {
     ...(blocSeats.other > 0 ? [{ key: 'other', label: 'Other parties', color: IND_COLOR, seats: blocSeats.other, parties: bloc.other }] : []),
   ]
   const top = rows[0]
-  // Headline: party-vote lead, worded by how close it is; the lede notes when the seat leader differs.
+  // Headline: who can form a government on the projected seats. Blocs: National + ACT + NZ First
+  // (government), Opportunity (cross-bench), Labour + Greens + Te Pāti Māori + Te Tai Tokerau +
+  // independents (opposition).
   const second = rows[1]
   const pvGap = started && second ? top.pct - second.pct : 0
-  const seatLeader = [...rows].sort((a, b) => b.seats - a.seats)[0]
-  const headline = !started
-    ? 'Counting is about to begin'
-    : pvGap < 0.5 ? `${shortName(top)} and ${shortName(second)} level on the party vote`
-    : pvGap < 2 ? `${shortName(top)} narrowly leads the party vote`
-    : `${shortName(top)} leads the party vote`
-  const seatNote = started && seatLeader && seatLeader.id !== top.id && seatLeader.seats > top.seats
-    ? `On projected seats, ${shortName(seatLeader)} is ahead (${seatLeader.seats} to ${top.seats}). `
+  const G = blocSeats.govt
+  const X = blocSeats.cross
+  const O = blocSeats.opp
+  const govtCan = G >= majority
+  const oppCan = O >= majority
+  const govtWithX = G + X >= majority
+  const oppWithX = O + X >= majority
+  const headline = !started ? 'Counting is about to begin'
+    : govtCan ? 'National, ACT and NZ First can form a government'
+    : oppCan ? 'Labour, Greens and Te Pāti Māori can form a government'
+    : govtWithX && oppWithX ? 'Opportunity is the kingmaker'
+    : govtWithX ? 'National needs Opportunity to form a government'
+    : oppWithX ? 'Labour needs Opportunity to form a government'
+    : 'Neither side can form a government yet'
+  const pvSentence = !started || !second ? ''
+    : pvGap < 0.5 ? `${shortName(top)} and ${shortName(second)} are level on the party vote. `
+    : pvGap < 2 ? `${shortName(top)} narrowly leads the party vote. `
+    : `${shortName(top)} leads the party vote. `
+  const seatNote = started
+    ? `Projected seats: Government ${G}, Cross-bench ${X}, Opposition ${O}; ${majority} needed for a majority. ${pvSentence}`
     : ''
+  if (typeof document !== 'undefined') document.title = `${headline} · NZ Election 2026`
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
   const ent = entitlements(rows)
   // Everyone not named in the poll chart (includes Te Tai Tokerau Party and the parties below).
@@ -538,13 +569,21 @@ export default function App() {
               </p>
               <ol className="closelist">
                 {flips.map((r) => (
-                  <RaceCard key={r.id} r={r} onOpen={setSelectedId}
-                    note={`${r.from} held this seat in 2023 (notional${r.baseMargin != null ? `, by ${r.baseMargin} pts` : ''}) → ${r.to} leads by ${r.marginPct.toFixed(1)} pts`} />
+                  <RaceCard key={r.id} r={r} onOpen={setSelectedId} note={r.note} />
                 ))}
               </ol>
             </>
           )}
-          <p className="muted small">"Flipped" compares the current leader's party with the <b>notional 2023 result on the 2025 boundaries</b> (an estimate by The Tally Room; the old 2023 results don't map directly onto the new seats). A flip is tentative until the electorate is fully counted, and tight races can flip back.</p>
+          {notionalOnly.length > 0 && (
+            <>
+              <h3 className="subhead">Boundary changes: held by the sitting party, but notionally a flip</h3>
+              <p className="muted small">The 2025 boundary review moved enough voters that these seats would have gone to a different party at the 2023 election. The sitting party is currently leading, so against the notional seat totals it counts as a gain.</p>
+              <ol className="closelist">
+                {notionalOnly.map((r) => <RaceCard key={r.id} r={r} onOpen={setSelectedId} note={r.note} />)}
+              </ol>
+            </>
+          )}
+          <p className="muted small">"Flipped" compares the current leader's party with the party that won the <b>predecessor seat in 2023</b>, following renamed seats (for example Wellington Central became Wellington North). Where the boundary changes would have changed the 2023 winner, the notional result (an estimate by The Tally Room) is noted. A flip is tentative until the electorate is fully counted, and tight races can flip back.</p>
         </section>
     <section className="sec close">
       <div className="kicker">Seats to watch</div>
@@ -578,7 +617,7 @@ export default function App() {
           <h3 className="subhead">Polls and 2023 comparisons</h3>
           <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
           <h3 className="subhead">Maps and electorates</h3>
-          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the notional 2023 winner on the 2025 boundaries (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
           <h3 className="subhead">Live updates</h3>
           <p>A small service watches the Commission's feed every minute and records electorate seats changing hands, projected seat changes, overhang changes, voting places counted and finished electorates. It appears in the Updates panel on every page (a button on narrow screens) and started recording when this feature was switched on.</p>
           <h3 className="subhead">Data and licences</h3>
