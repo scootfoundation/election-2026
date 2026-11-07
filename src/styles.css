@@ -300,3 +300,12 @@ h2 { font-size:1.3rem; }
 .mp-now { font:600 .8rem/1.25 var(--sans); text-align:right; }
 .mp-link { all:unset; cursor:pointer; text-decoration:underline dotted; }
 .mp-toggle { font:600 .8rem var(--sans); border:1px solid var(--ln); background:var(--bg); padding:4px 10px; border-radius:999px; cursor:pointer; margin:2px 0 6px; }
+
+.mp-mode { display:inline-flex; border:1px solid var(--fg); margin:4px 0 8px; }
+.mp-mode button { border:0; background:var(--bg); font:600 .82rem var(--sans); padding:6px 14px; cursor:pointer; color:var(--fg); }
+.mp-mode button.on { background:var(--fg); color:var(--bg); }
+.mp-mode button:disabled { opacity:.45; cursor:not-allowed; }
+.mp-ava { width:40px; height:40px; border-radius:50%; border:3px solid; flex:none; overflow:hidden; display:grid; place-items:center; box-sizing:border-box; }
+.mp-ava img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; }
+.mp-ava span { font:700 .72rem var(--sans); color:#fff; }
+.mp-row { padding:5px 2px; }

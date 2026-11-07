@@ -593,7 +593,7 @@ export default function App() {
       )}
 
       {page === 'mps' && (
-        <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
+        <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} forecast={forecast} entitlements={entitlements} />
       )}
 
       {page === 'about' && (
