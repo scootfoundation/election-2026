@@ -86,5 +86,6 @@ export async function loadElectorate(id) {
     final: root.getAttribute('final') === 'true',
     pctPlaces: num(stats, 'percent_voting_places_counted'),
     cands,
+    partyVotes: [...(root.getElementsByTagName('partyvotes')[0]?.getElementsByTagName('party') || [])].map((el) => ({ id: el.getAttribute('p_no'), votes: num(el, 'votes') })),
   }
 }

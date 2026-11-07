@@ -10,6 +10,7 @@ import UpdatesFeed from './UpdatesFeed.jsx'
 import Forecast from './Forecast.jsx'
 import SeatsToWatch from './SeatsToWatch.jsx'
 import Parliamentarians from './Parliamentarians.jsx'
+import Insights from './Insights.jsx'
 import { SeatsOverTime, SeatChangesTimeline } from './History.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
@@ -139,6 +140,7 @@ const PAGES = [
   ['watch', 'Seats to watch'],
   ['forecast', 'Forecast'],
   ['mps', 'Parliamentarians'],
+  ['insights', 'Insights'],
   ['electorates', 'Electorates'],
   ['about', 'About & data'],
 ]
@@ -594,6 +596,10 @@ export default function App() {
 
       {page === 'mps' && (
         <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} forecast={forecast} entitlements={entitlements} />
+      )}
+
+      {page === 'insights' && (
+        <Insights meta={meta} leaders={leaders} nat={nat} forecast={forecast} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
       )}
 
       {page === 'about' && (
