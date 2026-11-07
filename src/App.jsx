@@ -8,6 +8,7 @@ import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import UpdatesFeed from './UpdatesFeed.jsx'
 import Forecast from './Forecast.jsx'
+import SeatsToWatch from './SeatsToWatch.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
 import WINNERS_2023 from './winners2023.js'
@@ -526,6 +527,62 @@ export default function App() {
         </section>
       </div>
       </>
+      )}
+
+      {page === 'forecast' && (
+        <Forecast
+          forecast={forecast}
+          error={forecastError}
+          rows={rows}
+          colorOf={colorOf}
+          shortName={shortName}
+          entitlements={entitlements}
+          blocDefs={BLOCS}
+          majorityOf={(n) => Math.floor(n / 2) + 1}
+        />
+      )}
+
+      {page === 'electorates' && (
+      <>
+      <section className="sec">
+        <div className="kicker">Electorates</div>
+        <h2>Who is leading in each electorate</h2>
+        <NzMap
+          fills={fills}
+          progress={progress}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          aside={(
+            <div className="mapkey">
+              <h3 className="subhead">How to read these maps</h3>
+              <ul>
+                <li><b>Colour</b> is the party of the candidate currently leading the electorate vote.</li>
+                <li><b>Fainter colour</b> means fewer of the voting places are counted, so the lead is less certain. It firms up as the count completes.</li>
+                <li><b>Grey</b> means no votes counted there yet.</li>
+                <li><b>Click</b> any area for its results, booths and a street map.</li>
+                <li>The zoomed maps show the main cities. Māori electorates overlap the general ones, so they are shown separately.</li>
+              </ul>
+              <div className="leg">
+                {['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'TPMAO'].map((a) => (
+                  <span key={a}><span className="dot" style={{ background: colorOf(a) }} />{partyName(a)}</span>
+                ))}
+                <span><span className="dot" style={{ background: colorOf('?') }} />Other</span>
+                <span><span className="dot" style={{ background: '#c9ccd1' }} />No result yet</span>
+              </div>
+              <div className="leg fade-key" aria-hidden="true">
+                <span>Counted:</span>
+                <span className="fade" style={{ opacity: 0.3 }} /><span className="fade" style={{ opacity: 0.65 }} /><span className="fade" style={{ opacity: 1 }} />
+                <span>few → all</span>
+              </div>
+            </div>
+          )}
+        />
+      </section>
+      </>
+      )}
+
+      {page === 'watch' && (
+        <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
       )}
 
       {page === 'forecast' && (
