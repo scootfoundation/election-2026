@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './electorateApi.js'
 import { loadBoundary } from './boundaries.js'
 import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
-import { dotColors, clusterMarkup } from './dots.js'
+import { pieMarkup, pieRadius } from './pies.js'
 import { loadSa3, buildDots, SCALES } from './sa3.js'
 
 const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
@@ -90,7 +90,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
   const [voteType, setVoteType] = useState('party') // which vote the dots show: 'party' or 'candidate'
   const [perDot, setPerDot] = useState(null) // null = scale follows the map zoom
   const [zoomScale, setZoomScale] = useState(null)
-  const [mapMode, setMapMode] = useState('dots') // 'dots' (scattered in SA2 areas) or 'clusters' (at the booth)
+  const [mapMode, setMapMode] = useState('dots') // 'dots' (scattered in SA3 areas) or 'pies' (a pie at each booth)
   const [sa3, setSa3] = useState(null)
   const [fullscreen, setFullscreen] = useState(false)
 
@@ -297,8 +297,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
         const grouped = Object.values(byParty).sort((a, b) => b.votes - a.votes)
         return {
           key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, color: lead ? lead.color : null,
-          dots: dotColors(grouped, perDot || 100), grouped, total: r.total,
-          title: r.counted ? `${r.address}\n${fmtInt(r.total)} votes (${voteType === 'party' ? 'party vote' : 'electorate vote'}; 1 dot = ${perDot || 100}): ${grouped.slice(0, 6).map((x) => `${x.abbrev} ${fmtInt(x.votes)}`).join(', ')}` : `${r.address}: waiting`,
+          grouped, total: r.total,
+          title: r.counted ? `${r.address}\n${fmtInt(r.total)} votes (${voteType === 'party' ? 'party vote' : 'electorate vote'}): ${grouped.slice(0, 6).map((x) => `${x.abbrev} ${fmtInt(x.votes)}`).join(', ')}` : `${r.address}: waiting`,
         }
       })
     const bExtent = boundary ? boundary.flatMap((ring) => ring.map(([lon, lat]) => ({ lat, lon }))) : []
@@ -390,18 +390,18 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
           <div className="ed-ctl">
             <div className="ed-seg" role="group" aria-label="Map style">
               <button type="button" className={mapMode === 'dots' ? 'on' : ''} aria-pressed={mapMode === 'dots'} onClick={() => setMapMode('dots')}>Dot map</button>
-              <button type="button" className={mapMode === 'clusters' ? 'on' : ''} aria-pressed={mapMode === 'clusters'} onClick={() => setMapMode('clusters')}>Booth clusters</button>
+              <button type="button" className={mapMode === 'pies' ? 'on' : ''} aria-pressed={mapMode === 'pies'} onClick={() => setMapMode('pies')}>Pie charts</button>
             </div>
             <div className="ed-seg" role="group" aria-label="Which vote the dots show">
               <button type="button" className={voteType === 'party' ? 'on' : ''} aria-pressed={voteType === 'party'} onClick={() => setVoteType('party')}>Party vote</button>
               <button type="button" className={voteType === 'candidate' ? 'on' : ''} aria-pressed={voteType === 'candidate'} onClick={() => setVoteType('candidate')}>Electorate vote</button>
             </div>
-            <label className="ed-per">1 dot =
+            {mapMode === 'dots' && <label className="ed-per">1 dot =
               <select value={perDot ?? 'auto'} onChange={(e) => setPerDot(e.target.value === 'auto' ? null : Number(e.target.value))}>
                 <option value="auto">{useDots ? `auto (${zoomScale || 1} here; changes as you zoom)` : 'auto (100)'}</option>
                 {SCALES.map((n) => <option key={n} value={n}>{n} vote{n === 1 ? '' : 's'}</option>)}
               </select>
-            </label>
+            </label>}
             {fullscreen && electorates.length > 0 && onSelect && (() => {
               const sorted = [...electorates].sort((a, b) => a.name.localeCompare(b.name))
               const at = sorted.findIndex((e) => String(e.id) === String(id))
@@ -424,7 +424,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
               booths={geo.pts}
               bounds={geo.bounds}
               fullscreen={fullscreen}
-              mode={useDots ? 'dots' : 'clusters'}
+              mode={useDots ? 'dots' : 'pies'}
               areas={useDots ? sa3 : null}
               dots={useDots ? dotModel.dots : null}
               fixedScale={perDot}
@@ -435,9 +435,11 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
               {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
               {useDots && geo.sa2Paths && <path d={geo.sa2Paths} fill="none" stroke="#6b7280" strokeOpacity="0.5" strokeWidth={0.5} />}
               {useDots && geo.dotXY && geo.dotXY.map((d, i) => <circle key={i} cx={d.x} cy={d.y} r={1.5} fill={d.color} />)}
-              {useDots ? mapped.map((p) => <circle key={p.key} cx={p.x} cy={p.y} r={2.5} fill={p.counted ? '#111827' : 'var(--bg)'} stroke={p.counted ? '#fff' : '#111827'} strokeWidth={0.8}><title>{p.title}</title></circle>) : [...mapped].sort((a, b) => (b.dots?.length || 0) - (a.dots?.length || 0)).map((p) => {
-                if (p.counted && p.dots?.length) {
-                  const { w, h, svg } = clusterMarkup(p.dots, 5)
+              {useDots ? mapped.map((p) => <circle key={p.key} cx={p.x} cy={p.y} r={2.5} fill={p.counted ? '#111827' : 'var(--bg)'} stroke={p.counted ? '#fff' : '#111827'} strokeWidth={0.8}><title>{p.title}</title></circle>) : [...mapped].sort((a, b) => (b.total || 0) - (a.total || 0)).map((p) => {
+                if (p.counted && p.total > 0) {
+                  const r = Math.min(22, pieRadius(p.total, 12) * 0.8)
+                  const { size: w, svg } = pieMarkup(p.grouped, p.total, r)
+                  const h = w
                   return (
                     <g key={p.key} transform={`translate(${(p.x - w / 2).toFixed(1)} ${(p.y - h / 2).toFixed(1)})`} dangerouslySetInnerHTML={{ __html: `${svg.replace(/^<svg[^>]*>/, '').replace('</svg>', '')}<title>${String(p.title).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>` }} />
                   )
@@ -459,8 +461,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
             <p className="ed-empty">{boothRows.length ? 'No booth coordinates published for this electorate yet.' : 'Loading booth positions…'}</p>
           )}
           <div className="ed-legend">
-            <span><b>1 dot {useDots ? '=' : '='} {effPerDot} vote{effPerDot === 1 ? '' : 's'} at this zoom</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}){useDots ? ': scattered at random inside the SA3 area of each voting place. Zoom in for one dot per vote; zoomed out, each dot stands for more. Dark marks are the voting places' : '; part-dots are not shown'}</span>
-            {!useDots && <span>A single coloured circle = fewer than {effPerDot} votes for any party (colour = leader)</span>}
+            {useDots
+              ? <span><b>1 dot = {effPerDot} vote{effPerDot === 1 ? '' : 's'} at this zoom</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}): scattered at random inside the SA3 area of each voting place. Zoom in for one dot per vote; zoomed out, each dot stands for more. Dark marks are the voting places</span>
+              : <span><b>Pie area ∝ votes counted at the voting place</b> ({voteType === 'party' ? 'party vote' : 'electorate vote'}); slices are party shares, starting at 12 o'clock with the largest</span>}
             {legend.map((x) => (
               <span key={x.abbrev}>
                 <svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill={x.color} /></svg>

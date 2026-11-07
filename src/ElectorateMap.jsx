@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { clusterMarkup } from './dots.js'
+import { pieMarkup, pieRadius } from './pies.js'
 import { areaGeo, dotGeo, scaleForZoom } from './sa3.js'
 
 // Real map (MapTiler tiles via MapLibre GL) with the electorate outline and booths
@@ -18,7 +18,7 @@ function boothFeatures(booths) {
     type: 'FeatureCollection',
     features: booths.map((b) => ({
       type: 'Feature',
-      properties: { counted: b.counted ? 1 : 0, color: b.color || AMBER, title: b.title, plain: !b.counted || !b.dots?.length ? 1 : 0 },
+      properties: { counted: b.counted ? 1 : 0, color: b.color || AMBER, title: b.title, plain: !b.counted || !(b.total > 0) ? 1 : 0 },
       geometry: { type: 'Point', coordinates: [b.lon, b.lat] },
     })),
   }
@@ -31,9 +31,7 @@ function outlineFeature(rings) {
   }
 }
 
-const dotSize = (zoom) => Math.round(Math.min(12, Math.max(4, 4 + (zoom - 10) * 1.4)))
-
-export default function ElectorateMap({ rings, booths, bounds, label, fallback, fullscreen, mode = 'clusters', areas, dots, fixedScale, onScale }) {
+export default function ElectorateMap({ rings, booths, bounds, label, fallback, fullscreen, mode = 'pies', areas, dots, fixedScale, onScale }) {
   const box = useRef(null)
   const mapRef = useRef(null)
   const [failed, setFailed] = useState(false)
@@ -130,7 +128,7 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
     map.setFilter('dots', k > 1 ? ['==', ['%', ['get', 'i'], k], 0] : null)
     onScale?.(k)
   }, [ready, k]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Dot clusters (one dot per N votes per party) as HTML markers, largest first so small ones sit on top.
+  // Pie charts (area proportional to votes) as HTML markers, largest first so small ones sit on top.
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map) return undefined
@@ -141,10 +139,9 @@ export default function ElectorateMap({ rings, booths, bounds, label, fallback, 
       markers.current.forEach((m) => m.remove())
       markers.current = []
       if (mode === 'dots') return
-      const D = dotSize(zoom)
-      const list = (booths || []).filter((b) => b.counted && b.dots?.length).sort((a, b) => b.dots.length - a.dots.length)
+      const list = (booths || []).filter((b) => b.counted && b.total > 0).sort((a, b) => b.total - a.total)
       for (const b of list) {
-        const { svg } = clusterMarkup(b.dots, D)
+        const { svg } = pieMarkup(b.grouped, b.total, pieRadius(b.total, zoom))
         const el = document.createElement('div')
         el.className = 'ed-cluster'
         el.innerHTML = svg
