@@ -83,3 +83,5 @@ h2 { font-size:1.3rem; }
 @media (max-width:560px) { .ptable .bw { display:none; } .statbar b { font-size:1.5rem; } }
 .layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:36px; align-items:start; }
 @media (max-width:900px) { .layout { grid-template-columns:1fr; } }
+/* Faint sea tint + frame so each pane reads as a map now that the ocean is clipped out */
+.nzpane svg { background:#eaf0f6; border:1px solid var(--ln); }

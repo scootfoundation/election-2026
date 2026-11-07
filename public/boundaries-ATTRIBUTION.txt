@@ -13,5 +13,13 @@ Sources (accessed 2026-11-07):
 Required attribution: "Electorate boundaries © Representation Commission, Stats NZ, licensed under CC BY 4.0."
 
 Changes made: downloaded in WGS84 (EPSG:4326), matched to electorate ids by name (71/71 matched),
-simplified (Visvalingam, 4% of vertices, shapes kept), coordinates rounded to 4 decimal places.
+clipped to the coastline (see land mask below) and simplified, coordinates rounded to 4 decimal places.
 The derived file is not an official product and is not the Representation Commission's data itself.
+
+Land mask (boundaries clipped to coastline, land only):
+- Source: Natural Earth 10m Land (ne_10m_land), version 5.1.1: see https://www.naturalearthdata.com/downloads/10m-physical-vectors/10m-land/
+- Download: https://naciscdn.org/naturalearth/10m/physical/ne_10m_land.zip (accessed 2026-11-07)
+- Licence: public domain (Natural Earth terms of use: https://www.naturalearthdata.com/about/terms-of-use/). No attribution is legally required; credit to Natural Earth is appreciated.
+- Method: all 11 land polygons dissolved into one mask; each electorate clipped separately to the mask (mapshaper), then simplified (Visvalingam, 5% of vertices, shapes kept), sliver parts under 0.5 km2 dropped, coordinates rounded to 4 decimal places.
+- Note: the Natural Earth 10m mask is generalised. Small harbours and inlets may be filled or coarsely drawn, and islands under about 1 km2 are excluded.
+- Not used: the Stats NZ Territorial Authority 2025 and Regional Council 2025 layers, which are not clipped to the coastline (their total area is about 429,000 km2 against about 265,000 km2 of land).
