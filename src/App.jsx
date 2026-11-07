@@ -281,7 +281,7 @@ export default function App() {
         <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
         <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
         <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
-        <div><b>{totalSeats} <small>of {parliamentSize}</small></b><span>seats projected</span></div>
+        <div><b>{overhang}</b><span>overhang seats{overhang > 0 ? ` (${parliamentSize}-seat parliament)` : ''}</span></div>
       </section>
 
       <div className="layout">
