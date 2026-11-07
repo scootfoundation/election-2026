@@ -24,7 +24,8 @@ const fmtPp = (v) => {
 const errText = (e) => e?.message || 'Could not load'
 
 // Party abbreviation for a p_no, falling back to the raw id.
-const partyAbbrev = (meta, pno) => meta?.parties?.[pno]?.abbrev ?? String(pno)
+// p_no 0 (or an unknown id) means the candidate is not standing for a party.
+const partyAbbrev = (meta, pno) => meta?.parties?.[pno]?.abbrev ?? (String(pno) === '0' || pno == null || pno === '' ? 'Independent' : String(pno))
 
 // "Name (ABBR)" for the candidate with the most votes in a booth, else the top party.
 function leaderLabel(b, meta) {
