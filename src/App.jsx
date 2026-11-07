@@ -7,6 +7,7 @@ import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import UpdatesFeed from './UpdatesFeed.jsx'
+import Forecast from './Forecast.jsx'
 import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
 import WINNERS_2023 from './winners2023.js'
@@ -133,6 +134,7 @@ function RaceCard({ r, onOpen, note }) {
 const PAGES = [
   ['overview', 'Overview'],
   ['watch', 'Seats to watch'],
+  ['forecast', 'Forecast'],
   ['electorates', 'Electorates'],
   ['about', 'About & data'],
 ]
@@ -179,6 +181,18 @@ export default function App() {
     loadNational()
       .then((n) => { if (live) { setNat(n); setLastOk(new Date()); setError(null) } })
       .catch((e) => { if (live) setError(e.message) })
+    return () => { live = false }
+  }, [cycle])
+
+  // Booth-lean forecast (generated from booth-level results compared with 2023).
+  const [forecast, setForecast] = useState(null)
+  const [forecastError, setForecastError] = useState(null)
+  useEffect(() => {
+    let live = true
+    fetch(`${import.meta.env.BASE_URL}forecast.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then((j) => { if (live) { setForecast(j); setForecastError(null) } })
+      .catch((e) => { if (live) setForecastError(e.message) })
     return () => { live = false }
   }, [cycle])
 
@@ -513,6 +527,19 @@ export default function App() {
       </>
       )}
 
+      {page === 'forecast' && (
+        <Forecast
+          forecast={forecast}
+          error={forecastError}
+          rows={rows}
+          colorOf={colorOf}
+          shortName={shortName}
+          entitlements={entitlements}
+          blocDefs={BLOCS}
+          majorityOf={(n) => Math.floor(n / 2) + 1}
+        />
+      )}
+
       {page === 'electorates' && (
       <>
       <section className="sec">
@@ -617,7 +644,7 @@ export default function App() {
           <h3 className="subhead">Polls and 2023 comparisons</h3>
           <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
           <h3 className="subhead">Maps and electorates</h3>
-          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. The Forecast tab compares each booth counted so far with the same booth in 2023 (matched by address) to estimate whether the booths still to come lean one way, then recomputes the party vote and seats on that basis; it is a rough guide, not a prediction. Seats to watch has two parts. <b>Seats that have flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). The closest races list up to 24 races where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
           <h3 className="subhead">Live updates</h3>
           <p>A small service watches the Commission's feed every minute and records electorate seats changing hands, projected seat changes, overhang changes, voting places counted and finished electorates. It appears in the Updates panel on every page (a button on narrow screens) and started recording when this feature was switched on.</p>
           <h3 className="subhead">Data and licences</h3>

@@ -193,3 +193,6 @@ h2 { font-size:1.3rem; }
 
 .feed-sheet .uf-head { padding-right:56px; }
 .feed-sheet > .uf-root { border:0; }
+.forecast .lede { max-width:70ch; }
+.forecast-call { font:600 1rem/1.45 var(--sans); max-width:75ch; margin:10px 0; }
+.forecast-cover { line-height:1.55; max-width:75ch; }
