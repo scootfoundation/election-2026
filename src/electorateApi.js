@@ -22,14 +22,16 @@ const coord = (el, tag) => {
   return Number.isFinite(n) ? n : null
 }
 
+// Lookup files that don't change during the count: let the browser cache them.
+const STATIC = /^(votingplaces|candidates|parties|electorates|statistics)\.xml$/
+
 async function fetchText(path) {
+  const isStatic = STATIC.test(path)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
-    const res = await fetch(`${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
+    const url = isStatic ? `${DATA_BASE}/${path}` : `${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`
+    const res = await fetch(url, { cache: isStatic ? 'default' : 'no-store', signal: controller.signal })
     if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
     return await res.text()
   } catch (err) {

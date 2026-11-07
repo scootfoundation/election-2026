@@ -5,8 +5,13 @@ export const DATA_BASE = (import.meta.env.VITE_DATA_BASE || '/xml').replace(/\/$
 const txt = (el, tag) => el?.getElementsByTagName(tag)[0]?.textContent?.trim() ?? ''
 const num = (el, tag) => Number(txt(el, tag)) || 0
 
+// Lookup files that don't change during the count can be cached by the browser.
+const STATIC = /^(candidates|parties|electorates|statistics)\.xml$/
+
 async function getXml(path) {
-  const res = await fetch(`${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`, { cache: 'no-store' })
+  const isStatic = STATIC.test(path)
+  const url = isStatic ? `${DATA_BASE}/${path}` : `${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`
+  const res = await fetch(url, { cache: isStatic ? 'default' : 'no-store' })
   if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
   const doc = new DOMParser().parseFromString(await res.text(), 'application/xml')
   if (doc.querySelector('parsererror')) throw new Error(`${path}: invalid XML`)
