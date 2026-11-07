@@ -102,18 +102,21 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
 
   return (
     <section className="sec forecast">
-      <div className="kicker">Forecast</div>
-      <h2>Where the incoming booths lean</h2>
+      <div className="fc-titlerow">
+        <div>
+          <div className="kicker">Forecast</div>
+          <h2>Where the incoming booths lean</h2>
+        </div>
+        {hasSp && (
+          <label className="fc-toggle" title={`Adds about ${fmt(f.progress.specialVotes)} special votes (${Math.round(f.progress.specialShare * 100)}% on top), split the way 2023 specials split: more Green, Te Pāti Māori and Opportunity, less NZ First, ACT and National`}>
+            <button type="button" role="switch" aria-checked={withSp} className="uf-switch" onClick={() => setWithSp(!withSp)} />
+            <span>Estimated special votes</span>
+          </label>
+        )}
+      </div>
       <p className="lede muted fc-lede">
         Each booth counted so far is compared with <b>the same booth in 2023</b>; that swing is applied to the booths still to come, nationally and seat by seat. Updated {at}.
       </p>
-
-      {hasSp && (
-        <label className="fc-toggle">
-          <button type="button" role="switch" aria-checked={withSp} className="uf-switch" onClick={() => setWithSp(!withSp)} />
-          <span><b>Include estimated special votes</b> <span className="muted">(about {fmt(f.progress.specialVotes)} votes, {Math.round(f.progress.specialShare * 100)}% on top, split the way 2023 specials split: more Green, Te Pāti Māori and Opportunity, less NZ First, ACT and National)</span></span>
-        </label>
-      )}
 
       {model && (
         <>

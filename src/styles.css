@@ -216,6 +216,9 @@ h2 { font-size:1.3rem; }
 .headline { font:700 clamp(1.8rem,5vw,2.6rem)/1.1 var(--sans); margin:4px 0; letter-spacing:-.5px; }
 .headline + .lede { margin-bottom:18px; }
 
-.fc-toggle { display:flex; gap:10px; align-items:flex-start; margin:6px 0 10px; padding:8px 10px; border:1px solid var(--ln); background:var(--card); font:.88rem/1.35 var(--sans); max-width:75ch; }
-.fc-toggle .uf-switch { flex:none; margin-top:2px; }
 .fc-etable th, .fc-etable td { text-align:left; }
+.fc-titlerow { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+.fc-toggle { display:inline-flex; gap:8px; align-items:center; font:600 .8rem var(--sans); cursor:pointer; padding-bottom:4px; }
+.fc-toggle .uf-switch { width:30px; height:17px; }
+.fc-toggle .uf-switch::after { width:11px; height:11px; }
+.fc-toggle .uf-switch[aria-checked="true"]::after { transform:translateX(13px); }
