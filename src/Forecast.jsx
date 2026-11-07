@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Parliament from './Parliament.jsx'
 
 // "Forecast" page: compares the 2026 booths counted so far with the same booths in 2023
@@ -15,7 +15,19 @@ const IND_GREY = '#8a8f98'
 const chance = (h) => (h >= 0.95 ? 'Safe' : h >= 0.8 ? 'Likely' : h >= 0.6 ? 'Leaning' : 'Toss-up')
 
 export default function Forecast({ forecast, error, rows, colorOf, shortName, entitlements, blocDefs, majorityOf }) {
-  const f = forecast
+  const [withSp, setWithSp] = useState(true)
+  const raw = forecast
+  const hasSp = !!(raw && raw.ready && raw.progress && raw.progress.specialShare > 0 && raw.parties.some((x) => x.projectedPctSp != null))
+  const sp = withSp && hasSp
+  // Switch every projected figure to the "including special votes" version when the toggle is on.
+  const f = useMemo(() => {
+    if (!raw || !raw.ready || !sp) return raw
+    return {
+      ...raw,
+      parties: raw.parties.map((x) => ({ ...x, projectedVotes: x.projectedVotesSp, projectedPct: x.projectedPctSp })),
+      electorates: raw.electorates ? raw.electorates.map((e) => (e.sp ? { ...e, projLead: e.sp.projLead, projMargin: e.sp.projMargin, flips: e.sp.flips, hold: e.sp.hold } : e)) : raw.electorates,
+    }
+  }, [raw, sp])
   const els = f && f.electorates && f.electorates.length ? f.electorates : null
   const model = useMemo(() => {
     if (!f || !f.ready) return null
@@ -96,6 +108,13 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
         Each booth counted so far is compared with <b>the same booth in 2023</b>; that swing is applied to the booths still to come, nationally and seat by seat. Updated {at}.
       </p>
 
+      {hasSp && (
+        <label className="fc-toggle">
+          <button type="button" role="switch" aria-checked={withSp} className="uf-switch" onClick={() => setWithSp(!withSp)} />
+          <span><b>Include estimated special votes</b> <span className="muted">(about {fmt(f.progress.specialVotes)} votes, {Math.round(f.progress.specialShare * 100)}% on top, split the way 2023 specials split: more Green, Te Pāti Māori and Opportunity, less NZ First, ACT and National)</span></span>
+        </label>
+      )}
+
       {model && (
         <div className="fc-top">
           <div className="fc-left">
@@ -120,7 +139,7 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
               </p>
             )}
             <p className="muted small">
-              Party-vote seats use the projected national vote (Sainte-Laguë). {els ? 'Electorate seats go to each seat’s projected winner.' : 'Electorate seats are as they stand now.'}
+              {sp ? 'Includes estimated special votes. ' : 'Booths only, special votes excluded. '}Party-vote seats use the projected national vote (Sainte-Laguë). {els ? 'Electorate seats go to each seat’s projected winner.' : 'Electorate seats are as they stand now.'}
             </p>
           </div>
           <div className="fc-right"><Parliament parties={model.seated} groups={model.groups} /></div>
@@ -179,10 +198,10 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           <li><b>{fmt(p.boothsCounted)}</b> of {fmt(p.boothsTotal)} voting places have reported; <b>{fmt(p.matchedCounted)}</b> of those match a 2023 booth, and <b>{fmt(p.matchedUncounted)}</b> matched booths are still to come.</li>
           <li>Matched booths hold about <b>{Math.round(p.matchedFraction * 100)}%</b> of 2023 votes in real polling places; unmatched places are assumed to behave like matched ones.</li>
           <li>Turnout in the same booths is running at <b>{(p.turnoutRatio * 100).toFixed(0)}%</b> of 2023; about <b>{fmt(p.incomingVotes)}</b> more votes are expected from booths still to report.</li>
-          {els && <li><b>Seat by seat:</b> for each electorate we use only its own matched booths (voters enrolled there who voted in the same electorate) to estimate how many votes are still to come and how the incoming booths lean. 2023 booth data is party vote only and boundaries changed, so the party's 2023 lean is applied to its candidate as a proxy. Seats with no matched booths use the national turnout ratio and no lean. “Hold chance” is a rough allowance for booth-to-booth variation and special votes, not a calibrated probability.</li>}
+          {els && <li><b>Seat by seat:</b> for each electorate we use only its own matched booths (voters enrolled there who voted in the same electorate) to estimate how many votes are still to come and how the incoming booths lean. 2023 booth data is party vote only and boundaries changed, so the party's 2023 lean is applied to its candidate as a proxy. Seats with no matched booths use the national turnout ratio and no lean. “Hold chance” is a rough allowance for booth-to-booth variation and (with the toggle off) special votes, not a calibrated probability.</li>}
         </ul>
         <p className="muted small">
-          <b>Not included:</b> special votes (a sizeable share that often lean differently), mobile teams, care homes and unmatched booths. Booths are matched by address, so a few matches may be wrong where venues moved.
+          <b>Special votes:</b> {hasSp ? 'estimated by assuming 2026 specials are the same share of the vote as in 2023 (19%) and split between parties as they were then; switch the toggle off to see booths only.' : 'not included.'} <b>Not included:</b> mobile teams, care homes and unmatched booths. Booths are matched by address, so a few matches may be wrong where venues moved.
           Early booths aren't a random sample, which is why we look at the lean, but this remains a rough guide, not a prediction of the official result.
         </p>
       </details>
