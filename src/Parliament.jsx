@@ -55,7 +55,7 @@ function buildSeats(total) {
 
 const seatsOf = (p) => Math.max(0, Math.floor(Number(p && p.seats) || 0))
 
-export default function Parliament({ parties = [] }) {
+export default function Parliament({ parties = [], groups }) {
   const m = useMemo(() => {
     const allocated = parties.reduce((t, p) => t + seatsOf(p), 0)
     const total = Math.max(120, allocated)
@@ -100,15 +100,24 @@ export default function Parliament({ parties = [] }) {
           {m.majority} to govern{m.overhang > 0 ? ` · incl. ${m.overhang} overhang` : ''}
         </div>
         {seated.length > 0 ? (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {seated.map((p) => (
-              <li key={p.abbrev} style={{ display: 'flex', alignItems: 'center', gap: '0.5em', whiteSpace: 'nowrap' }}>
-                <span style={{ width: '0.8em', height: '0.8em', borderRadius: '50%', background: p.color, flex: 'none' }} />
-                <span>{p.name}</span>
-                <b style={{ marginLeft: 'auto', fontFamily: 'var(--sans)' }}>{seatsOf(p)}</b>
-              </li>
-            ))}
-          </ul>
+          (groups && groups.length ? groups.filter((g) => g.parties.length) : [{ key: 'all', label: null, color: null, seats: null, parties: seated }]).map((g) => (
+            <div key={g.key} style={{ marginTop: g.label ? '0.35em' : 0 }}>
+              {g.label && (
+                <div style={{ display: 'flex', font: '700 0.78em var(--sans)', letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: `2px solid ${g.color}`, paddingBottom: '0.1em', marginBottom: '0.15em' }}>
+                  <span>{g.label}</span><span style={{ marginLeft: 'auto' }}>{g.seats}</span>
+                </div>
+              )}
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {g.parties.map((p) => (
+                  <li key={p.abbrev} style={{ display: 'flex', alignItems: 'center', gap: '0.5em', whiteSpace: 'nowrap' }}>
+                    <span style={{ width: '0.8em', height: '0.8em', borderRadius: '50%', background: p.color, flex: 'none' }} />
+                    <span>{p.name}</span>
+                    <b style={{ marginLeft: 'auto', fontFamily: 'var(--sans)' }}>{seatsOf(p)}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         ) : (
           <div className="muted">Seats appear as results come in.</div>
         )}

@@ -106,3 +106,14 @@ h2 { font-size:1.3rem; }
 .ptable { font-size:.88rem; }
 .ptable td, .ptable th { padding-left:3px; padding-right:3px; }
 .ptable th { font-size:.62rem; letter-spacing:.06em; }
+
+/* Seat blocs */
+.blocs { display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px; margin:10px 0 6px; }
+.bloc { border-top:4px solid var(--ln); padding-top:4px; display:flex; flex-direction:column; line-height:1.2; }
+.bloc-name { font:700 .68rem var(--sans); letter-spacing:.08em; text-transform:uppercase; }
+.bloc b { font:700 1.7rem/1.1 var(--sans); }
+.bloc-sub { color:var(--mu); font-size:.74rem; }
+.bloc-note { font:600 .74rem var(--sans); margin-top:2px; }
+.blocbar { position:relative; display:flex; height:10px; margin:2px 0 14px; background:var(--card); }
+.blocbar i { display:block; height:100%; }
+.blocmark { position:absolute; top:-4px; bottom:-4px; width:2px; background:var(--fg); }

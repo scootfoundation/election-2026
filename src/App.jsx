@@ -16,8 +16,15 @@ const COLORS = {
 }
 export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
-const SEAT_LEFT = ['LAB', 'TPMAO', 'GP'] // left bench, then round the top
-const SEAT_RIGHT = ['ACT', 'NZF', 'NAT'] // ...down to the right bench
+// Blocs for the seat summary. Order inside each list is the seating order along the
+// chamber (left bench first). Independents are added to the opposition; parties not
+// listed here (if any win seats) are shown separately as "Other".
+const BLOCS = {
+  govt: { label: 'Government', color: '#1f6fb5', abbrevs: ['ACT', 'NZF', 'NAT'] },
+  cross: { label: 'Cross-bench', color: '#0b8a8a', abbrevs: ['OPP'] },
+  opp: { label: 'Opposition', color: '#d4373d', abbrevs: ['LAB', 'TPMAO', 'GP', 'TTTP'] },
+}
+const IND_COLOR = '#8a8f98'
 // Parties expected to be competitive for seats, shown in the main list. Everything
 // else registered goes in the "Other parties" list below. Edit by feed abbreviation.
 const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TPMAO', 'TTTP', 'OPP']
@@ -132,6 +139,20 @@ export default function App() {
     return out
   }, [leaders, meta])
 
+  // Independents (and any candidate whose party isn't in the feed's party list) currently
+  // leading an electorate. The feed's party totals don't include them.
+  const indSeats = useMemo(() => {
+    if (!meta || !nat) return 0
+    const known = new Set(nat.parties.map((p) => String(p.id)))
+    let n = 0
+    for (const d of Object.values(leaders)) {
+      const lead = d.cands?.[0]
+      const c = lead && lead.votes > 0 ? meta.candidates[lead.id] : null
+      if (c && !known.has(String(c.party))) n++
+    }
+    return n
+  }, [leaders, meta, nat])
+
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
   const progress = useMemo(() => {
     const out = {}
@@ -147,15 +168,33 @@ export default function App() {
   const rows = nat.parties
     .map((p) => ({ ...p, ...meta.parties[p.id] }))
     .sort((a, b) => b.votes - a.votes || b.seats - a.seats || a.name.localeCompare(b.name))
-  const totalSeats = rows.reduce((s, r) => s + r.seats, 0)
+  const toSeat = (r) => ({ abbrev: r.abbrev, name: shortName(r), seats: r.seats, color: colorOf(r.abbrev) })
+  const byAbbrev = Object.fromEntries(rows.map((r) => [r.abbrev, r]))
+  const inBloc = (key) => BLOCS[key].abbrevs.map((a) => byAbbrev[a]).filter((r) => r && r.seats > 0).map(toSeat)
+  const indParty = indSeats > 0 ? [{ abbrev: 'IND', name: 'Independents', seats: indSeats, color: IND_COLOR }] : []
+  const grouped = new Set(Object.values(BLOCS).flatMap((b) => b.abbrevs))
+  const otherParties = rows.filter((r) => r.seats > 0 && !grouped.has(r.abbrev)).map(toSeat)
+  const bloc = {
+    opp: [...inBloc('opp'), ...indParty],
+    cross: inBloc('cross'),
+    other: otherParties,
+    govt: inBloc('govt'),
+  }
+  const sum = (list) => list.reduce((t, p) => t + p.seats, 0)
+  const blocSeats = { govt: sum(bloc.govt), cross: sum(bloc.cross), opp: sum(bloc.opp), other: sum(bloc.other) }
+  const totalSeats = blocSeats.govt + blocSeats.cross + blocSeats.opp + blocSeats.other
   // Overhang: parliament grows beyond 120 when a party wins more electorate seats than its party vote entitles it to.
   const parliamentSize = Math.max(120, totalSeats)
   const overhang = parliamentSize - 120
   const majority = Math.floor(parliamentSize / 2) + 1
-  const seatOrder = (r) => (SEAT_LEFT.includes(r.abbrev) ? SEAT_LEFT.indexOf(r.abbrev)
-    : SEAT_RIGHT.includes(r.abbrev) ? 1000 + SEAT_RIGHT.indexOf(r.abbrev) : 100)
-  const seated = rows.filter((r) => r.seats > 0).sort((a, b) => seatOrder(a) - seatOrder(b) || b.seats - a.seats)
-    .map((r) => ({ abbrev: r.abbrev, name: shortName(r), seats: r.seats, color: colorOf(r.abbrev) }))
+  // Chamber order, left bench to right bench: opposition, cross-bench, other, government.
+  const seated = [...bloc.opp, ...bloc.cross, ...bloc.other, ...bloc.govt]
+  const groups = [
+    { key: 'govt', label: BLOCS.govt.label, color: BLOCS.govt.color, seats: blocSeats.govt, parties: bloc.govt },
+    { key: 'cross', label: BLOCS.cross.label, color: BLOCS.cross.color, seats: blocSeats.cross, parties: bloc.cross },
+    { key: 'opp', label: BLOCS.opp.label, color: BLOCS.opp.color, seats: blocSeats.opp, parties: bloc.opp },
+    ...(blocSeats.other > 0 ? [{ key: 'other', label: 'Other parties', color: IND_COLOR, seats: blocSeats.other, parties: bloc.other }] : []),
+  ]
   const top = rows[0]
   const headline = started ? `${shortName(top)} leads early count` : 'Counting is about to begin'
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
@@ -214,7 +253,25 @@ export default function App() {
           {nat.stats.pctPlaces < 100 && (
             <p className="muted small">Based on {nat.stats.pctPlaces.toFixed(1)}% of voting places counted so far. Early projections can swing a lot as more results arrive.</p>
           )}
-          <Parliament parties={seated} />
+          <div className="blocs" role="group" aria-label="Seats by bloc">
+            {groups.map((g) => (
+              <div key={g.key} className="bloc" style={{ borderTopColor: g.color }}>
+                <span className="bloc-name">{g.label}</span>
+                <b>{g.seats}</b>
+                <span className="bloc-sub">{g.key === 'govt' ? 'NAT + ACT + NZF' : g.key === 'cross' ? 'Opportunity' : g.key === 'opp' ? 'LAB + GRN + TPM + TTT + Ind.' : ''}</span>
+                {g.key === 'govt' && started && (
+                  <span className="bloc-note">{g.seats >= majority ? `majority of ${majority}` : `${majority - g.seats} short of ${majority}`}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          {started && (
+            <div className="blocbar" aria-hidden="true">
+              {groups.filter((g) => g.seats > 0).map((g) => <i key={g.key} style={{ width: `${(g.seats / parliamentSize) * 100}%`, background: g.color }} />)}
+              <span className="blocmark" style={{ left: `${(majority / parliamentSize) * 100}%` }} title={`${majority} seats for a majority`} />
+            </div>
+          )}
+          <Parliament parties={seated} groups={groups} />
           {seated.length === 0 && (
             <p className="muted small">A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
           )}
