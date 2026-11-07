@@ -198,3 +198,6 @@ h2 { font-size:1.3rem; }
 .forecast-cover { line-height:1.55; max-width:75ch; }
 .forecast-verdict { font:700 1.35rem/1.25 var(--sans); margin:18px 0 6px; max-width:40ch; }
 .forecast-seats { max-width:520px; margin-bottom:18px; }
+.sitetitle { font:700 1.5rem/1.15 var(--sans); margin:4px 0 8px; letter-spacing:-.3px; }
+.headline { font:700 clamp(1.8rem,5vw,2.6rem)/1.1 var(--sans); margin:4px 0; letter-spacing:-.5px; }
+.headline + .lede { margin-bottom:18px; }

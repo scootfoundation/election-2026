@@ -424,10 +424,7 @@ export default function App() {
           </button>
         </div>
       </div>
-      <h1>{headline}</h1>
-      <p className="lede muted">
-        {started && asAt ? `Results as at ${asAt} NZ time. ` : ''}{seatNote}Preliminary results only; special votes are counted later and official results are due 27 November.
-      </p>
+      <h1 className="sitetitle">NZ General Election 2026</h1>
       <hr />
       {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT. The data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
       {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
@@ -440,6 +437,10 @@ export default function App() {
 
       {page === 'overview' && (
       <>
+        <h2 className="headline">{headline}</h2>
+        <p className="lede muted">
+          {started && asAt ? `Results as at ${asAt} NZ time. ` : ''}{seatNote}Preliminary results only; special votes are counted later and official results are due 27 November.
+        </p>
         <section className="statbar" aria-label="Count progress">
           <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
           <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
