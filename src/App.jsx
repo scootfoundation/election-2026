@@ -529,7 +529,7 @@ export default function App() {
           </p>
         </section>
       </div>
-      <SeatsOverTime events={events} rows={rows} colorOf={colorOf} shortName={shortName} />
+      <SeatsOverTime events={events} rows={rows} colorOf={colorOf} shortName={shortName} blocDefs={BLOCS} />
       </>
       )}
 

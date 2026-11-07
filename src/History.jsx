@@ -67,7 +67,62 @@ function Lines({ series, colorOf, label, yMax, height = 240, marks, unit = '' })
   )
 }
 
-export function SeatsOverTime({ events, rows, colorOf, shortName, majority }) {
+const STATES = {
+  nat: { label: 'National-led majority', short: 'National can govern', fill: '#1f6fb5' },
+  lab: { label: 'Labour-led majority', short: 'Labour can govern', fill: '#d4373d' },
+  kingmaker: { label: 'Opportunity is the kingmaker', short: 'Opportunity kingmaker', fill: '#0b8a8a' },
+  natx: { label: 'National needs Opportunity', short: 'National needs Opportunity', fill: 'url(#stripe-nat)' },
+  labx: { label: 'Labour needs Opportunity', short: 'Labour needs Opportunity', fill: 'url(#stripe-lab)' },
+  none: { label: 'Neither side has a path', short: 'No path yet', fill: '#c9ccd1' },
+}
+const swatch = { nat: '#1f6fb5', lab: '#d4373d', kingmaker: '#0b8a8a', natx: 'repeating-linear-gradient(135deg,#1f6fb5 0 5px,#0b8a8a 5px 9px)', labx: 'repeating-linear-gradient(135deg,#d4373d 0 5px,#0b8a8a 5px 9px)', none: '#c9ccd1' }
+
+// Government-formation state from seats by party (same rules as the Overview headline).
+function govState(seats, blocDefs) {
+  const sum = (ab) => ab.reduce((t, a) => t + (seats[a] || 0), 0)
+  const G = sum(blocDefs.govt.abbrevs), X = sum(blocDefs.cross.abbrevs), O = sum(blocDefs.opp.abbrevs)
+  const size = Math.max(120, Object.values(seats).reduce((t, n) => t + n, 0))
+  const maj = Math.floor(size / 2) + 1
+  const key = G >= maj ? 'nat' : O >= maj ? 'lab' : G + X >= maj && O + X >= maj ? 'kingmaker' : G + X >= maj ? 'natx' : O + X >= maj ? 'labx' : 'none'
+  return { key, G, X, O, maj }
+}
+
+function GovtTimeline({ series, blocDefs }) {
+  const W = 760, L = 34, R = 92, H = 74
+  const { t0, t1, by } = series
+  const X = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R)
+  const at = (pts, t) => { let v = pts[0].v; for (const q of pts) { if (q.t <= t) v = q.v; else break } return v }
+  const times = [...new Set([...by.values()].flatMap((pts) => pts.map((q) => q.t)))].sort((a, b) => a - b)
+  const segs = []
+  for (const t of times) {
+    const seats = {}
+    for (const [k, pts] of by) seats[k] = at(pts, t)
+    const st = govState(seats, blocDefs)
+    const last = segs[segs.length - 1]
+    if (last && last.key === st.key) { last.end = t; last.st = st } else { if (last) last.end = t; segs.push({ key: st.key, start: t, end: t, st }) }
+  }
+  if (segs.length) segs[segs.length - 1].end = t1
+  const used = [...new Set(segs.map((g) => g.key))]
+  return (
+    <>
+      <svg className="hist-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Which side could form a government, over time">
+        <defs>
+          <pattern id="stripe-nat" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="#1f6fb5" /><rect width="4" height="9" fill="#0b8a8a" /></pattern>
+          <pattern id="stripe-lab" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="#d4373d" /><rect width="4" height="9" fill="#0b8a8a" /></pattern>
+        </defs>
+        {segs.map((g, i) => (
+          <rect key={i} x={X(g.start)} y="6" width={Math.max(1.5, X(g.end) - X(g.start))} height="34" fill={STATES[g.key].fill}>
+            <title>{`${STATES[g.key].label} from ${clock(g.start)} (Govt ${g.st.G}, Opportunity ${g.st.X}, Opposition ${g.st.O}; ${g.st.maj} needed)`}</title>
+          </rect>
+        ))}
+        {xTicks(t0, t1).map((t) => <g key={t}><line x1={X(t)} x2={X(t)} y1="40" y2="45" stroke="var(--mu)" /><text x={X(t)} y="58" textAnchor="middle" className="hist-tick">{hf.format(new Date(t)).toLowerCase().replace(' ', '')}</text></g>)}
+      </svg>
+      <div className="hist-legend">{used.map((k) => <span key={k}><i className="hist-sw" style={{ background: swatch[k] }} />{STATES[k].label}</span>)}</div>
+    </>
+  )
+}
+
+export function SeatsOverTime({ events, rows, colorOf, shortName, majority, blocDefs }) {
   const now = Date.now()
   const model = useMemo(() => {
     const seat = (events || []).filter((e) => e && e.type === 'seats').map((e) => ({ key: e.abbrev, from: e.from, to: e.to, t: e.t }))
@@ -84,7 +139,14 @@ export function SeatsOverTime({ events, rows, colorOf, shortName, majority }) {
     <section className="sec hist">
       <div className="kicker">How the count has moved</div>
       <h2>Projected seats through the night</h2>
-      <p className="muted small">Each line is a party's projected seats (party vote plus electorates), recorded since {clock(model.s.t0)}. A step is a change as results came in; the chart starts at the first change recorded, so earlier movement isn't shown.</p>
+      <p className="muted small">Each line is a party's projected seats (party vote plus electorates), recorded since {clock(model.s.t0)}. A step is a change as results came in; the charts start at the first change recorded, so earlier movement isn't shown. Independents aren't in this series, so the majority threshold can be a seat or two out.</p>
+      {blocDefs && (
+        <>
+          <h3 className="subhead">Who could form a government</h3>
+          <GovtTimeline series={model.s} blocDefs={blocDefs} />
+        </>
+      )}
+      <h3 className="subhead">Seats by party</h3>
       <Lines series={model.s} colorOf={colorOf} label="Projected seats by party over time" yMax={yMax} marks={majority ? [{ v: majority, label: `${majority} majority` }] : null} />
       <div className="hist-legend">{[...model.s.by.keys()].map((a) => <span key={a}><i style={{ background: colorOf(a) }} />{nameOf(a)}</span>)}</div>
       {model.o && (

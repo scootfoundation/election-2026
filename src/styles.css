@@ -309,3 +309,4 @@ h2 { font-size:1.3rem; }
 .mp-ava img { width:100%; height:100%; object-fit:cover; object-position:top; display:block; }
 .mp-ava span { font:700 .72rem var(--sans); color:#fff; }
 .mp-row { padding:5px 2px; }
+.hist-sw { display:inline-block; width:18px !important; height:10px !important; margin-right:5px; vertical-align:middle; }
