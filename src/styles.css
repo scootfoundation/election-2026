@@ -198,6 +198,20 @@ h2 { font-size:1.3rem; }
 .forecast-cover { line-height:1.55; max-width:75ch; }
 .forecast-verdict { font:700 1.35rem/1.25 var(--sans); margin:18px 0 6px; max-width:40ch; }
 .forecast-seats { max-width:520px; margin-bottom:18px; }
+.fc-lede { margin:4px 0 10px; }
+.fc-top { display:grid; grid-template-columns:minmax(0,1fr); gap:6px 24px; align-items:start; }
+@media (min-width:900px) { .fc-top { grid-template-columns:minmax(0,1fr) minmax(0,400px); } }
+.fc-top .forecast-verdict { margin:6px 0 4px; font-size:1.2rem; }
+.fc-top .forecast-call { font-size:.92rem; margin:8px 0 4px; }
+.fc-note { margin:2px 0 6px; }
+.fc-table th, .fc-table td { padding:4px 8px; font-size:.88rem; }
+.fc-more { margin:10px 0; }
+.fc-more summary { cursor:pointer; font:600 .9rem var(--sans); padding:4px 0; }
+.fc-flip td { background:rgba(212,55,61,.06); }
+.fc-tag { font:700 .72rem var(--sans); text-transform:uppercase; color:#b3262c; }
+.fc-chance { font:600 .78rem var(--sans); padding:1px 7px; border-radius:9px; background:#eef0f3; white-space:nowrap; }
+.fc-tossup { background:#fde7c8; } .fc-leaning { background:#fff3d6; } .fc-safe { background:#e3f2e6; }
+.forecast .subhead { margin:16px 0 4px; }
 .sitetitle { font:700 1.5rem/1.15 var(--sans); margin:4px 0 8px; letter-spacing:-.3px; }
 .headline { font:700 clamp(1.8rem,5vw,2.6rem)/1.1 var(--sans); margin:4px 0; letter-spacing:-.5px; }
 .headline + .lede { margin-bottom:18px; }
