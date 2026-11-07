@@ -74,10 +74,10 @@ export default function HexMap({ fills = {}, selectedId, onSelect }) {
           key={g.label}
           x={g.x}
           y={g.y}
-          textAnchor="middle"
+          textAnchor={g.anchor || 'middle'}
           dominantBaseline="central"
           fontFamily="sans-serif"
-          fontSize={10}
+          fontSize={13}
           fontWeight={700}
           style={{ fill: 'var(--fg)', pointerEvents: 'none' }}
         >
@@ -116,8 +116,9 @@ export default function HexMap({ fills = {}, selectedId, onSelect }) {
               textAnchor="middle"
               dominantBaseline="central"
               fontFamily="sans-serif"
-              fontSize={7}
+              fontSize={8.5}
               fill={textFill}
+              className="hex-label"
               style={{ pointerEvents: 'none' }}
             >
               {p.short}

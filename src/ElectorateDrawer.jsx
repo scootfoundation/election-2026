@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadElectorateDetail, loadVotingPlaces, loadBoothResults } from './electorateApi.js'
+import { loadBoundary } from './boundaries.js'
 
 const DETAIL_MS = 30_000
 const BOOTHS_MS = 60_000
@@ -39,10 +40,11 @@ function leaderLabel(b, meta) {
 
 // Linear projection with a cos(latitude) correction so east-west distances look
 // right. Aspect ratio is preserved and the result is centred in the viewBox.
-function projectPoints(points) {
-  if (!points.length) return []
-  const lats = points.map((p) => p.lat)
-  const lons = points.map((p) => p.lon)
+function makeProjector(coords) {
+  // coords: [{lat, lon}] defining the extent (the boundary, or booths if none)
+  if (!coords.length) return null
+  const lats = coords.map((p) => p.lat)
+  const lons = coords.map((p) => p.lon)
   const minLat = Math.min(...lats)
   const maxLat = Math.max(...lats)
   const minLon = Math.min(...lons)
@@ -53,11 +55,7 @@ function projectPoints(points) {
   const scale = Math.min((MAP_W - 2 * MAP_PAD) / spanX, (MAP_H - 2 * MAP_PAD) / spanY)
   const offX = (MAP_W - spanX * scale) / 2
   const offY = (MAP_H - spanY * scale) / 2
-  return points.map((p) => ({
-    ...p,
-    x: offX + (p.lon - minLon) * kx * scale,
-    y: offY + (maxLat - p.lat) * scale,
-  }))
+  return (lat, lon) => ({ x: offX + (lon - minLon) * kx * scale, y: offY + (maxLat - lat) * scale })
 }
 
 export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, baseline2023 }) {
@@ -71,6 +69,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
   const [booths, setBooths] = useState(null)
   const [boothError, setBoothError] = useState(null)
   const [places, setPlaces] = useState(null)
+  const [boundary, setBoundary] = useState(null)
   const [placesError, setPlacesError] = useState(null)
 
   // Esc closes; focus moves into the dialog when it opens.
@@ -154,6 +153,15 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
     }
   }, [id])
 
+  // Electorate outline (static; loaded once per electorate).
+  useEffect(() => {
+    if (!id) return undefined
+    let alive = true
+    setBoundary(null)
+    loadBoundary(id).then((b) => { if (alive) setBoundary(b) }).catch(() => {})
+    return () => { alive = false }
+  }, [id])
+
   const swatch = (abbrev) => (abbrev && colorOf ? colorOf(abbrev) : null) || 'var(--mu)'
 
   const candidateRows = useMemo(() => {
@@ -234,21 +242,50 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
   }, [booths, places, id, meta])
 
   const reportedCount = boothRows.filter((r) => r.counted).length
-  const mapped = useMemo(
-    () =>
-      projectPoints(
-        boothRows
-          .filter((r) => r.lat != null && r.lon != null)
-          .map((r) => ({
-            key: r.key,
-            lat: r.lat,
-            lon: r.lon,
-            counted: r.counted,
-            title: `${r.address} — ${r.counted ? 'Reported' : 'Waiting'}`,
-          })),
-      ),
-    [boothRows],
-  )
+  const geo = useMemo(() => {
+    const pts = boothRows
+      .filter((r) => r.lat != null && r.lon != null)
+      .map((r) => ({ key: r.key, lat: r.lat, lon: r.lon, counted: r.counted, title: `${r.address} — ${r.counted ? 'Reported' : 'Waiting'}` }))
+    const bExtent = boundary ? boundary.flatMap((ring) => ring.map(([lon, lat]) => ({ lat, lon }))) : []
+    const box = (list) => {
+      if (!list.length) return null
+      const la = list.map((q) => q.lat); const lo = list.map((q) => q.lon)
+      return { minLat: Math.min(...la), maxLat: Math.max(...la), minLon: Math.min(...lo), maxLon: Math.max(...lo) }
+    }
+    const area = (b) => (b ? Math.max(b.maxLat - b.minLat, 1e-3) * Math.max(b.maxLon - b.minLon, 1e-3) : 0)
+    const inRing = (q, ring) => {
+      let inside = false
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i]; const [xj, yj] = ring[j]
+        if (yi > q.lat !== yj > q.lat && q.lon < ((xj - xi) * (q.lat - yi)) / (yj - yi) + xi) inside = !inside
+      }
+      return inside
+    }
+    // Booths physically inside the outline (advance/special booths elsewhere are ignored for sizing).
+    const insidePts = boundary ? pts.filter((q) => boundary.some((ring) => inRing(q, ring))) : pts
+    const bb = box(bExtent); const pb = box(insidePts)
+    // Some electorates include huge stretches of sea (e.g. Wellington Bays): if the
+    // outline is much bigger than the area the booths cover, zoom to the booths
+    // (the outline is clipped by the map frame).
+    let extent = bExtent.length ? bExtent : pts
+    if (bb && pb && insidePts.length >= 3 && area(bb) > 6 * area(pb)) {
+      const padLat = (pb.maxLat - pb.minLat) * 0.3 + 0.005
+      const padLon = (pb.maxLon - pb.minLon) * 0.3 + 0.005
+      extent = [
+        { lat: pb.minLat - padLat, lon: pb.minLon - padLon },
+        { lat: pb.maxLat + padLat, lon: pb.maxLon + padLon },
+      ]
+    }
+    const project = makeProjector(extent)
+    if (!project) return { mapped: [], paths: null }
+    const inView = (q) => q.x >= 0 && q.x <= MAP_W && q.y >= 0 && q.y <= MAP_H
+    const mapped = pts.map((p) => ({ ...p, ...project(p.lat, p.lon) })).filter(inView)
+    const paths = boundary
+      ? boundary.map((ring) => ring.map(([lon, lat], i) => { const q = project(lat, lon); return `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}` }).join('') + 'Z').join('')
+      : null
+    return { mapped, paths }
+  }, [boothRows, boundary])
+  const mapped = geo.mapped
   const unmappedCount = boothRows.length - mapped.length
 
   const pctText = detail ? `${Math.round(detail.pctPlaces)}%` : '—'
@@ -284,8 +321,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
       <div className="ed-body">
         <section className="ed-section" aria-labelledby={`${titleId}-map`}>
           <h3 id={`${titleId}-map`} className="ed-kicker">Booth map</h3>
-          {mapped.length > 0 ? (
-            <svg className="ed-map" viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Booth positions in ${name}`}>
+          {mapped.length > 0 || geo.paths ? (
+            <svg className="ed-map" style={{ overflow: 'hidden' }} viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="img" aria-label={`Map of ${name} with booth positions`}>
+              {geo.paths && <path d={geo.paths} fill="var(--card)" stroke="var(--fg)" strokeWidth={1.2} strokeLinejoin="round" />}
               {mapped.map((p) =>
                 p.counted ? (
                   <circle key={p.key} cx={p.x} cy={p.y} r={5} fill={AMBER} stroke="var(--bg)" strokeWidth={1}>
@@ -311,7 +349,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, colorOf, b
               Waiting
             </span>
           </div>
-          <p className="ed-note">Schematic booth positions — boundary map to come</p>
+          <p className="ed-note">{geo.paths ? 'Boundary: Representation Commission 2025 (CC BY 4.0). Booth positions are approximate.' : 'Booth positions only — boundary not loaded.'}</p>
           {unmappedCount > 0 && mapped.length > 0 && (
             <p className="ed-note">{unmappedCount} booth{unmappedCount === 1 ? '' : 's'} without coordinates appear in the table only.</p>
           )}

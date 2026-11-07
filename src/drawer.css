@@ -272,3 +272,16 @@
     font-size: 0.86rem;
   }
 }
+
+/* Wide screens: dock the drawer on the left so the hexagon map (right column)
+   stays visible and clickable while an electorate is open. */
+@media (min-width: 1000px) {
+  .ed-drawer {
+    right: auto;
+    left: 0;
+    width: min(480px, 42vw);
+    border-left: 0;
+    border-right: 1px solid var(--ln);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.12);
+  }
+}

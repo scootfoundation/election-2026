@@ -1,0 +1,17 @@
+Electorate boundaries: attribution and licence
+
+Data: General Electorates 2025 (64 general electorates) and Māori Electorates 2025 (7 Māori electorates)
+Publisher: Representation Commission, Stats NZ
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0) - https://creativecommons.org/licenses/by/4.0/deed.en
+
+Sources (accessed 2026-11-07):
+- General Electorates 2025: https://services2.arcgis.com/vKb0s8tBIA3bdocZ/ArcGIS/rest/services/General_Electorates_2025/FeatureServer/0
+- Māori Electorates 2025: https://services2.arcgis.com/vKb0s8tBIA3bdocZ/ArcGIS/rest/services/Māori_Electorates_2025/FeatureServer/0
+- Item page (licence): https://www.arcgis.com/home/item.html?id=b384d4cb31ee419bbb1d4921cf94f86a
+- Electorate ids and names: https://media.election.net.nz/xml/electorates.xml
+
+Required attribution: "Electorate boundaries © Representation Commission, Stats NZ, licensed under CC BY 4.0."
+
+Changes made: downloaded in WGS84 (EPSG:4326), matched to electorate ids by name (71/71 matched),
+simplified (Visvalingam, 4% of vertices, shapes kept), coordinates rounded to 4 decimal places.
+The derived file is not an official product and is not the Representation Commission's data itself.
