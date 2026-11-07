@@ -11,7 +11,7 @@ import './drawer.css'
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const COLORS = {
   NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#e8a317', NZF: '#3a3a3a',
-  TPMAO: '#b8432f', OPP: '#7a5ea8', NC: '#3aa6c4', ALCP: '#6aa84f', APN: '#c0508a',
+  TPMAO: '#b8432f', OPP: '#0b8a8a', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
 }
 export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
@@ -20,7 +20,41 @@ const SEAT_RIGHT = ['NAT', 'NZF', 'ACT']
 // Parties expected to be competitive for seats, shown in the main list. Everything
 // else registered goes in the "Other parties" list below. Edit by feed abbreviation.
 const MAIN_PARTIES = ['ACT', 'NZF', 'NAT', 'LAB', 'GP', 'TPMAO', 'TTTP', 'OPP']
+// Seats each party is entitled to from the party vote (Sainte-Laguë over 120 seats,
+// among parties with >=5% of the party vote or at least one electorate seat). A party
+// whose electorate seats exceed its entitlement has an overhang. Matches the feed's
+// own list/total seats; the feed reports only electorate, list and total seats.
+function entitlements(rows, seats = 120) {
+  const eligible = rows.filter((r) => r.pct >= 5 || r.candSeats >= 1)
+  const ent = Object.fromEntries(eligible.map((r) => [r.id, 0]))
+  for (let i = 0; i < seats && eligible.length; i++) {
+    let best = eligible[0]
+    for (const r of eligible) if (r.votes / (2 * ent[r.id] + 1) > best.votes / (2 * ent[best.id] + 1)) best = r
+    ent[best.id]++
+  }
+  return ent
+}
 const fmt = (n) => n.toLocaleString('en-NZ')
+
+function PartyRow({ r, ent, compact }) {
+  const pv = ent[r.id] ?? 0
+  const overhang = Math.max(0, r.candSeats - pv)
+  const base = NATIONAL_2023.parties[r.abbrev]?.pct
+  const started = r.votes > 0
+  const d = !compact && started && base != null ? r.pct - base : null
+  return (
+    <tr>
+      <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
+      <td>{compact ? r.pct.toFixed(1) : <b>{r.pct.toFixed(1)}</b>}</td>
+      <td>{fmt(r.votes)}</td>
+      {!compact && <td className={`delta ${d == null ? '' : d >= 0 ? 'up' : 'down'}`}>{d == null ? '–' : `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`}</td>}
+      <td>{pv}</td>
+      <td>{r.candSeats}</td>
+      <td className={overhang > 0 ? 'oh' : 'muted'}>{overhang > 0 ? overhang : '–'}</td>
+      <td><b>{r.seats}</b></td>
+    </tr>
+  )
+}
 
 export default function App() {
   const [meta, setMeta] = useState(null)
@@ -93,7 +127,6 @@ export default function App() {
   const rows = nat.parties
     .map((p) => ({ ...p, ...meta.parties[p.id] }))
     .sort((a, b) => b.votes - a.votes || b.seats - a.seats || a.name.localeCompare(b.name))
-  const maxPct = Math.max(5, ...rows.map((r) => r.pct))
   const totalSeats = rows.reduce((s, r) => s + r.seats, 0)
   // Overhang: parliament grows beyond 120 when a party wins more electorate seats than its party vote entitles it to.
   const parliamentSize = Math.max(120, totalSeats)
@@ -106,6 +139,7 @@ export default function App() {
   const top = rows[0]
   const headline = started ? `${top.name} leads early count` : 'Counting is about to begin'
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
+  const ent = entitlements(rows)
   const registered = rows.filter((r) => r.registered)
   const mainRows = registered.filter((r) => MAIN_PARTIES.includes(r.abbrev))
   const otherRows = registered.filter((r) => !MAIN_PARTIES.includes(r.abbrev))
@@ -118,13 +152,6 @@ export default function App() {
     const h = Number(m[1])
     return `${h % 12 || 12}:${m[2]} ${h >= 12 ? 'pm' : 'am'}`
   })()
-
-  const changeCell = (r) => {
-    const base = baseline[r.abbrev]
-    if (!started || base == null) return <td className="delta">–</td>
-    const d = r.pct - base
-    return <td className={`delta ${d >= 0 ? 'up' : 'down'}`}>{d >= 0 ? '+' : '−'}{Math.abs(d).toFixed(1)}</td>
-  }
 
   return (
     <main>
@@ -151,13 +178,16 @@ export default function App() {
         <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
         <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
         <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
-        <div><b>{totalSeats} <small>of {parliamentSize}</small></b><span>seats allocated</span></div>
+        <div><b>{totalSeats} <small>of {parliamentSize}</small></b><span>seats projected</span></div>
       </section>
 
       <div className="layout">
         <section>
           <div className="kicker">Parliament</div>
-          <h2>Seats won so far</h2>
+          <h2>{nat.stats.pctPlaces >= 100 ? 'Seats won' : 'Projected seats'}</h2>
+          {nat.stats.pctPlaces < 100 && (
+            <p className="muted small">Based on {nat.stats.pctPlaces.toFixed(1)}% of voting places counted so far. Early projections can swing a lot as more results arrive.</p>
+          )}
           <Parliament parties={seated} />
           {seated.length > 0 ? (
             <ul className="seatkey">
@@ -180,35 +210,32 @@ export default function App() {
           <h2>How each party is polling</h2>
           <table className="ptable">
             <thead>
-              <tr><th>Party</th><th className="bw" aria-label="Bar" /><th>Vote %</th><th>Votes</th><th title="Change in party vote share since the 2023 election, in percentage points">Change on 2023 (pts)</th><th title="Total seats: electorate wins plus list seats">Seats</th></tr>
+              <tr className="grp">
+                <th rowSpan={2}>Party</th>
+                <th colSpan={3} className="grpcell">Party vote</th>
+                <th colSpan={4} className="grpcell">Seats</th>
+              </tr>
+              <tr>
+                <th>Vote %</th>
+                <th>Votes</th>
+                <th title="Change in party vote share since the 2023 election, in percentage points">Change on 2023 (pts)</th>
+                <th title="Seats the party is entitled to from its share of the party vote">From party vote</th>
+                <th title="Electorate seats the party is currently leading (confirmed as each electorate finishes counting)">Electorates</th>
+                <th title="Electorate seats beyond the party's party-vote entitlement. These are added on top of the 120.">Overhang</th>
+                <th title="Total seats: the larger of party-vote seats and electorate seats">Total</th>
+              </tr>
             </thead>
-            <tbody>
-              {mainRows.map((r) => (
-                <tr key={r.id}>
-                  <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
-                  <td className="bw"><div className="bar"><i style={{ width: `${(r.pct / maxPct) * 100}%`, background: colorOf(r.abbrev) }} /></div></td>
-                  <td><b>{r.pct.toFixed(1)}</b></td>
-                  <td>{fmt(r.votes)}</td>
-                  {changeCell(r)}
-                  <td><b>{r.seats}</b></td>
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{mainRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} />)}</tbody>
           </table>
           <h3 className="subhead">Other parties</h3>
           <table className="ptable small">
-            <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>Seats</th></tr></thead>
-            <tbody>
-              {otherRows.map((r) => (
-                <tr key={r.id}>
-                  <td><span className="dot" style={{ background: colorOf(r.abbrev) }} />{r.name}</td>
-                  <td>{r.pct.toFixed(1)}</td>
-                  <td>{fmt(r.votes)}</td>
-                  <td>{r.seats}</td>
-                </tr>
-              ))}
-            </tbody>
+            <thead><tr><th>Party</th><th>Vote %</th><th>Votes</th><th>From party vote</th><th>Electorates</th><th>Overhang</th><th>Total</th></tr></thead>
+            <tbody>{otherRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} compact />)}</tbody>
           </table>
+          <p className="muted small">
+            <b>From party vote</b> is each party's proportional share of the 120 seats (only parties with 5% of the party vote or an electorate seat qualify).
+            <b> Electorates</b> are the seats a party is currently leading, so early numbers will move. If a party wins more electorates than its party-vote share, the extra seats are an <b>overhang</b> and parliament grows beyond 120.
+          </p>
         </section>
       </div>
 
