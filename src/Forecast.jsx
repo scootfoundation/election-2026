@@ -78,7 +78,8 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
   const p = f.progress
   const shown = f.parties.filter((x) => x.currentPct >= 1 || x.projectedPct >= 1).sort((a, b) => b.projectedPct - a.projectedPct)
   const at = f.generatedAt ? new Date(f.generatedAt).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland', timeZoneName: 'short' }) : ''
-  const top = [...f.parties].filter((x) => x.currentPct >= 3).sort((a, b) => Math.abs(b.lean) - Math.abs(a.lean))[0]
+  const nearlyDone = p.incomingVotes < 0.06 * p.currentVotes
+  const top = nearlyDone ? null : [...f.parties].filter((x) => x.currentPct >= 3).sort((a, b) => Math.abs(b.lean) - Math.abs(a.lean))[0]
   const name = (a) => shortName({ abbrev: a, name: a })
   const open = els ? els.filter((e) => !e.final && (e.flips || e.hold < 0.9)) : []
   const flips = open.filter((e) => e.flips).length
@@ -147,6 +148,9 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           <section>
             <div className="kicker">Party vote</div>
             <h2>Projected final party vote</h2>
+            {nearlyDone && (
+              <p className="forecast-call">Nearly all voting places have reported: only about {fmt(p.incomingVotes)} more votes are expected from them, too few to move the party vote much. The “incoming lean” figures below rest on very few booths.</p>
+            )}
             {top && (
               <p className="forecast-call">
                 Biggest signal: the outstanding booths lean <b>{top.lean < 0 ? 'away from' : 'towards'} {name(top.abbrev)}</b> ({sgn(top.lean)} pts vs the booths counted), so {name(top.abbrev)} is expected to {top.lean < 0 ? 'slip' : 'rise'} from {top.currentPct.toFixed(1)}% to about {top.projectedPct.toFixed(1)}%.
