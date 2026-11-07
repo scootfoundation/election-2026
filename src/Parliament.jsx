@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 
 // NZ debating-chamber horseshoe, modelled on the Wikipedia seating plan: straight
 // benches down both sides (3 seats wide), a curved block across the top, and the
-// Speaker at the bottom. 120 seats, growing by whole bench rows when there is an
+// (no Speaker marker). 120 seats, growing by whole bench rows when there is an
 // overhang. Parties are seated in order along the horseshoe (left arm, over the top,
 // right arm), so each party forms a contiguous block.
 const CX = 240
@@ -70,7 +70,7 @@ export default function Parliament({ parties = [], groups }) {
   }, [parties])
 
   const W = CX * 2
-  const H = m.bottom + 66
+  const H = m.bottom + 14
   const label = `Parliament, ${m.total} seats${m.overhang ? ` including an overhang of ${m.overhang}` : ''}, ${m.majority} needed for a majority: ${m.summary || 'no seats allocated'}.`
   const seated = parties.filter((p) => seatsOf(p) > 0)
 
@@ -85,8 +85,6 @@ export default function Parliament({ parties = [], groups }) {
             </circle>
           )
         })}
-        <rect x={CX - 12} y={m.bottom + 22} width="24" height="24" fill="none" stroke="var(--fg)" strokeWidth="2" />
-        <text x={CX} y={m.bottom + 62} textAnchor="middle" fontSize="15" fontWeight="bold" fill="var(--fg)" fontFamily="inherit">Speaker</text>
       </svg>
       <div
         className="chamber-key"
