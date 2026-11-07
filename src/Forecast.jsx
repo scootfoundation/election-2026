@@ -93,7 +93,7 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
   )
   const etable = (list) => (
     <div className="tscroll">
-      <table className="ptable fc-table">
+      <table className="ptable fc-table fc-etable">
         <thead><tr><th>Electorate</th><th>Leading now</th><th>Projected</th><th title="How likely the projected leader is to hold on, allowing for the booths and special votes still to come">Hold chance</th></tr></thead>
         <tbody>{list.map(row)}</tbody>
       </table>
@@ -116,9 +116,15 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
       )}
 
       {model && (
-        <div className="fc-top">
-          <div className="fc-left">
-            <h3 className="forecast-verdict">{model.verdict}</h3>
+        <>
+        <h3 className="forecast-verdict">{model.verdict}</h3>
+        <div className="layout">
+          <section>
+            <div className="kicker">Parliament</div>
+            <h2>Projected seats</h2>
+            <p className="muted small">
+              {sp ? 'Includes estimated special votes. ' : 'Booths only, special votes excluded. '}Party-vote seats use the projected national vote (Sainte-Laguë). {els ? 'Electorate seats go to each seat’s projected winner.' : 'Electorate seats are as they stand now.'}
+            </p>
             <div className="blocs" role="group" aria-label="Forecast seats by bloc">
               {model.groups.map((g) => (
                 <div key={g.key} className="bloc" style={{ borderTopColor: g.color }}>
@@ -133,17 +139,50 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
               {model.groups.filter((g) => g.seats > 0).map((g) => <i key={g.key} style={{ width: `${(g.seats / model.size) * 100}%`, background: g.color }} />)}
               <span className="blocmark" style={{ left: `${(model.majority / model.size) * 100}%` }} title={`${model.majority} seats for a majority`} />
             </div>
+            <Parliament parties={model.seated} groups={model.groups} />
+          </section>
+          <section>
+            <div className="kicker">Party vote</div>
+            <h2>Projected final party vote</h2>
             {top && (
               <p className="forecast-call">
                 Biggest signal: the outstanding booths lean <b>{top.lean < 0 ? 'away from' : 'towards'} {name(top.abbrev)}</b> ({sgn(top.lean)} pts vs the booths counted), so {name(top.abbrev)} is expected to {top.lean < 0 ? 'slip' : 'rise'} from {top.currentPct.toFixed(1)}% to about {top.projectedPct.toFixed(1)}%.
               </p>
             )}
-            <p className="muted small">
-              {sp ? 'Includes estimated special votes. ' : 'Booths only, special votes excluded. '}Party-vote seats use the projected national vote (Sainte-Laguë). {els ? 'Electorate seats go to each seat’s projected winner.' : 'Electorate seats are as they stand now.'}
-            </p>
+      <div className="tscroll">
+            <table className="ptable fc-table">
+              <thead>
+                <tr>
+                  <th>Party</th>
+                  <th>Now %</th>
+                  <th title="Party vote share now minus 2023 share, measured only in the booths counted so far that we could match to a 2023 booth">Swing vs 2023</th>
+                  <th title="How the booths still to come voted in 2023 minus how the already-counted booths voted in 2023. Positive: the incoming booths are friendlier to this party.">Incoming lean</th>
+                  <th>Final %</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((x) => {
+                  const d = x.projectedPct - x.currentPct
+                  return (
+                    <tr key={x.abbrev}>
+                      <td className="pname"><span className="dot" style={{ background: colorOf(x.abbrev) }} />{name(x.abbrev)}</td>
+                      <td>{x.currentPct.toFixed(1)}</td>
+                      <td className={`pollgap ${cls(x.swing)}`}>{arrow(x.swing)} {sgn(x.swing)}</td>
+                      <td className={`pollgap ${cls(x.lean)}`}>{arrow(x.lean)} {sgn(x.lean)}</td>
+                      <td><b>{x.projectedPct.toFixed(1)}</b></td>
+                      <td className={`pollgap ${cls(d)}`}>{arrow(d)} {sgn(d)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="fc-right"><Parliament parties={model.seated} groups={model.groups} /></div>
+
+
+          </section>
         </div>
+        </>
       )}
 
       {els && (
@@ -160,37 +199,6 @@ export default function Forecast({ forecast, error, rows, colorOf, shortName, en
           </details>
         </>
       )}
-
-      <h3 className="subhead">Party vote</h3>
-      <div className="tscroll">
-        <table className="ptable fc-table">
-          <thead>
-            <tr>
-              <th>Party</th>
-              <th>Now %</th>
-              <th title="Party vote share now minus 2023 share, measured only in the booths counted so far that we could match to a 2023 booth">Swing vs 2023</th>
-              <th title="How the booths still to come voted in 2023 minus how the already-counted booths voted in 2023. Positive: the incoming booths are friendlier to this party.">Incoming lean</th>
-              <th>Final %</th>
-              <th>Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((x) => {
-              const d = x.projectedPct - x.currentPct
-              return (
-                <tr key={x.abbrev}>
-                  <td className="pname"><span className="dot" style={{ background: colorOf(x.abbrev) }} />{name(x.abbrev)}</td>
-                  <td>{x.currentPct.toFixed(1)}</td>
-                  <td className={`pollgap ${cls(x.swing)}`}>{arrow(x.swing)} {sgn(x.swing)}</td>
-                  <td className={`pollgap ${cls(x.lean)}`}>{arrow(x.lean)} {sgn(x.lean)}</td>
-                  <td><b>{x.projectedPct.toFixed(1)}</b></td>
-                  <td className={`pollgap ${cls(d)}`}>{arrow(d)} {sgn(d)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
 
       <details className="fc-more">
         <summary>How much this covers, and what it leaves out</summary>

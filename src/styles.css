@@ -218,3 +218,4 @@ h2 { font-size:1.3rem; }
 
 .fc-toggle { display:flex; gap:10px; align-items:flex-start; margin:6px 0 10px; padding:8px 10px; border:1px solid var(--ln); background:var(--card); font:.88rem/1.35 var(--sans); max-width:75ch; }
 .fc-toggle .uf-switch { flex:none; margin-top:2px; }
+.fc-etable th, .fc-etable td { text-align:left; }
