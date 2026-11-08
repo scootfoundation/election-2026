@@ -87,18 +87,12 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
         An estimate of the special votes still to be counted (about {fmt(PUBLIC.specialsEstimate)} according to the Electoral Commission, {fmt(PUBLIC.overseasDictation)} of them overseas or dictation votes), worked out electorate by electorate from how special votes differed from ordinary votes in 2023, and adjusted for the end of election-day enrolment. This is a model, not a result: the official count finishes on 27 November.
       </p>
 
-      <div className="stw-stats sp-stats">
-        <div><b>{sim ? pct(sim.majority * 100, 0) : '…'}</b><span>of simulations keep a National–ACT–NZ First majority</span></div>
-        <div><b>{topG ? topG[0] : '…'}</b><span>{topG ? `most likely Government seats (${pct(topG[1] * 100, 0)} of simulations); ${central.seats.majority} needed in a ${central.seats.size}-seat parliament` : ''}</span></div>
-        <div><b>{natLosses == null ? '…' : natLosses.toFixed(1)}</b><span>National electorate seats expected to be lost to specials</span></div>
-        <div><b>{fmt(central.r.national.total)}</b><span>valid special votes assumed (party vote)</span></div>
-      </div>
       {sim && (() => {
         const SEG = [
           ['govt', 'National–ACT–NZ First majority', '#1f6fb5'],
-          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#0b8a8a 6px 11px)'],
-          ['kingmaker', 'Opportunity is the kingmaker', '#0b8a8a'],
-          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#0b8a8a 6px 11px)'],
+          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#13aab9 6px 11px)'],
+          ['kingmaker', 'Opportunity is the kingmaker', '#13aab9'],
+          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#13aab9 6px 11px)'],
           ['opp', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
           ['none', 'Neither side has a path', '#c9ccd1'],
         ].filter(([k]) => (o[k] || 0) > 0)
@@ -115,6 +109,36 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
               {SEG.map(([k, l, bg]) => <li key={k}><i style={{ background: bg }} />{l} <b>{pct(o[k] * 100, 0)}</b></li>)}
             </ul>
             <p className="muted small">Share of {fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in 2023.</p>
+          </div>
+        )
+      })()}
+
+      {sim && (() => {
+        const Hist = ({ title, note, dist, label, color, sub }) => {
+          const keys = Object.keys(dist).map(Number).sort((x, y) => x - y)
+          const lo = Math.min(...keys), hi = Math.max(...keys)
+          const xs = []
+          for (let k = lo; k <= hi; k++) xs.push(k)
+          const max = Math.max(...Object.values(dist), 0.01)
+          return (
+            <figure className="sp-hist">
+              <figcaption><b>{title}</b><span className="muted">{note}</span></figcaption>
+              <div className="sp-cols" role="img" aria-label={`${title}: ${xs.map((k) => `${label(k)} ${pct((dist[k] || 0) * 100, 0)}`).join(', ')}`}>
+                {xs.map((k) => (
+                  <div key={k} className="sp-col" title={`${label(k)}: ${pct((dist[k] || 0) * 100, 1)} of simulations`}>
+                    <span className="sp-pct">{(dist[k] || 0) >= 0.005 ? pct((dist[k] || 0) * 100, 0) : ''}</span>
+                    <i style={{ height: `${((dist[k] || 0) / max) * 100}%`, background: color(k) }} />
+                    <span className="sp-x">{sub ? sub(k) : k}</span>
+                  </div>
+                ))}
+              </div>
+            </figure>
+          )
+        }
+        return (
+          <div className="sp-hists">
+            <Hist title="Overhang size" note="extra seats beyond 120" dist={sim.overhangDist} label={(k) => `${k} overhang seats`} color={() => '#d99a1c'} sub={(k) => k} />
+            <Hist title="Government majority" note="seats above the number needed" dist={sim.marginDist} label={(k) => (k >= 0 ? `${k} seat${k === 1 ? '' : 's'} over the threshold` : `${-k} short`)} color={(k) => (k >= 0 ? '#1f6fb5' : '#9aa3ad')} sub={(k) => (k > 0 ? `+${k}` : k === 0 ? '0' : `−${-k}`)} />
           </div>
         )
       })()}

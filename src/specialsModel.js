@@ -304,6 +304,8 @@ export function simulate({ spec23, map, cur, blocs, draws = 1500, seed = 7, ever
   const flipCount = {}
   const govtDist = {}
   const seatsAcc = {}
+  const overhangDist = {}
+  const marginDist = {} // Government seats minus the majority threshold
   const outcome = { govt: 0, opp: 0, kingmaker: 0, govtNeedsX: 0, oppNeedsX: 0, none: 0 }
   let majority = 0
   for (let d = 0; d < draws; d++) {
@@ -330,6 +332,8 @@ export function simulate({ spec23, map, cur, blocs, draws = 1500, seed = 7, ever
     const o = st.size - g - x
     const maj = st.majority
     govtDist[g] = (govtDist[g] || 0) + 1
+    overhangDist[st.size - 120] = (overhangDist[st.size - 120] || 0) + 1
+    marginDist[g - maj] = (marginDist[g - maj] || 0) + 1
     for (const [a, n] of Object.entries(st.seats)) { const q = seatsAcc[a] ||= []; q.push(n) }
     if (g >= maj) { outcome.govt++; majority++ } else if (o >= maj) outcome.opp++
     else if (g + x >= maj && o + x >= maj) outcome.kingmaker++
@@ -339,5 +343,5 @@ export function simulate({ spec23, map, cur, blocs, draws = 1500, seed = 7, ever
   }
   const seats = Object.fromEntries(Object.entries(seatsAcc).map(([a, q]) => { q.sort((x, y) => x - y); return [a, { lo: q[Math.floor(q.length * 0.1)], mid: q[Math.floor(q.length / 2)], hi: q[Math.floor(q.length * 0.9)] }] }))
   const per = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v / draws]))
-  return { draws, runs: runs.length, flips: per(flipCount), govtDist: per(govtDist), majority: majority / draws, outcome: per(outcome), seats, central: proj[Math.floor(proj.length / 2)] }
+  return { draws, runs: runs.length, flips: per(flipCount), govtDist: per(govtDist), overhangDist: per(overhangDist), marginDist: per(marginDist), majority: majority / draws, outcome: per(outcome), seats, central: proj[Math.floor(proj.length / 2)] }
 }
