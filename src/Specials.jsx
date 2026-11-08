@@ -97,7 +97,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
               <div className="sp-cols" role="img" aria-label={`${title}: ${items.map((x) => `${x.hover || x.x} ${pct(x.v * 100, 0)}`).join(', ')}`}>
                 {items.map((x) => (
                   <div key={x.k} className="sp-col" title={`${x.hover || x.x}: ${pct(x.v * 100, 1)} of simulations`}>
-                    <span className="sp-pct">{x.v >= 0.005 ? pct(x.v * 100, 0) : ''}</span>
+                    <span className="sp-pct">{x.v >= 0.005 || x.always ? pct(x.v * 100, 0) : ''}</span>
                     <div className="sp-barwrap"><i style={{ height: `${(x.v / max) * 100}%`, background: x.color }} /></div>
                     <span className="sp-x">{x.x}</span>
                   </div>
@@ -110,12 +110,12 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
         const range = (dist) => { const k = Object.keys(dist).map(Number); const out = []; for (let i = Math.min(...k); i <= Math.max(...k); i++) out.push(i); return out }
         const odds = [
           ['govt', 'Government majority', 'National–ACT–NZ First majority', '#1f6fb5'],
-          ['govtNeedsX', 'Needs Opportunity', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#00b9bc 6px 11px)'],
+          ['govtNeedsX', 'Government + Opportunity', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#00b9bc 6px 11px)'],
           ['kingmaker', 'Opportunity kingmaker', 'Opportunity is the kingmaker', '#00b9bc'],
-          ['oppNeedsX', 'Opposition needs Opportunity', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#00b9bc 6px 11px)'],
+          ['oppNeedsX', 'Opposition + Opportunity', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#00b9bc 6px 11px)'],
           ['opp', 'Opposition majority', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
           ['none', 'No path', 'Neither side has a path', '#c9ccd1'],
-        ].filter(([k]) => (o[k] || 0) > 0).map(([k, x, hover, color]) => ({ k, x, hover, color, v: o[k] }))
+        ].filter(([k]) => k !== 'none' || (o[k] || 0) > 0).map(([k, x, hover, color]) => ({ k, x, hover, color, v: o[k] || 0, always: true }))
         return (
           <div className="sp-cards">
             <BarCard title="Who can govern" note="share of simulations" items={odds} foot={`Across ${fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in 2023.`} />
