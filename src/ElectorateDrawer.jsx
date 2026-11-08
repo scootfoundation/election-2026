@@ -79,6 +79,8 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
   const name = electorate?.name ?? ''
   const titleId = useId()
   const dialogRef = useRef(null)
+  const gotBooths = useRef(null) // electorate whose booth files we already hold
+  const finalRef = useRef(false)
 
   const [detail, setDetail] = useState(null)
   const [detailError, setDetailError] = useState(null)
@@ -149,11 +151,13 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
     let busy = false
     const tick = async () => {
       if (busy) return
+      if (gotBooths.current === id && finalRef.current) return // final: nothing left to refresh (saves ~100 requests)
       busy = true
       try {
         const [b, p] = await Promise.allSettled([loadBoothResults(id), loadVotingPlaces()])
         if (!alive) return
         if (b.status === 'fulfilled') {
+          gotBooths.current = id
           setBooths(b.value)
           setBoothError(null)
         } else {
@@ -195,6 +199,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
     return () => { alive = false }
   }, [id])
 
+  finalRef.current = !!detail?.final
   const swatch = (abbrev) => (abbrev && colorOf ? colorOf(abbrev) : null) || 'var(--mu)'
 
   const candidateRows = useMemo(() => {

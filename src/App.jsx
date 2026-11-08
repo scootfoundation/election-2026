@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  loadParties, loadElectorates, loadCandidates, loadNational, loadElectorate, DATA_BASE,
+  loadParties, loadElectorates, loadCandidates, loadNational, fetchSummary, parseNational, loadElectorate, DATA_BASE,
 } from './api.js'
 import Parliament from './Parliament.jsx'
 import NzMap from './NzMap.jsx'
@@ -20,6 +20,7 @@ import './drawer.css'
 import './updates.css'
 
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
+const POLL_FINAL_MS = 15 * 60_000 // once every electorate is final only special votes change, so ease off
 const COLORS = {
   NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#f2b705', NZF: '#3a3a3a',
   TPMAO: '#e8590c', OPP: '#0b8a8a', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
@@ -177,18 +178,33 @@ export default function App() {
   // One refresh "cycle" drives everything (national, per-electorate leaders, the open
   // drawer). It ticks every 5 minutes and when the Refresh button is pressed.
   const [cycle, setCycle] = useState(0)
+  const allFinal = !!nat && nat.stats.electoratesFinal >= 71
   useEffect(() => {
-    const t = setInterval(() => setCycle((c) => c + 1), POLL_MS)
+    const t = setInterval(() => setCycle((c) => c + 1), allFinal ? POLL_FINAL_MS : POLL_MS)
     return () => clearInterval(t)
-  }, [])
+  }, [allFinal])
 
+  // National results + every electorate's results. One request to the Worker's /summary when it is
+  // available (keeps us well inside its daily request limit), else the per-file endpoints.
   useEffect(() => {
     let live = true
-    loadNational()
-      .then((n) => { if (live) { setNat(n); setLastOk(new Date()); setError(null) } })
-      .catch((e) => { if (live) setError(e.message) })
+    ;(async () => {
+      let sum = null
+      try { sum = await fetchSummary() } catch { /* fall back below */ }
+      try {
+        const n = sum ? parseNational(sum.electionXml) : await loadNational()
+        if (live) { setNat(n); setLastOk(new Date()); setError(null) }
+      } catch (e) { if (live) setError(e.message) }
+      if (sum && Object.keys(sum.leaders).length >= 60) { if (live) setLeaders(sum.leaders); return }
+      if (!meta) return
+      const rs = await Promise.allSettled(meta.electorates.map((e) => loadElectorate(e.id.padStart(2, '0'))))
+      if (!live) return
+      const next = {}
+      rs.forEach((r, i) => { if (r.status === 'fulfilled') next[meta.electorates[i].id] = r.value })
+      setLeaders((prev) => (Object.keys(next).length ? next : prev))
+    })()
     return () => { live = false }
-  }, [cycle])
+  }, [meta, cycle])
 
   // Booth-lean forecast (generated from booth-level results compared with 2023).
   const [forecast, setForecast] = useState(null)
@@ -212,19 +228,6 @@ export default function App() {
       .catch((e) => { if (live) setEventsError(e.message) })
     return () => { live = false }
   }, [cycle])
-
-  // Leading candidate per electorate (drives the map colours).
-  useEffect(() => {
-    if (!meta) return
-    let live = true
-    Promise.allSettled(meta.electorates.map((e) => loadElectorate(e.id.padStart(2, '0')))).then((rs) => {
-      if (!live) return
-      const next = {}
-      rs.forEach((r, i) => { if (r.status === 'fulfilled') next[meta.electorates[i].id] = r.value })
-      setLeaders((prev) => (Object.keys(next).length ? next : prev))
-    })
-    return () => { live = false }
-  }, [meta, cycle])
 
   const fills = useMemo(() => {
     if (!meta) return {}

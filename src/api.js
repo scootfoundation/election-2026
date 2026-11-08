@@ -49,8 +49,37 @@ export async function loadCandidates() {
   return out
 }
 
+// One request for national results plus every electorate's results (served by the Worker's /summary).
+// Throws if unavailable so callers can fall back to the per-file endpoints.
+export async function fetchSummary() {
+  const res = await fetch(`${DATA_BASE.replace(/\/xml\/?$/, '')}/summary`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`summary: HTTP ${res.status}`)
+  const j = await res.json()
+  if (!j || !j.election || !j.electorates) throw new Error('summary: bad JSON')
+  const leaders = {}
+  for (const [id, e] of Object.entries(j.electorates)) {
+    leaders[id] = {
+      id,
+      final: !!e.f,
+      pctPlaces: e.p || 0,
+      cands: e.c.map(([c, votes]) => ({ id: String(c), votes })).sort((a, b) => b.votes - a.votes),
+      partyVotes: e.v.map(([p, votes]) => ({ id: String(p), votes })),
+    }
+  }
+  return { electionXml: j.election, leaders }
+}
+
+export function parseNational(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  if (doc.querySelector('parsererror')) throw new Error('election.xml: invalid XML')
+  return nationalFromDoc(doc)
+}
+
 export async function loadNational() {
-  const doc = await getXml('election.xml')
+  return nationalFromDoc(await getXml('election.xml'))
+}
+
+function nationalFromDoc(doc) {
   const s = doc.getElementsByTagName('statistics')[0]
   return {
     updated: doc.documentElement.getAttribute('updated'),
