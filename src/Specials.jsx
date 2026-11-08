@@ -88,57 +88,39 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
       </p>
 
       {sim && (() => {
-        const SEG = [
-          ['govt', 'National–ACT–NZ First majority', '#1f6fb5'],
-          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#00b9bc 6px 11px)'],
-          ['kingmaker', 'Opportunity is the kingmaker', '#00b9bc'],
-          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#00b9bc 6px 11px)'],
-          ['opp', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
-          ['none', 'Neither side has a path', '#c9ccd1'],
-        ].filter(([k]) => (o[k] || 0) > 0)
-        return (
-          <div className="sp-odds">
-            <div className="sp-bar" role="img" aria-label={`Outcomes across ${fmt(sim.draws)} simulations: ${SEG.map(([k, l]) => `${l} ${pct(o[k] * 100, 0)}`).join(', ')}`}>
-              {SEG.map(([k, l, bg]) => (
-                <span key={k} style={{ width: `${o[k] * 100}%`, background: bg }} title={`${l}: ${pct(o[k] * 100, 1)}`}>
-                  {o[k] >= 0.07 && <b>{pct(o[k] * 100, 0)}</b>}
-                </span>
-              ))}
-            </div>
-            <ul className="sp-legend">
-              {SEG.map(([k, l, bg]) => <li key={k}><i style={{ background: bg }} />{l} <b>{pct(o[k] * 100, 0)}</b></li>)}
-            </ul>
-            <p className="muted small">Share of {fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in 2023.</p>
-          </div>
-        )
-      })()}
-
-      {sim && (() => {
-        const Hist = ({ title, note, dist, label, color, sub }) => {
-          const keys = Object.keys(dist).map(Number).sort((x, y) => x - y)
-          const lo = Math.min(...keys), hi = Math.max(...keys)
-          const xs = []
-          for (let k = lo; k <= hi; k++) xs.push(k)
-          const max = Math.max(...Object.values(dist), 0.01)
+        // Three bar-chart cards: who can govern, overhang size, and the Government's majority.
+        const BarCard = ({ title, note, items, foot }) => {
+          const max = Math.max(...items.map((x) => x.v), 0.01)
           return (
-            <figure className="sp-hist">
+            <figure className="sp-card">
               <figcaption><b>{title}</b><span className="muted">{note}</span></figcaption>
-              <div className="sp-cols" role="img" aria-label={`${title}: ${xs.map((k) => `${label(k)} ${pct((dist[k] || 0) * 100, 0)}`).join(', ')}`}>
-                {xs.map((k) => (
-                  <div key={k} className="sp-col" title={`${label(k)}: ${pct((dist[k] || 0) * 100, 1)} of simulations`}>
-                    <span className="sp-pct">{(dist[k] || 0) >= 0.005 ? pct((dist[k] || 0) * 100, 0) : ''}</span>
-                    <i style={{ height: `${((dist[k] || 0) / max) * 100}%`, background: color(k) }} />
-                    <span className="sp-x">{sub ? sub(k) : k}</span>
+              <div className="sp-cols" role="img" aria-label={`${title}: ${items.map((x) => `${x.hover || x.x} ${pct(x.v * 100, 0)}`).join(', ')}`}>
+                {items.map((x) => (
+                  <div key={x.k} className="sp-col" title={`${x.hover || x.x}: ${pct(x.v * 100, 1)} of simulations`}>
+                    <span className="sp-pct">{x.v >= 0.005 ? pct(x.v * 100, 0) : ''}</span>
+                    <div className="sp-barwrap"><i style={{ height: `${(x.v / max) * 100}%`, background: x.color }} /></div>
+                    <span className="sp-x">{x.x}</span>
                   </div>
                 ))}
               </div>
+              {foot && <p className="muted small sp-foot">{foot}</p>}
             </figure>
           )
         }
+        const range = (dist) => { const k = Object.keys(dist).map(Number); const out = []; for (let i = Math.min(...k); i <= Math.max(...k); i++) out.push(i); return out }
+        const odds = [
+          ['govt', 'Government majority', 'National–ACT–NZ First majority', '#1f6fb5'],
+          ['govtNeedsX', 'Needs Opportunity', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#00b9bc 6px 11px)'],
+          ['kingmaker', 'Opportunity kingmaker', 'Opportunity is the kingmaker', '#00b9bc'],
+          ['oppNeedsX', 'Opposition needs Opportunity', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#00b9bc 6px 11px)'],
+          ['opp', 'Opposition majority', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
+          ['none', 'No path', 'Neither side has a path', '#c9ccd1'],
+        ].filter(([k]) => (o[k] || 0) > 0).map(([k, x, hover, color]) => ({ k, x, hover, color, v: o[k] }))
         return (
-          <div className="sp-hists">
-            <Hist title="Overhang size" note="extra seats beyond 120" dist={sim.overhangDist} label={(k) => `${k} overhang seats`} color={() => '#d99a1c'} sub={(k) => k} />
-            <Hist title="Government majority" note="seats above the number needed" dist={sim.marginDist} label={(k) => (k >= 0 ? `${k} seat${k === 1 ? '' : 's'} over the threshold` : `${-k} short`)} color={(k) => (k >= 0 ? '#1f6fb5' : '#9aa3ad')} sub={(k) => (k > 0 ? `+${k}` : k === 0 ? '0' : `−${-k}`)} />
+          <div className="sp-cards">
+            <BarCard title="Who can govern" note="share of simulations" items={odds} foot={`Across ${fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in 2023.`} />
+            <BarCard title="Overhang size" note="extra seats beyond 120" items={range(sim.overhangDist).map((k) => ({ k, x: String(k), hover: `${k} overhang seats`, v: sim.overhangDist[k] || 0, color: '#d99a1c' }))} />
+            <BarCard title="Government majority" note="seats above the number needed" items={range(sim.marginDist).map((k) => ({ k, x: k > 0 ? `+${k}` : k === 0 ? '0' : `−${-k}`, hover: k >= 0 ? `${k} seat${k === 1 ? '' : 's'} over the threshold` : `${-k} short`, v: sim.marginDist[k] || 0, color: k >= 0 ? '#1f6fb5' : '#9aa3ad' }))} />
           </div>
         )
       })()}
