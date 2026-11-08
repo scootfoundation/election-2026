@@ -93,11 +93,31 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
         <div><b>{natLosses == null ? '…' : natLosses.toFixed(1)}</b><span>National electorate seats expected to be lost to specials</span></div>
         <div><b>{fmt(central.r.national.total)}</b><span>valid special votes assumed (party vote)</span></div>
       </div>
-      {sim && (
-        <p className="muted small">
-          Across {fmt(sim.draws)} simulations: Government majority {pct(o.govt * 100, 0)}{o.govtNeedsX ? `, Government short but able to govern with Opportunity ${pct(o.govtNeedsX * 100, 0)}` : ''}{o.kingmaker ? `, Opportunity kingmaker ${pct(o.kingmaker * 100, 0)}` : ''}{o.opp ? `, Opposition majority ${pct(o.opp * 100, 0)}` : ''}{o.oppNeedsX ? `, Opposition needs Opportunity ${pct(o.oppNeedsX * 100, 0)}` : ''}. Each simulation draws a set of assumptions (below), then adds the random variation seen between seats in 2023.
-        </p>
-      )}
+      {sim && (() => {
+        const SEG = [
+          ['govt', 'National–ACT–NZ First majority', '#1f6fb5'],
+          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#0b8a8a 6px 11px)'],
+          ['kingmaker', 'Opportunity is the kingmaker', '#0b8a8a'],
+          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#0b8a8a 6px 11px)'],
+          ['opp', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
+          ['none', 'Neither side has a path', '#c9ccd1'],
+        ].filter(([k]) => (o[k] || 0) > 0)
+        return (
+          <div className="sp-odds">
+            <div className="sp-bar" role="img" aria-label={`Outcomes across ${fmt(sim.draws)} simulations: ${SEG.map(([k, l]) => `${l} ${pct(o[k] * 100, 0)}`).join(', ')}`}>
+              {SEG.map(([k, l, bg]) => (
+                <span key={k} style={{ width: `${o[k] * 100}%`, background: bg }} title={`${l}: ${pct(o[k] * 100, 1)}`}>
+                  {o[k] >= 0.07 && <b>{pct(o[k] * 100, 0)}</b>}
+                </span>
+              ))}
+            </div>
+            <ul className="sp-legend">
+              {SEG.map(([k, l, bg]) => <li key={k}><i style={{ background: bg }} />{l} <b>{pct(o[k] * 100, 0)}</b></li>)}
+            </ul>
+            <p className="muted small">Share of {fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in 2023.</p>
+          </div>
+        )
+      })()}
 
       <h3 className="subhead">Projected party vote and seats</h3>
       <div className="stw-chips" role="group" aria-label="Enrolment assumption">
@@ -153,26 +173,27 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
       )}
       <p className="muted small">“Lead after” is the leader's margin over the current runner-up once the estimated special votes are added, before random variation. The chance of flipping includes the variation seen between seats in 2023 (a standard deviation of {SD_EV_PTS} points on the top-two margin among close seats), which for a seat with ~5,000 special votes is a few hundred votes.</p>
 
-      <h3 className="subhead">Checking the assumptions against published estimates</h3>
-      <div className="tscroll">
-        <table className="ptable sp-checks">
-          <thead><tr><th>Published figure</th><th>What the model gives</th><th></th></tr></thead>
-          <tbody>
-            <tr><td><b>Special votes to count:</b> about {fmt(PUBLIC.specialsEstimate)} (Electoral Commission, via RNZ)</td><td>Used as the model's input: {fmt(central.r.national.total)} valid party votes after the {pct(DEFAULTS.validity * 100)} valid share seen in 2023 (RNZ assumes 96.7%).</td><td className="sp-ok">input</td></tr>
-            <tr><td><b>Special votes in the feed:</b> 297,418 (domestic) plus {fmt(PUBLIC.overseasDictation)} overseas and dictation</td><td>{fmt(297418 + PUBLIC.overseasDictation)} in total, {fmt(PUBLIC.specialsEstimate - 297418 - PUBLIC.overseasDictation)} (1.3%) below the Commission's estimate, so the two sources agree to within rounding.</td><td className="sp-ok">agrees</td></tr>
-            <tr><td><b>2023 estimate error:</b> the Commission estimated {fmt(PUBLIC.estimate2023)}; {fmt(PUBLIC.actual2023)} were counted (+{((PUBLIC.actual2023 / PUBLIC.estimate2023 - 1) * 100).toFixed(1)}%)</td><td>The same error would mean about {fmt((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)} in 2026. The simulation includes both volumes.</td><td className="sp-note">in model</td></tr>
-            <tr><td><b>Chuan-Zheng Lee's projection</b> (party vote, 2023 pattern): Greens 14.03%, Labour 29.38%; Labour and NZ First each lose a seat, Greens and Opportunity each gain one; 66 of 131 for National–ACT–NZ First</td><td>Replicating his method on our counts: Greens {pct(lee.GP, 2)}, Labour {pct(lee.LAB, 2)}. Our model (which also allows for the shift towards overseas votes and the loss of late enrolments): Greens {pct((central.pv.GP / finT) * 100, 2)}, Labour {pct((central.pv.LAB / finT) * 100, 2)}; seats Labour {seatsFin.LAB}, NZ First {seatsFin.NZF}, Greens {seatsFin.GP}, Opportunity {seatsFin.OPP}; Government {BLOCS.govt.reduce((t, a) => t + (seatsFin[a] || 0), 0)} of {central.seats.size}.</td><td className="sp-ok">matches</td></tr>
-            <tr><td><b>RNZ:</b> if specials fall as in 2023 the coalition narrowly retains its majority</td><td>{sim ? `Government majority in ${pct(sim.majority * 100, 0)} of simulations; the central case has ${BLOCS.govt.reduce((t, a) => t + (seatsFin[a] || 0), 0)} against ${central.seats.majority} needed.` : '…'}</td><td className="sp-ok">consistent</td></tr>
-            <tr><td><b>RNZ:</b> National lost two electorate seats to specials in each of 2017, 2020 and 2023</td><td>{natLosses == null ? '…' : `The model expects ${natLosses.toFixed(1)} National seats to be lost. That is lower, mainly because the closest National seats are narrow rather than razor-thin: in 2023 the two seats National lost had ordinary-vote margins of 92 and 34 votes, in 2026 the closest is ${fmt(Math.min(...Object.values(central.el).filter((e) => e.now.lead.abbrev === 'NAT').map((e) => e.now.margin)))}.`}</td><td className="sp-note">lower</td></tr>
-            <tr><td><b>Enrolment rules:</b> 110,000 enrolled on election day in 2023; the cut-off is now 13 days before polling day</td><td>The default assumption removes 110,000 from 2023's on-polling-day specials before scaling to the published total. {scen ? `The three enrolment assumptions move party shares by at most ${scen.maxDiff.toFixed(2)} points and ${scen.sameSeats ? 'change no seat' : 'change some seats'}.` : ''}</td><td className="sp-note">assumption</td></tr>
-            <tr><td><b>How well does the method work?</b> Backtest on 2023 itself: predict each electorate's special-vote party shares from its ordinary vote</td><td>Average error in share of the specials vote (points): {MAIN.slice(0, 6).map((a) => `${name(a)} ${back.national[a].toFixed(1)} vs ${back.naive[a].toFixed(1)} if specials looked like ordinary votes`).join('; ')}. The method beats “specials look like ordinary votes” for every party except Labour.</td><td className="sp-note">tested</td></tr>
-            {published && <tr><td><b>Per-electorate estimates</b> supplied in specials-estimates.json</td><td>Used for allocating domestic specials between electorates.</td><td className="sp-ok">used</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
       <details className="fc-more">
-        <summary>How the estimate works, and what it assumes</summary>
+        <summary>Checks against published estimates, and how the estimate works</summary>
+        <h4 className="ins-h">Checking the assumptions against published estimates</h4>
+        <div className="tscroll">
+          <table className="ptable sp-checks">
+            <thead><tr><th>Published figure</th><th>What the model gives</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><b>Special votes to count:</b> about {fmt(PUBLIC.specialsEstimate)} (Electoral Commission, via RNZ)</td><td>Used as the model's input: {fmt(central.r.national.total)} valid party votes after the {pct(DEFAULTS.validity * 100)} valid share seen in 2023 (RNZ assumes 96.7%).</td><td className="sp-ok">input</td></tr>
+              <tr><td><b>Special votes in the feed:</b> 297,418 (domestic) plus {fmt(PUBLIC.overseasDictation)} overseas and dictation</td><td>{fmt(297418 + PUBLIC.overseasDictation)} in total, {fmt(PUBLIC.specialsEstimate - 297418 - PUBLIC.overseasDictation)} (1.3%) below the Commission's estimate, so the two sources agree to within rounding.</td><td className="sp-ok">agrees</td></tr>
+              <tr><td><b>2023 estimate error:</b> the Commission estimated {fmt(PUBLIC.estimate2023)}; {fmt(PUBLIC.actual2023)} were counted (+{((PUBLIC.actual2023 / PUBLIC.estimate2023 - 1) * 100).toFixed(1)}%)</td><td>The same error would mean about {fmt((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)} in 2026. The simulation includes both volumes.</td><td className="sp-note">in model</td></tr>
+              <tr><td><b>Chuan-Zheng Lee's projection</b> (party vote, 2023 pattern): Greens 14.03%, Labour 29.38%; Labour and NZ First each lose a seat, Greens and Opportunity each gain one; 66 of 131 for National–ACT–NZ First</td><td>Replicating his method on our counts: Greens {pct(lee.GP, 2)}, Labour {pct(lee.LAB, 2)}. Our model (which also allows for the shift towards overseas votes and the loss of late enrolments): Greens {pct((central.pv.GP / finT) * 100, 2)}, Labour {pct((central.pv.LAB / finT) * 100, 2)}; seats Labour {seatsFin.LAB}, NZ First {seatsFin.NZF}, Greens {seatsFin.GP}, Opportunity {seatsFin.OPP}; Government {BLOCS.govt.reduce((t, a) => t + (seatsFin[a] || 0), 0)} of {central.seats.size}.</td><td className="sp-ok">matches</td></tr>
+              <tr><td><b>RNZ:</b> if specials fall as in 2023 the coalition narrowly retains its majority</td><td>{sim ? `Government majority in ${pct(sim.majority * 100, 0)} of simulations; the central case has ${BLOCS.govt.reduce((t, a) => t + (seatsFin[a] || 0), 0)} against ${central.seats.majority} needed.` : '…'}</td><td className="sp-ok">consistent</td></tr>
+              <tr><td><b>RNZ:</b> National lost two electorate seats to specials in each of 2017, 2020 and 2023</td><td>{natLosses == null ? '…' : `The model expects ${natLosses.toFixed(1)} National seats to be lost. That is lower, mainly because the closest National seats are narrow rather than razor-thin: in 2023 the two seats National lost had ordinary-vote margins of 92 and 34 votes, in 2026 the closest is ${fmt(Math.min(...Object.values(central.el).filter((e) => e.now.lead.abbrev === 'NAT').map((e) => e.now.margin)))}.`}</td><td className="sp-note">lower</td></tr>
+              <tr><td><b>Enrolment rules:</b> 110,000 enrolled on election day in 2023; the cut-off is now 13 days before polling day</td><td>The default assumption removes 110,000 from 2023's on-polling-day specials before scaling to the published total. {scen ? `The three enrolment assumptions move party shares by at most ${scen.maxDiff.toFixed(2)} points and ${scen.sameSeats ? 'change no seat' : 'change some seats'}.` : ''}</td><td className="sp-note">assumption</td></tr>
+              <tr><td><b>How well does the method work?</b> Backtest on 2023 itself: predict each electorate's special-vote party shares from its ordinary vote</td><td>Average error in share of the specials vote (points): {MAIN.slice(0, 6).map((a) => `${name(a)} ${back.national[a].toFixed(1)} vs ${back.naive[a].toFixed(1)} if specials looked like ordinary votes`).join('; ')}. The method beats “specials look like ordinary votes” for every party except Labour.</td><td className="sp-note">tested</td></tr>
+              {published && <tr><td><b>Per-electorate estimates</b> supplied in specials-estimates.json</td><td>Used for allocating domestic specials between electorates.</td><td className="sp-ok">used</td></tr>}
+            </tbody>
+          </table>
+        </div>
+
+        <h4 className="ins-h">How the estimate works, and what it assumes</h4>
         <ol className="sp-notes">
           <li><b>Volume.</b> The Commission's estimate ({fmt(PUBLIC.specialsEstimate)}) minus the {fmt(PUBLIC.overseasDictation)} overseas and dictation votes gives the domestic specials. 96.6% are assumed valid, as in 2023. The estimate was 6.4% too low in 2023, so the simulation also tries a higher figure.</li>
           <li><b>Categories.</b> 2023 special votes fell into four groups with different party mixes: cast before polling day, cast on polling day, party-vote-only, and overseas. The model scales each to the 2026 total. The end of same-day enrolment is handled by removing the 110,000 election-day enrolments from the on-polling-day group (default), by removing nothing, or by also removing the party-vote-only group.</li>
