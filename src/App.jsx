@@ -16,7 +16,7 @@ const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const POLL_FINAL_MS = 15 * 60_000 // once every electorate is final only special votes change, so ease off
 const COLORS = {
   NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#f2b705', NZF: '#3a3a3a',
-  TPMAO: '#e8590c', OPP: '#13aab9', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
+  TPMAO: '#e8590c', OPP: '#00b9bc', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
 }
 export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // Left-to-right seating order for the hemicycle; unlisted parties sit in the middle.
@@ -25,7 +25,7 @@ export const colorOf = (abbrev) => COLORS[abbrev] || '#8a8f98'
 // listed here (if any win seats) are shown separately as "Other".
 const BLOCS = {
   govt: { label: 'Government', color: '#1f6fb5', abbrevs: ['ACT', 'NZF', 'NAT'] },
-  cross: { label: 'Cross-bench', color: '#13aab9', abbrevs: ['OPP'] },
+  cross: { label: 'Cross-bench', color: '#00b9bc', abbrevs: ['OPP'] },
   opp: { label: 'Opposition', color: '#d4373d', abbrevs: ['LAB', 'TPMAO', 'GP', 'TTTP'] },
 }
 const IND_COLOR = '#8a8f98'

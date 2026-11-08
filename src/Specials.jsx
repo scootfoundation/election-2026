@@ -90,9 +90,9 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
       {sim && (() => {
         const SEG = [
           ['govt', 'National–ACT–NZ First majority', '#1f6fb5'],
-          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#13aab9 6px 11px)'],
-          ['kingmaker', 'Opportunity is the kingmaker', '#13aab9'],
-          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#13aab9 6px 11px)'],
+          ['govtNeedsX', 'Government short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#1f6fb5 0 6px,#00b9bc 6px 11px)'],
+          ['kingmaker', 'Opportunity is the kingmaker', '#00b9bc'],
+          ['oppNeedsX', 'Opposition short, can govern with Opportunity', 'repeating-linear-gradient(135deg,#d4373d 0 6px,#00b9bc 6px 11px)'],
           ['opp', 'Labour–Greens–Te Pāti Māori majority', '#d4373d'],
           ['none', 'Neither side has a path', '#c9ccd1'],
         ].filter(([k]) => (o[k] || 0) > 0)
