@@ -52,3 +52,9 @@ console.log('outcome', JSON.stringify(sim.outcome))
 console.log('govt seats', JSON.stringify(sim.govtDist), '\nmargin over threshold', JSON.stringify(sim.marginDist), '\noverhang', JSON.stringify(sim.overhangDist))
 console.log('seats', JSON.stringify(sim.seats))
 console.log('flips', Object.entries(sim.flips).filter(([, p]) => p > 0.03).sort((a, b) => b[1] - a[1]).map(([id, p]) => `${cur[id].name} ${(p * 100).toFixed(0)}%`).join(', '))
+
+console.log('\n=== effect of discounting election-day enrolees (per-election patterns, enrol none vs removeDay) ===')
+for (const enrol of ['none', 'removeDay']) {
+  const pe2 = perElection({ specs, map, cur, blocs, params: { enrol } })
+  console.log(enrol.padEnd(10), YEARS.map((y) => `${y}: NAT ${pct(pe2[y].pv, 'NAT').toFixed(2)} LAB ${pct(pe2[y].pv, 'LAB').toFixed(2)} GP ${pct(pe2[y].pv, 'GP').toFixed(2)} govt ${pe2[y].bloc.govt}/${pe2[y].seats.size}`).join(' | '))
+}

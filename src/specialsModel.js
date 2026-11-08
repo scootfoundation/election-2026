@@ -12,6 +12,8 @@ export const CATS = ['before', 'onDay', 'partyOnly', 'overseas']
 export const YEARS = [2014, 2017, 2020, 2023]
 // 2014 and 2017 pre-date same-day (election-day) enrolment (introduced for 2020); electorate names only match for 2020 and 2023.
 export const ELECTION_INFO = { 2014: { sameDay: false, local: false }, 2017: { sameDay: false, local: false }, 2020: { sameDay: true, local: true }, 2023: { sameDay: true, local: true } }
+// People who enrolled or updated their enrolment on election day (Electoral Commission): ~80,000 in 2020 (first time allowed), 110,000 in 2023.
+export const SAME_DAY = { 2020: 80000, 2023: 110000 }
 const sumv = (o) => Object.values(o || {}).reduce((t, v) => t + v, 0)
 
 // Published figures the model is anchored to and tested against (see the Specials tab).
@@ -50,6 +52,50 @@ function nationalOf(electorates) {
   return { cat, ord }
 }
 
+// Average gap, on the log-odds scale, between a party's on-polling-day and before-polling-day special-vote shares in the
+// elections without election-day enrolment (2014, 2017).
+function onDayGap(nat, ordS) {
+  const gap = {}
+  for (const a of Object.keys(ordS[2023] || {})) {
+    const ds = []
+    for (const y of [2014, 2017]) {
+      if (!nat[y]) continue
+      const on = shareOf(nat[y].cat.onDay)[a], bf = shareOf(nat[y].cat.before)[a]
+      if (on > 0 && bf > 0) ds.push(logit(on) - logit(bf))
+    }
+    gap[a] = ds.length ? ds.reduce((t, v) => t + v, 0) / ds.length : 0
+  }
+  return gap
+}
+function regularOnDay(cat, gapOn) {
+  const reg = {}
+  let z = 0
+  for (const [a, b] of Object.entries(cat.before)) { reg[a] = b > 0 && a in gapOn ? expit(logit(b) + gapOn[a]) : b; z += reg[a] }
+  for (const a of Object.keys(reg)) reg[a] /= z || 1
+  return reg
+}
+
+// What the discount implies about election-day enrolees: for 2020 and 2023, the share of on-polling-day specials they were
+// (people enrolling on the day / on-polling-day specials) and the party mix left over once the 'regular' on-polling-day
+// voters (before-day mix shifted by the 2014/2017 gap) are taken out.
+export function sameDayDecomposition(specs) {
+  const nat = Object.fromEntries(YEARS.filter((y) => specs[y]).map((y) => [y, nationalOf(specs[y].electorates)]))
+  const ordS = Object.fromEntries(Object.entries(nat).map(([y, n]) => [y, shareOf(n.ord)]))
+  const gapOn = onDayGap(nat, ordS)
+  const out = {}
+  for (const y of [2020, 2023]) {
+    if (!nat[y]) continue
+    const on = shareOf(nat[y].cat.onDay), reg = regularOnDay(Object.fromEntries(CATS.map((c) => [c, shareOf(nat[y].cat[c])])), gapOn)
+    const phi = Math.min(0.9, (SAME_DAY[y] * 0.966) / sumv(nat[y].cat.onDay))
+    const group = {}
+    let z = 0
+    for (const a of Object.keys(on)) { group[a] = Math.max(0.0005, (on[a] - (1 - phi) * (reg[a] || 0)) / phi); z += group[a] }
+    for (const a of Object.keys(group)) group[a] /= z
+    out[y] = { phi, onDay: on, regular: reg, group, ordinary: ordS[y] }
+  }
+  return out
+}
+
 // specs = { 2014: {electorates}, 2017: ..., 2020: ..., 2023: ... } (any subset that includes 2023)
 // cur[id] = { partyVotes: { abbrev: votes }, cands: [{ name, abbrev, votes }] }  (2026 ordinary results so far)
 export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
@@ -64,8 +110,24 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
   const catS = Object.fromEntries(Object.entries(nat).map(([y, n]) => [y, Object.fromEntries(CATS.map((c) => [c, shareOf(n.cat[c])]))]))
   const known = new Set(Object.keys(ordS[2023]))
 
+  // Election-day enrolees (2020, 2023) were counted in the on-polling-day special votes. To discount them we assume the
+  // remaining ('regular') on-polling-day voters differ from before-polling-day special voters by what we see in 2014 and 2017
+  // (no election-day enrolment then). The group's own mix is whatever is left over (see sameDayDecomposition).
+  const regular = {}
+  const adjOn = {} // national log-odds correction applied to the on-polling-day gap in same-day elections
+  if (p.enrol !== 'none') {
+    const gapOn = onDayGap(nat, ordS)
+    for (const y of years) {
+      if (!ELECTION_INFO[y].sameDay) continue
+      const reg = regularOnDay(catS[y], gapOn)
+      regular[y] = reg
+      adjOn[y] = {}
+      for (const a of Object.keys(reg)) { const raw = catS[y].onDay[a]; adjOn[y][a] = raw > 0 && reg[a] > 0 ? logit(raw) - logit(reg[a]) : 0 }
+    }
+  }
+
   // national log-odds gap (special vs ordinary share) for party a, category c, election y
-  const dNat = (y, c, a) => { const s = catS[y][c][a], q = ordS[y][a]; return s > 0 && q > 0 ? clip(logit(s) - logit(q), 2) : null }
+  const dNat = (y, c, a) => { let s = catS[y][c][a]; const q = ordS[y][a]; if (c === 'onDay' && regular[y]?.[a] > 0) s = regular[y][a]; return s > 0 && q > 0 ? clip(logit(s) - logit(q), 2) : null }
 
   // ---- category volumes (valid party votes), weighted over elections' domestic category shares
   const valid = p.validity
@@ -77,8 +139,7 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
     let v = { before: sumv(nat[y].cat.before), onDay: sumv(nat[y].cat.onDay), partyOnly: sumv(nat[y].cat.partyOnly) }
     if (ELECTION_INFO[y].sameDay && p.enrol !== 'none') {
       // remove the election-day enrolments (110,000 in 2023, scaled by each election's on-day volume), and optionally party-only
-      const rel = sumv(nat[y].cat.onDay) / (sumv(nat[2023].cat.onDay) || 1)
-      v.onDay = Math.max(0, v.onDay - PUBLIC.enrolledOnDay2023 * rel * 0.966)
+      v.onDay = Math.max(0, v.onDay - (SAME_DAY[y] || 0) * 0.966)
       if (p.enrol === 'removeLate') v.partyOnly = 0
     }
     const t = v.before + v.onDay + v.partyOnly
@@ -125,7 +186,7 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
       if (e && p.method !== 'national') {
         const row = catRow(e, c)
         const n = sumv(row), m = shareOf(row)[a], o = shareOf(e.party.ordinary)[a]
-        if (n > 0 && m > 0 && o > 0) { const f = n / (n + p.shrink); d = f * clip(logit(m) - logit(o), 2) + (1 - f) * dn }
+        if (n > 0 && m > 0 && o > 0) { const f = n / (n + p.shrink); const own = clip(logit(m) - logit(o) - (c === 'onDay' ? adjOn[y]?.[a] || 0 : 0), 2); d = f * own + (1 - f) * dn }
       }
       t += pat[y] * d; z += pat[y]
     }
