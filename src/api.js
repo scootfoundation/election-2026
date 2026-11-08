@@ -87,6 +87,7 @@ function nationalFromDoc(doc) {
       placesCounted: num(s, 'total_voting_places_counted'),
       pctPlaces: num(s, 'percent_voting_places_counted'),
       votesCast: num(s, 'total_votes_cast'),
+      pctVotesCast: num(s, 'percent_votes_cast'),
       electoratesFinal: num(s, 'total_electorates_final'),
       specialVotes: num(s, 'total_special_votes'),
     },

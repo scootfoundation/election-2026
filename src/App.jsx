@@ -328,7 +328,7 @@ export default function App() {
         <section className="statbar" aria-label="Count progress">
           <div><b>{nat.stats.pctPlaces.toFixed(1)}%</b><span>of voting places counted</span></div>
           <div><b>{fmt(nat.stats.votesCast)}</b><span>party votes counted</span></div>
-          <div><b>{nat.stats.electoratesFinal} <small>of 71</small></b><span>electorates final</span></div>
+          <div><b>{nat.stats.pctVotesCast.toFixed(1)}%</b><span>turnout so far (special votes not yet counted)</span></div>
           <div><b>{overhang}</b><span>overhang seats{overhang > 0 ? ` (${parliamentSize}-seat parliament)` : ''}</span></div>
         </section>
 
