@@ -111,22 +111,29 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
     <section className="sec specials">
       <div className="kicker">Specials</div>
       <h2>{headline}</h2>
+      <div className="sp-assume">
+        <h3 className="sp-assume-h">Based on these assumptions</h3>
+        <ul>
+          <li><b>Volume.</b> About {fmt(PUBLIC.specialsEstimate)} special votes (the Electoral Commission's estimate), allowing for it to come in 6–12% higher, as its past estimates did.</li>
+          <li>
+            <b>How specials differ from ordinary votes.</b>
+            <div className="stw-chips" role="group" aria-label="How special votes differ from ordinary votes">
+              {Object.entries(PATTERNS).map(([k, s]) => <button key={k} type="button" className={pattern === k ? 'on' : ''} aria-pressed={pattern === k} onClick={() => setPattern(k)} title={s.note}>{s.label}</button>)}
+            </div>
+            <span className="muted small">{PATTERNS[pattern].note}</span>
+          </li>
+          <li><b>Enrolment.</b> People who enrolled on election day (about {fmt(SAME_DAY[2020])} in 2020, {fmt(SAME_DAY[2023])} in 2023) are taken out of the past patterns. Other late enrolees can't be separated out.</li>
+          <li><b>Electorate votes.</b> A candidate's votes in the specials move 70% as much as their party's.</li>
+          <li><b>Chance.</b> Each seat's margin can vary by about 10 points of its special votes, as in past close seats.</li>
+        </ul>
+        <p className="muted small">A model, not a result: the official count finishes on 27 November.</p>
+      </div>
       {sims && (
         <p className="sp-sub">
-          <b>{pct(sim.majority * 100, 0)}</b> of simulations keep a National–ACT–NZ First majority
-          {pattern !== 'y2023' && <> (<b>{pct(sims.y2023.majority * 100, 0)}</b> if only 2023's pattern repeats, as in the published projections)</>}.
+          Under these assumptions <b>{pct(sim.majority * 100, 0)}</b> of simulations keep a National–ACT–NZ First majority
+          {pattern !== 'y2023' && <> (<b>{pct(sims.y2023.majority * 100, 0)}</b> if specials differ as they did in 2023 alone, as in the published projections)</>}.
         </p>
       )}
-      <p className="lede muted">
-        An estimate of the special votes still to be counted (about {fmt(PUBLIC.specialsEstimate)}, says the Electoral Commission), worked out electorate by electorate from how special votes differed from ordinary votes in 2014, 2017, 2020 and 2023. A model, not a result: the official count finishes on 27 November.
-      </p>
-      <div className="sp-pick">
-        <span className="sp-pick-l">Assume specials follow the pattern of:</span>
-        <div className="stw-chips" role="group" aria-label="Which past elections to use">
-          {Object.entries(PATTERNS).map(([k, s]) => <button key={k} type="button" className={pattern === k ? 'on' : ''} aria-pressed={pattern === k} onClick={() => setPattern(k)} title={s.note}>{s.label}</button>)}
-        </div>
-      </div>
-      <p className="muted small">{PATTERNS[pattern].note} Everything on this page uses this choice.</p>
 
       {sim && (() => {
         // Three bar-chart cards: who can govern, overhang size, and the Government's majority.
@@ -159,7 +166,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
         ].filter(([k]) => k !== 'none' || (o[k] || 0) > 0).map(([k, x, hover, color]) => ({ k, x, hover, color, v: o[k] || 0, always: true }))
         return (
           <div className="sp-cards">
-            <BarCard title="Who can govern" note="share of simulations" items={odds} foot={`Across ${fmt(sim.draws)} simulations. Each draws a set of assumptions (below), then adds the random variation seen between seats in past elections.`} />
+            <BarCard title="Who can govern" note="share of simulations" items={odds} foot={`Across ${fmt(sim.draws)} simulations. Each draws a set of assumptions within the ranges above, then adds the random variation seen between seats in past elections.`} />
             <BarCard title="Overhang size" note="extra seats beyond 120" items={range(sim.overhangDist).map((k) => ({ k, x: String(k), hover: `${k} overhang seats`, v: sim.overhangDist[k] || 0, color: '#d99a1c' }))} />
             <BarCard title="Government majority" note="seats above the number needed" items={range(sim.marginDist).map((k) => ({ k, x: k > 0 ? `+${k}` : k === 0 ? '0' : `−${-k}`, hover: k >= 0 ? `${k} seat${k === 1 ? '' : 's'} over the threshold` : `${-k} short`, v: sim.marginDist[k] || 0, color: k >= 0 ? '#1f6fb5' : '#9aa3ad' }))} />
           </div>
@@ -244,11 +251,11 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
 
       <details className="fc-more">
         <summary>Past elections, checks against published estimates, and how the estimate works</summary>
-        <h4 className="ins-h">What each past election's pattern implies</h4>
-        <p className="muted small">The same 2026 count with each election's special-vote pattern applied on its own. This is the main source of uncertainty: the patterns differ, and the published projections use only the last one.</p>
+        <h4 className="ins-h">If specials differed from ordinary votes as they did in each election</h4>
+        <p className="muted small">The same 2026 count with each election's special-vote differences applied on their own. Which of these holds is the main source of uncertainty: they differ, and the published projections assume only the last.</p>
         <div className="tscroll">
           <table className="ptable ins-table sp-table">
-            <thead><tr><th>Pattern of</th><th>Specials were</th><th>National</th><th>Labour</th><th>Greens</th><th>Opportunity</th><th>Government seats</th><th>Electorates flipping</th></tr></thead>
+            <thead><tr><th>As in</th><th>Specials were</th><th>National</th><th>Labour</th><th>Greens</th><th>Opportunity</th><th>Government seats</th><th>Electorates flipping</th></tr></thead>
             <tbody>
               {YEARS.map((y) => {
                 const x = each[y]

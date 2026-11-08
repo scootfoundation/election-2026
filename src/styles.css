@@ -247,3 +247,10 @@ h2 { font-size:1.3rem; }
 .sp-sub b { font-weight:700; }
 @media (max-width:720px) { .hide-sm { display:none; } }
 .specials .lede { max-width:75ch; }
+
+.sp-assume { border:1px solid var(--ln); background:var(--card); padding:10px 14px 8px; margin:10px 0 8px; max-width:900px; }
+.sp-assume-h { font:700 .75rem var(--sans); letter-spacing:.08em; text-transform:uppercase; margin:0 0 4px; }
+.sp-assume ul { margin:0; padding-left:1.1em; font:.9rem/1.4 var(--sans); }
+.sp-assume li { margin:4px 0; }
+.sp-assume .stw-chips { margin:4px 0 2px; }
+.sp-assume .muted.small { display:block; }

@@ -29,13 +29,11 @@ export const PUBLIC = {
 
 // What to take from past elections. weights: relative weight of each election's pattern.
 export const PATTERNS = {
-  all: { label: 'All four elections', note: 'Equal weight on the special-vote patterns of 2014, 2017, 2020 and 2023.', weights: { 2014: 1, 2017: 1, 2020: 1, 2023: 1 } },
-  noSameDay: { label: '2014 and 2017', note: 'Elections before same-day enrolment existed: the closest in rules to 2026, where enrolment closed 13 days before polling day.', weights: { 2014: 1, 2017: 1, 2020: 0, 2023: 0 } },
-  sameDay: { label: '2020 and 2023', note: 'The two most recent elections, which allowed enrolment on election day (those voters were counted as specials). The model removes an allowance for them.', weights: { 2014: 0, 2017: 0, 2020: 1, 2023: 1 } },
-  y2023: { label: '2023 only', note: 'Last election only, as in the published projections by Chuan-Zheng Lee and RNZ.', weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 1 } },
+  all: { label: 'Typical of recent elections', note: 'Specials differ from ordinary votes by the average of what was seen in 2014, 2017, 2020 and 2023.', weights: { 2014: 1, 2017: 1, 2020: 1, 2023: 1 } },
+  noSameDay: { label: 'As before same-day enrolment', note: 'Specials differ as they did in 2014 and 2017, when enrolment closed the day before polling day: the closest to 2026, where it closed 13 days before.', weights: { 2014: 1, 2017: 1, 2020: 0, 2023: 0 } },
+  sameDay: { label: 'As with same-day enrolment', note: 'Specials differ as they did in 2020 and 2023, when people could enrol on election day (the model removes an allowance for those voters).', weights: { 2014: 0, 2017: 0, 2020: 1, 2023: 1 } },
+  y2023: { label: 'As in the last election only', note: 'Specials differ as they did in 2023 alone, which is what the published projections (Chuan-Zheng Lee, RNZ) assume.', weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 1 } },
 }
-// dayScale: share of election-day enrolees assumed to have cast a valid special vote (1 = all); beforeRemoved: extra valid
-// special votes removed from the before-polling-day category in 2023 (scaled for 2020).
 export const DEFAULTS = { dayScale: 1, beforeRemoved: 0, pattern: 'all', enrol: 'removeDay', method: 'logit', shrink: 4000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share', evPass: 0.7, published: null }
 
 const merge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b || {})) o[k] = (o[k] || 0) + v; return o }
