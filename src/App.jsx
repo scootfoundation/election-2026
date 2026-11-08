@@ -8,6 +8,7 @@ import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import Parliamentarians from './Parliamentarians.jsx'
 import Insights from './Insights.jsx'
+import Specials from './Specials.jsx'
 import { POLLS } from './polls.js'
 import './drawer.css'
 
@@ -98,6 +99,7 @@ function PartyRow({ r, ent, compact }) {
 // Simple hash routing (#/electorates etc.) so it works on GitHub Pages with no server setup.
 const PAGES = [
   ['overview', 'Overview'],
+  ['specials', 'Specials'],
   ['mps', 'Parliamentarians'],
   ['insights', 'Insights'],
   ['electorates', 'Electorates'],
@@ -447,6 +449,10 @@ export default function App() {
         />
       </section>
       </>
+      )}
+
+      {page === 'specials' && (
+        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
       )}
 
       {page === 'mps' && (

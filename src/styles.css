@@ -214,3 +214,15 @@ h2 { font-size:1.3rem; }
 .dm-chips i { font-style:normal; color:var(--mu); padding:0 2px; }
 .dm-chip { border:0; border-left:3px solid; background:var(--card); padding:1px 6px; }
 .dm-chip b.pos { color:#1f6fb5; } .dm-chip b.neg { color:#d4373d; }
+
+/* Specials */
+.sp-stats > div { border:1px solid var(--ln); background:var(--card); padding:6px 12px; display:flex; flex-direction:column; min-width:150px; max-width:280px; }
+.sp-stats b { font:700 1.7rem/1.1 var(--sans); }
+.sp-stats span { font:.78rem var(--sans); color:var(--mu); }
+.sp-up { color:#1a7f37; font-weight:700; } .sp-dn { color:#b3262c; font-weight:700; }
+.sp-checks td { font:.86rem/1.4 var(--sans); vertical-align:top; padding:6px 8px; }
+.sp-checks td:last-child { white-space:nowrap; font-weight:700; }
+.sp-ok { color:#1a7f37; } .sp-note { color:#8a5a00; }
+.sp-notes { line-height:1.5; max-width:80ch; }
+.fc-more { margin:10px 0; } .fc-more summary { cursor:pointer; font:600 .9rem var(--sans); padding:4px 0; }
+.sp-checks td, .sp-checks th { text-align:left; }
