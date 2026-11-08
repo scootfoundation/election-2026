@@ -34,7 +34,9 @@ export const PATTERNS = {
   sameDay: { label: '2020 and 2023', note: 'The two most recent elections, which allowed enrolment on election day (those voters were counted as specials). The model removes an allowance for them.', weights: { 2014: 0, 2017: 0, 2020: 1, 2023: 1 } },
   y2023: { label: '2023 only', note: 'Last election only, as in the published projections by Chuan-Zheng Lee and RNZ.', weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 1 } },
 }
-export const DEFAULTS = { pattern: 'all', enrol: 'removeDay', method: 'logit', shrink: 4000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share', evPass: 0.7, published: null }
+// dayScale: share of election-day enrolees assumed to have cast a valid special vote (1 = all); beforeRemoved: extra valid
+// special votes removed from the before-polling-day category in 2023 (scaled for 2020).
+export const DEFAULTS = { dayScale: 1, beforeRemoved: 0, pattern: 'all', enrol: 'removeDay', method: 'logit', shrink: 4000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share', evPass: 0.7, published: null }
 
 const merge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b || {})) o[k] = (o[k] || 0) + v; return o }
 const shareOf = (row) => { const t = sumv(row); const o = {}; for (const [k, v] of Object.entries(row || {})) o[k] = t ? v / t : 0; return o }
@@ -139,7 +141,8 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
     let v = { before: sumv(nat[y].cat.before), onDay: sumv(nat[y].cat.onDay), partyOnly: sumv(nat[y].cat.partyOnly) }
     if (ELECTION_INFO[y].sameDay && p.enrol !== 'none') {
       // remove the election-day enrolments (110,000 in 2023, scaled by each election's on-day volume), and optionally party-only
-      v.onDay = Math.max(0, v.onDay - (SAME_DAY[y] || 0) * 0.966)
+      v.onDay = Math.max(0, v.onDay - (SAME_DAY[y] || 0) * 0.966 * (p.dayScale ?? 1))
+      if (p.beforeRemoved) v.before = Math.max(0, v.before - p.beforeRemoved * (sumv(nat[y].cat.before) / (sumv(nat[2023].cat.before) || 1)))
       if (p.enrol === 'removeLate') v.partyOnly = 0
     }
     const t = v.before + v.onDay + v.partyOnly

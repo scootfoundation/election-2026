@@ -58,3 +58,9 @@ for (const enrol of ['none', 'removeDay']) {
   const pe2 = perElection({ specs, map, cur, blocs, params: { enrol } })
   console.log(enrol.padEnd(10), YEARS.map((y) => `${y}: NAT ${pct(pe2[y].pv, 'NAT').toFixed(2)} LAB ${pct(pe2[y].pv, 'LAB').toFixed(2)} GP ${pct(pe2[y].pv, 'GP').toFixed(2)} govt ${pe2[y].bloc.govt}/${pe2[y].seats.size}`).join(' | '))
 }
+
+console.log('\n=== sensitivity to how many election-day / voting-period enrolees cast valid specials (central, all four elections) ===')
+for (const [label, params] of [['all election-day enrolees voted (default)', {}], ['half of them voted', { dayScale: 0.5 }], ['1.5x (updaters too)', { dayScale: 1.5 }], ['default + 150,000 more removed from before-day', { beforeRemoved: 150000 }], ['default + 300,000 more removed from before-day', { beforeRemoved: 300000 }]]) {
+  const x = project({ specs, map, cur, blocs, params: { pattern: 'all', ...params } })
+  console.log(label.padEnd(48), `NAT ${pct(x.pv, 'NAT').toFixed(2)} LAB ${pct(x.pv, 'LAB').toFixed(2)} GP ${pct(x.pv, 'GP').toFixed(2)} OPP ${pct(x.pv, 'OPP').toFixed(2)} | govt ${x.bloc.govt}/${x.seats.size}`)
+}
