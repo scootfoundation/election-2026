@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PUBLIC, PATTERNS, YEARS, DEFAULTS, SD_EV_PTS, SD_PV_PTS, VOLUME_MULTIPLIERS, SAME_DAY, project, simulate, perElection, leeReplica, backtestPair, sameDayDecomposition } from './specialsModel.js'
+import Parliament from './Parliament.jsx'
+import { PUBLIC, PATTERNS, YEARS, DEFAULTS, SD_EV_PTS, SD_PV_PTS, VOLUME_MULTIPLIERS, SAME_DAY, project, simulateAll, perElection, leeReplica, backtestPair, sameDayDecomposition } from './specialsModel.js'
 
 // "Specials" tab: estimates the special votes still to be counted, electorate by electorate, from the special-vote results of
 // the last four elections, adjusted for the end of same-day enrolment, and checks the assumptions against published estimates.
@@ -20,12 +21,12 @@ function useJson(path) {
   return v
 }
 
-export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) {
+export default function Specials({ meta, leaders, colorOf, shortName, onOpen, blocDefs }) {
   const s14 = useJson('specials2014.json'), s17 = useJson('specials2017.json'), s20 = useJson('specials2020.json'), s23 = useJson('specials2023.json')
   const map = useJson('specials-map.json')
   const published = useJson('specials-estimates.json') // optional: per-electorate estimates, if supplied
   const [pattern, setPattern] = useState(DEFAULTS.pattern)
-  const [sim, setSim] = useState(null)
+  const [sims, setSims] = useState(null)
   const name = (a) => shortName({ abbrev: a, name: a })
   const specs = useMemo(() => (s23 && s20 && s17 && s14 ? { 2014: s14, 2017: s17, 2020: s20, 2023: s23 } : null), [s14, s17, s20, s23])
 
@@ -49,8 +50,8 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
   const each = useMemo(() => (ready ? perElection({ specs, map, cur, blocs: BLOCS }) : null), [ready, specs, map, cur])
   useEffect(() => {
     if (!ready) return undefined
-    setSim(null)
-    const t = setTimeout(() => setSim(simulate({ specs, map, cur, blocs: BLOCS })), 30) // runs after first paint
+    setSims(null)
+    const t = setTimeout(() => setSims(simulateAll({ specs, map, cur, blocs: BLOCS })), 30) // runs after first paint
     return () => clearTimeout(t)
   }, [ready, specs, map, cur])
   const sdd = useMemo(() => (specs ? sameDayDecomposition(specs) : null), [specs])
@@ -74,6 +75,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
   if (specs === null || map === null || [s14, s17, s20, s23].some((x) => x === null)) return <section className="sec"><div className="kicker">Specials</div><h2>Special votes forecast</h2><p className="muted small">The special-vote history isn't available right now.</p></section>
   if (!ready) return <section className="sec"><div className="kicker">Specials</div><h2>Special votes forecast</h2><p className="muted small">Loading…</p></section>
 
+  const sim = sims ? sims[pattern] : null
   const total = (o) => Object.values(o).reduce((a, b) => a + b, 0)
   const nowT = total(central.now), finT = total(central.pv)
   const seatsNow = central.seatsBefore.seats, seatsFin = central.seats.seats
@@ -84,6 +86,24 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
     .filter((x) => (x.p != null ? x.p >= 0.03 : x.e.now.margin < 1000))
     .sort((a, b) => (b.p ?? 0) - (a.p ?? 0) || a.e.now.margin - b.e.now.margin)
   const o = sim?.outcome
+  const model = (() => {
+    const bd = blocDefs || { govt: { label: 'Government', color: '#1f6fb5', abbrevs: ['ACT', 'NZF', 'NAT'] }, cross: { label: 'Cross-bench', color: '#00b9bc', abbrevs: ['OPP'] }, opp: { label: 'Opposition', color: '#d4373d', abbrevs: ['LAB', 'TPMAO', 'GP', 'TTTP'] } }
+    const sf = central.seats.seats
+    const mk = (a) => ({ abbrev: a, name: a === 'Ind.' ? 'Independents' : name(a), seats: sf[a] || 0, color: colorOf(a) })
+    const inb = (k) => bd[k].abbrevs.filter((a) => (sf[a] || 0) > 0).map(mk)
+    const grouped = new Set(Object.values(bd).flatMap((b) => b.abbrevs))
+    const ind = sf['Ind.'] ? [mk('Ind.')] : []
+    const other = Object.keys(sf).filter((a) => !grouped.has(a) && a !== 'Ind.' && sf[a] > 0).map(mk)
+    const byBloc = { opp: [...inb('opp'), ...ind], cross: inb('cross'), govt: inb('govt'), other }
+    const sum = (l) => l.reduce((t, x) => t + x.seats, 0)
+    const groups = [
+      { key: 'govt', label: bd.govt.label, color: bd.govt.color, seats: sum(byBloc.govt), parties: byBloc.govt, sub: 'NAT + ACT + NZF' },
+      { key: 'cross', label: bd.cross.label, color: bd.cross.color, seats: sum(byBloc.cross), parties: byBloc.cross, sub: 'Opportunity' },
+      { key: 'opp', label: bd.opp.label, color: bd.opp.color, seats: sum(byBloc.opp), parties: byBloc.opp, sub: 'LAB + GRN + TPM + TTT + Ind.' },
+      ...(sum(byBloc.other) > 0 ? [{ key: 'other', label: 'Other parties', color: '#8a8f98', seats: sum(byBloc.other), parties: byBloc.other, sub: '' }] : []),
+    ]
+    return { groups, seated: [...byBloc.opp, ...byBloc.cross, ...byBloc.other, ...byBloc.govt] }
+  })()
   const headline = !sim ? 'Calculating…' : sim.majority >= 0.8 ? 'National, ACT and NZ First are likely to keep their majority' : sim.majority >= 0.55 ? 'National, ACT and NZ First are more likely than not to keep their majority' : sim.majority >= 0.4 ? 'The Government majority is on a knife-edge' : sim.majority >= 0.2 ? 'The Government is more likely to lose its majority than keep it' : 'The Government is likely to lose its majority, with Opportunity pivotal'
   const specShare = (y) => { const s = specs[y]; let sp = 0, t = 0; for (const e of Object.values(s.electorates)) { for (const c of ['before', 'onDay', 'partyOnly', 'overseas', 'overseasPartyOnly']) sp += Object.values(e.party[c] || {}).reduce((a, b) => a + b, 0); t += Object.values(e.party.total || {}).reduce((a, b) => a + b, 0) } return (sp / t) * 100 }
 
@@ -91,9 +111,22 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
     <section className="sec specials">
       <div className="kicker">Specials</div>
       <h2>{headline}</h2>
+      {sims && (
+        <p className="sp-sub">
+          <b>{pct(sim.majority * 100, 0)}</b> of simulations keep a National–ACT–NZ First majority
+          {pattern !== 'y2023' && <> (<b>{pct(sims.y2023.majority * 100, 0)}</b> if only 2023's pattern repeats, as in the published projections)</>}.
+        </p>
+      )}
       <p className="lede muted">
-        An estimate of the special votes still to be counted (about {fmt(PUBLIC.specialsEstimate)} according to the Electoral Commission, {fmt(PUBLIC.overseasDictation)} of them overseas or dictation votes), worked out electorate by electorate from how special votes differed from ordinary votes in 2014, 2017, 2020 and 2023, and adjusted for the end of election-day enrolment. This is a model, not a result: the official count finishes on 27 November. How far the answer depends on which past election's pattern repeats is shown below.
+        An estimate of the special votes still to be counted (about {fmt(PUBLIC.specialsEstimate)}, says the Electoral Commission), worked out electorate by electorate from how special votes differed from ordinary votes in 2014, 2017, 2020 and 2023. A model, not a result: the official count finishes on 27 November.
       </p>
+      <div className="sp-pick">
+        <span className="sp-pick-l">Assume specials follow the pattern of:</span>
+        <div className="stw-chips" role="group" aria-label="Which past elections to use">
+          {Object.entries(PATTERNS).map(([k, s]) => <button key={k} type="button" className={pattern === k ? 'on' : ''} aria-pressed={pattern === k} onClick={() => setPattern(k)} title={s.note}>{s.label}</button>)}
+        </div>
+      </div>
+      <p className="muted small">{PATTERNS[pattern].note} Everything on this page uses this choice.</p>
 
       {sim && (() => {
         // Three bar-chart cards: who can govern, overhang size, and the Government's majority.
@@ -133,39 +166,32 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
         )
       })()}
 
-      <h3 className="subhead">What each past election's pattern implies</h3>
-      <p className="muted small">The same 2026 count with each election's special-vote pattern applied on its own. This is the main source of uncertainty: the patterns differ, and the published projections use only the last one.</p>
-      <div className="tscroll">
-        <table className="ptable ins-table sp-table">
-          <thead><tr><th>Pattern of</th><th>Specials were</th><th>National</th><th>Labour</th><th>Greens</th><th>Opportunity</th><th>Government seats</th><th>Electorates flipping</th></tr></thead>
-          <tbody>
-            {YEARS.map((y) => {
-              const x = each[y]
-              const fl = Object.values(x.el).filter((e) => e.flips)
-              const g = gov(x)
-              return (
-                <tr key={y}>
-                  <td className="pname">{y}{y < 2020 ? '' : ' *'}</td>
-                  <td>{pct(specShare(y), 1)} of votes</td>
-                  <td>{pct((x.pv.NAT / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.LAB / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.GP / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.OPP / total(x.pv)) * 100, 2)}</td>
-                  <td><b className={g >= x.seats.majority ? 'sp-up' : 'sp-dn'}>{g} of {x.seats.size}</b> <span className="muted">({x.seats.majority} needed)</span></td>
-                  <td>{fl.length ? fl.map((e) => `${e.now.lead.abbrev}→${e.after.lead.abbrev}`).join(', ') : 'none'}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="muted small">* Election-day enrolment existed in 2020 and 2023 (those voters were counted as specials); the model removes an allowance for it. 2026 specials are assumed to be {pct((central.r.national.total / (nowT + central.r.national.total)) * 100, 1)} of votes, against {pct(specShare(2014), 1)} (2014), {pct(specShare(2017), 1)}, {pct(specShare(2020), 1)} and {pct(specShare(2023), 1)}.</p>
-
-      <h3 className="subhead">Projected party vote and seats</h3>
-      <div className="stw-chips" role="group" aria-label="Which past elections to use">
-        {Object.entries(PATTERNS).map(([k, s]) => <button key={k} type="button" className={pattern === k ? 'on' : ''} aria-pressed={pattern === k} onClick={() => setPattern(k)} title={s.note}>{s.label}</button>)}
-      </div>
-      <p className="muted small">{PATTERNS[pattern].note} The table uses this choice; the odds above and the range column draw on all of them.</p>
+            <div className="layout">
+        <section>
+          <div className="kicker">Parliament</div>
+          <h2>Projected seats</h2>
+          <div className="blocs" role="group" aria-label="Projected seats by bloc">
+            {model.groups.map((g) => (
+              <div key={g.key} className="bloc" style={{ borderTopColor: g.color }}>
+                <span className="bloc-name">{g.label}</span>
+                <b>{g.seats}</b>
+                <span className="bloc-sub">{g.sub}</span>
+                {g.key === 'govt' && <span className="bloc-note">{g.seats >= central.seats.majority ? `majority of ${central.seats.majority}` : `${central.seats.majority - g.seats} short of ${central.seats.majority}`}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="blocbar" aria-hidden="true">
+            {model.groups.filter((g) => g.seats > 0).map((g) => <i key={g.key} style={{ width: `${(g.seats / central.seats.size) * 100}%`, background: g.color }} />)}
+            <span className="blocmark" style={{ left: `${(central.seats.majority / central.seats.size) * 100}%` }} title={`${central.seats.majority} seats for a majority`} />
+          </div>
+          <Parliament parties={model.seated} groups={model.groups} />
+        </section>
+        <section>
+          <div className="kicker">Party vote</div>
+          <h2>Projected final party vote</h2>
       <div className="tscroll">
         <table className="ptable ins-table">
-          <thead><tr><th>Party</th><th>Now (ordinary)</th><th>Specials (est.)</th><th>Projected final</th><th>Change</th><th>Seats now</th><th>Projected seats</th><th>Range (80%)</th></tr></thead>
+          <thead><tr><th>Party</th><th>Now</th><th className="hide-sm">Specials (est.)</th><th>Final</th><th className="hide-sm">Change</th><th>Seats</th><th className="hide-sm">Range (80%)</th></tr></thead>
           <tbody>
             {MAIN.map((a) => {
               const spP = (central.r.national.pv[a] / central.r.national.total) * 100
@@ -175,10 +201,10 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
               return (
                 <tr key={a}>
                   <td className="pname"><span className="dot" style={{ background: colorOf(a) }} />{name(a)}</td>
-                  <td>{pct(now, 2)}</td><td>{pct(spP, 1)}</td><td><b>{pct(fin, 2)}</b></td>
-                  <td className={`pollgap ${fin - now > 0.049 ? 'over' : fin - now < -0.049 ? 'under' : ''}`}>{fin - now > 0.049 ? '▲' : fin - now < -0.049 ? '▼' : ''} {sgn(fin - now, 2)}</td>
-                  <td>{sn}</td><td><b>{sf}</b>{sf !== sn && <span className={sf > sn ? 'sp-up' : 'sp-dn'}> {sf > sn ? '+' : '−'}{Math.abs(sf - sn)}</span>}</td>
-                  <td>{rg ? (rg.lo === rg.hi ? rg.lo : `${rg.lo}–${rg.hi}`) : '…'}</td>
+                  <td>{pct(now, 2)}</td><td className="hide-sm">{pct(spP, 1)}</td><td><b>{pct(fin, 2)}</b></td>
+                  <td className={`hide-sm pollgap ${fin - now > 0.049 ? 'over' : fin - now < -0.049 ? 'under' : ''}`}>{fin - now > 0.049 ? '▲' : fin - now < -0.049 ? '▼' : ''} {sgn(fin - now, 2)}</td>
+                  <td>{sn}{sf !== sn ? <> → <b>{sf}</b> <span className={sf > sn ? 'sp-up' : 'sp-dn'}>{sf > sn ? '+' : '−'}{Math.abs(sf - sn)}</span></> : <span className="muted"> (no change)</span>}</td>
+                  <td className="hide-sm">{rg ? (rg.lo === rg.hi ? rg.lo : `${rg.lo}–${rg.hi}`) : '…'}</td>
                 </tr>
               )
             })}
@@ -187,21 +213,22 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
       </div>
       <p className="muted small">Seats are recomputed from the projected party vote (Sainte-Laguë) and each electorate's projected winner, so overhang is included ({central.seats.size - 120} overhang seats projected, {central.seatsBefore.size - 120} now).</p>
 
+
       <h3 className="subhead">Electorates that could change hands</h3>
       {risky.length === 0 ? <p className="muted small">No electorate looks at risk on these numbers.</p> : (
         <div className="tscroll">
           <table className="ptable ins-table sp-table">
-            <thead><tr><th>Electorate</th><th>Leading now</th><th>Lead now</th><th>Specials (est.)</th><th>Lead after (central)</th><th>Chance it flips</th></tr></thead>
+            <thead><tr><th>Electorate</th><th className="hide-sm">Leading now</th><th>Lead now</th><th className="hide-sm">Specials (est.)</th><th className="hide-sm">Lead after specials</th><th>Chance it flips</th></tr></thead>
             <tbody>
               {risky.map(({ id, e, p }) => {
                 const who = (c) => `${String(c.name).split(',')[0].replace(/\b(\p{L})(\p{L}*)/gu, (_, x, y) => x + y.toLowerCase())} (${c.abbrev})`
                 return (
                   <tr key={id} onClick={() => onOpen(id)} style={{ cursor: 'pointer' }}>
-                    <td className="pname">{cur[id].name}</td>
-                    <td>{who(e.now.lead)}</td>
+                    <td className="pname"><span className="dot" style={{ background: colorOf(e.now.lead.abbrev) }} />{cur[id].name}</td>
+                    <td className="hide-sm">{who(e.now.lead)}</td>
                     <td>+{fmt(e.now.margin)} over {e.now.second.abbrev}</td>
-                    <td>≈{fmt(e.volume)}</td>
-                    <td>{e.leaderMargin >= 0 ? `+${fmt(e.leaderMargin)}` : `−${fmt(-e.leaderMargin)}`}</td>
+                    <td className="hide-sm">≈{fmt(e.volume)}</td>
+                    <td className="hide-sm">{e.leaderMargin >= 0 ? `+${fmt(e.leaderMargin)}` : `−${fmt(-e.leaderMargin)}`}</td>
                     <td><b>{p == null ? '…' : p >= 0.995 ? '>99%' : p < 0.01 ? '<1%' : pct(p * 100, 0)}</b></td>
                   </tr>
                 )
@@ -210,10 +237,39 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen }) 
           </table>
         </div>
       )}
-      <p className="muted small">“Lead after” is the leader's margin over the current runner-up once the estimated special votes are added, before random variation. The chance of flipping includes variation between seats seen in 2017, 2020 and 2023 (a standard deviation of {SD_EV_PTS} points on the top-two margin among close seats), which for a seat with ~5,000 special votes is several hundred votes.</p>
+      <p className="muted small">“Lead after specials” is the leader's margin over the current runner-up once the estimated special votes are added, before random variation. The chance of flipping includes variation between seats seen in 2017, 2020 and 2023 (a standard deviation of {SD_EV_PTS} points on the top-two margin among close seats), which for a seat with ~5,000 special votes is several hundred votes.</p>
+
+        </section>
+      </div>
 
       <details className="fc-more">
-        <summary>Checks against published estimates, and how the estimate works</summary>
+        <summary>Past elections, checks against published estimates, and how the estimate works</summary>
+        <h4 className="ins-h">What each past election's pattern implies</h4>
+        <p className="muted small">The same 2026 count with each election's special-vote pattern applied on its own. This is the main source of uncertainty: the patterns differ, and the published projections use only the last one.</p>
+        <div className="tscroll">
+          <table className="ptable ins-table sp-table">
+            <thead><tr><th>Pattern of</th><th>Specials were</th><th>National</th><th>Labour</th><th>Greens</th><th>Opportunity</th><th>Government seats</th><th>Electorates flipping</th></tr></thead>
+            <tbody>
+              {YEARS.map((y) => {
+                const x = each[y]
+                const fl = Object.values(x.el).filter((e) => e.flips)
+                const g = gov(x)
+                return (
+                  <tr key={y}>
+                    <td className="pname">{y}{y < 2020 ? '' : ' *'}</td>
+                    <td>{pct(specShare(y), 1)} of votes</td>
+                    <td>{pct((x.pv.NAT / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.LAB / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.GP / total(x.pv)) * 100, 2)}</td><td>{pct((x.pv.OPP / total(x.pv)) * 100, 2)}</td>
+                    <td><b className={g >= x.seats.majority ? 'sp-up' : 'sp-dn'}>{g} of {x.seats.size}</b> <span className="muted">({x.seats.majority} needed)</span></td>
+                    <td>{fl.length ? fl.map((e) => `${e.now.lead.abbrev}→${e.after.lead.abbrev}`).join(', ') : 'none'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted small">* Election-day enrolment existed in 2020 and 2023 (those voters were counted as specials); the model removes an allowance for it. 2026 specials are assumed to be {pct((central.r.national.total / (nowT + central.r.national.total)) * 100, 1)} of votes, against {pct(specShare(2014), 1)} (2014), {pct(specShare(2017), 1)}, {pct(specShare(2020), 1)} and {pct(specShare(2023), 1)}.</p>
+
+
         <h4 className="ins-h">Checking the assumptions against published estimates</h4>
         <div className="tscroll">
           <table className="ptable sp-checks">

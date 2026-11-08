@@ -298,16 +298,30 @@ const gauss = (rand) => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math
 // count was 8.8% above it), so the simulation allows the volume to come in above the published 399,365.
 export const VOLUME_MULTIPLIERS = [1, 1.06, 1.12]
 export function gridRuns() {
-  const weightSets = [PATTERNS.all.weights, PATTERNS.noSameDay.weights, PATTERNS.sameDay.weights, PATTERNS.y2023.weights, { 2014: 1, 2017: 0, 2020: 0, 2023: 0 }, { 2014: 0, 2017: 1, 2020: 0, 2023: 0 }, { 2014: 0, 2017: 0, 2020: 1, 2023: 0 }, { 2014: 1, 2017: 1, 2020: 1, 2023: 2 }]
+  const W = (w14, w17, w20, w23) => ({ 2014: w14, 2017: w17, 2020: w20, 2023: w23 })
+  // each weight set is tagged with the pattern choices it belongs to
+  const weightSets = [
+    [W(1, 1, 1, 1), ['all']], [W(1, 1, 1, 2), ['all']],
+    [W(1, 1, 0, 0), ['all', 'noSameDay']], [W(1, 0, 0, 0), ['all', 'noSameDay']], [W(0, 1, 0, 0), ['all', 'noSameDay']],
+    [W(0, 0, 1, 1), ['all', 'sameDay']], [W(0, 0, 1, 0), ['all', 'sameDay']],
+    [W(0, 0, 0, 1), ['all', 'sameDay', 'y2023']],
+  ]
   const runs = []
-  for (const weights of weightSets) for (const enrol of ['removeDay', 'none']) for (const m of VOLUME_MULTIPLIERS) runs.push({ weights, enrol, volume: Math.round(PUBLIC.specialsEstimate * m) })
+  for (const [weights, tags] of weightSets) for (const enrol of ['removeDay', 'none']) for (const m of VOLUME_MULTIPLIERS) runs.push({ weights, tags, enrol, volume: Math.round(PUBLIC.specialsEstimate * m) })
   return runs
 }
 
 // Monte Carlo over (a) which past pattern repeats and the enrolment/volume assumptions, (b) electorate-vote noise, (c) party-vote noise.
-export function simulate({ specs, spec23, map, cur, blocs, draws = 1200, seed = 7 }) {
+export function simulateAll({ specs, spec23, map, cur, blocs, draws = 1200, seed = 7 }) {
   const runs = gridRuns()
   const proj = runs.map((params) => project({ specs, spec23, map, cur, params, blocs }))
+  const out = {}
+  for (const k of Object.keys(PATTERNS)) out[k] = mc({ proj: proj.filter((_, i) => runs[i].tags.includes(k)), cur, blocs, draws, seed })
+  return out
+}
+export function simulate(args) { return simulateAll(args).all }
+
+function mc({ proj, cur, blocs, draws, seed }) {
   const rand = rngSeed(seed)
   const ids = Object.keys(cur)
   const flipCount = {}, govtDist = {}, overhangDist = {}, marginDist = {}, seatsAcc = {}
@@ -345,7 +359,7 @@ export function simulate({ specs, spec23, map, cur, blocs, draws = 1200, seed = 
   }
   const seats = Object.fromEntries(Object.entries(seatsAcc).map(([a, q]) => { q.sort((x, y) => x - y); return [a, { lo: q[Math.floor(q.length * 0.1)], mid: q[Math.floor(q.length / 2)], hi: q[Math.floor(q.length * 0.9)] }] }))
   const per = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v / draws]))
-  return { draws, runs: runs.length, flips: per(flipCount), govtDist: per(govtDist), overhangDist: per(overhangDist), marginDist: per(marginDist), majority: majority / draws, outcome: per(outcome), seats, central: proj[0] }
+  return { draws, runs: proj.length, flips: per(flipCount), govtDist: per(govtDist), overhangDist: per(overhangDist), marginDist: per(marginDist), majority: majority / draws, outcome: per(outcome), seats, central: proj[0] }
 }
 
 // ---- checks ------------------------------------------------------------------------------------

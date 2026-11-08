@@ -239,3 +239,11 @@ h2 { font-size:1.3rem; }
 .sp-pct { font:700 .72rem var(--sans); height:16px; display:flex; align-items:flex-end; }
 .sp-x { font:600 .72rem/1.15 var(--sans); color:var(--mu); text-align:center; margin-top:4px; overflow-wrap:normal; word-break:normal; }
 .sp-foot { margin:8px 0 0; }
+
+.sp-pick { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin:14px 0 2px; }
+.sp-pick-l { font:600 .85rem var(--sans); }
+
+.sp-sub { font:1.05rem/1.4 var(--sans); margin:2px 0 6px; max-width:70ch; }
+.sp-sub b { font-weight:700; }
+@media (max-width:720px) { .hide-sm { display:none; } }
+.specials .lede { max-width:75ch; }

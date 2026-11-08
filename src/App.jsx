@@ -452,7 +452,7 @@ export default function App() {
       )}
 
       {page === 'specials' && (
-        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
+        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} />
       )}
 
       {page === 'mps' && (
