@@ -27,7 +27,7 @@ export const SCENARIOS = {
   lateEnrolRemoved: { label: 'No late enrolments at all', note: 'As above, and also removes the party-vote-only category (mostly late or changed enrolments) before scaling.', onDayRemoved: PUBLIC.enrolledOnDay2023, partyOnlyRemoved: 1 },
 }
 
-export const DEFAULTS = { scenario: 'noSameDay', method: 'ratio', shrink: 2000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share2023', evPass: 0.7, published: null }
+export const DEFAULTS = { scenario: 'noSameDay', method: 'logit', shrink: 2000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share2023', evPass: 0.7, published: null }
 
 // 2023 national totals per category (party vote), for category shares and national ratios.
 function national23(spec23) {
@@ -45,14 +45,33 @@ const merge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Objec
 const shareOf = (row) => { const t = sumv(row); const o = {}; for (const [k, v] of Object.entries(row || {})) o[k] = t ? v / t : 0; return o }
 
 // cur[id] = { partyVotes: { abbrev: votes }, cands: [{ name, abbrev, votes }] }  (2026 ordinary results so far)
-// candParty23 (optional) = { '2023 electorate': { 'candidate name as in 2023 tables': 'ABBREV' } } for electorate-vote estimates
-export function predictSpecials({ spec23, map, cur, params = {}, candParty23 = null }) {
+// params.history (optional) = [{ electorates, weight, nationalOnly }]: earlier elections' special-vote tables in the same
+// shape as spec23. Electorate-level patterns are used only from elections on the same boundaries (2020 and 2023);
+// nationalOnly elections (e.g. 2017, 2014) contribute national patterns only.
+const logit = (p) => { const q = Math.min(Math.max(p, 1e-4), 1 - 1e-4); return Math.log(q / (1 - q)) }
+const expit = (x) => 1 / (1 + Math.exp(-x))
+const clip = (x, m) => Math.max(-m, Math.min(m, x))
+const catRow = (e, c) => (c === 'overseas' ? merge(e?.party?.overseas, e?.party?.overseasPartyOnly) : e?.party?.[c])
+
+export function predictSpecials({ spec23, map, cur, params = {} }) {
   const p = { ...DEFAULTS, ...params }
   const sc = SCENARIOS[p.scenario] || SCENARIOS.pattern
+  const hist = p.history?.length ? p.history : [{ electorates: spec23.electorates, weight: 1 }]
+  const wTot = hist.reduce((t, h) => t + h.weight, 0)
   const nat = national23(spec23)
   const natOrdShare = shareOf(nat.ord)
-  const natRatio = {}
-  for (const c of CATS) { const s = shareOf(nat.cat[c]); natRatio[c] = {}; for (const a of Object.keys(natOrdShare)) natRatio[c][a] = natOrdShare[a] ? Math.min(4, Math.max(0.2, (s[a] || 0) / natOrdShare[a])) : 1 }
+
+  // ---- national log-odds shift of each party's share, special vs ordinary, per category (weighted over elections)
+  const natDelta = {}
+  const natInfo = hist.map((h) => { const n = national23({ electorates: h.electorates }); return { w: h.weight, n, ord: shareOf(n.ord), cat: Object.fromEntries(CATS.map((c) => [c, shareOf(n.cat[c])])) } })
+  for (const c of CATS) {
+    natDelta[c] = {}
+    for (const a of Object.keys(natOrdShare)) {
+      let t = 0, z = 0
+      for (const y of natInfo) if (y.ord[a] > 0 && y.cat[c][a] > 0) { t += y.w * clip(logit(y.cat[c][a]) - logit(y.ord[a]), 2); z += y.w }
+      natDelta[c][a] = z ? t / z : 0
+    }
+  }
 
   // ---- category volumes (valid party votes) nationally
   const valid = p.validity
@@ -64,7 +83,7 @@ export function predictSpecials({ spec23, map, cur, params = {}, candParty23 = n
 
   // ---- 2023 electorate weights per category on the 2026 map (predecessor seats)
   const ids = Object.keys(cur)
-  const catTot23 = (name, c) => { const e = spec23.electorates[name]; if (!e) return 0; return sumv(c === 'overseas' ? merge(e.party.overseas, e.party.overseasPartyOnly) : e.party[c]) }
+  const catTot23 = (name, c) => sumv(catRow(spec23.electorates[name], c))
   const weight = {}
   for (const c of CATS) {
     const raw = {}
@@ -83,35 +102,57 @@ export function predictSpecials({ spec23, map, cur, params = {}, candParty23 = n
     weight[c] = Object.fromEntries(ids.map((id) => [id, tot ? raw[id] / tot : 0]))
   }
 
+  // shift (log-odds, or log-ratio for the 'ratio' method) for party a in electorate (predecessor) `prev`, category c
+  const deltaFor = (prev, c, a) => {
+    let t = 0
+    for (const h of hist) {
+      const y = natInfo[hist.indexOf(h)]
+      const dn = natDelta[c][a] ?? 0
+      const e = h.nationalOnly ? null : h.electorates[prev]
+      const row = catRow(e, c)
+      const n = sumv(row)
+      const o = shareOf(e?.party?.ordinary)[a]
+      const m = shareOf(row)[a]
+      let d = dn
+      if (e && n > 0 && o > 0 && m > 0) {
+        const f = n / (n + p.shrink)
+        const own = p.method === 'ratio' ? Math.log(m / o) : logit(m) - logit(o)
+        const nat = p.method === 'ratio' ? Math.log((y.cat[c][a] || m) / (y.ord[a] || o)) : logit(y.cat[c][a] || m) - logit(y.ord[a] || o)
+        d = f * clip(own, 2) + (1 - f) * clip(nat, 2)
+      } else if (p.method === 'ratio') d = Math.log(Math.max(0.05, (natInfo[0].cat[c][a] || 1e-4) / (natInfo[0].ord[a] || 1e-4)))
+      t += (h.weight / wTot) * d
+    }
+    return t
+  }
+
   const out = { electorates: {}, national: { pv: {}, total: 0 }, params: p, catV }
+  const shiftCache = {}
   for (const id of ids) {
     const prev = map[id]?.prev
     const e23 = spec23.electorates[prev]
     const o26raw = cur[id].partyVotes
     const o26 = shareOf(o26raw)
-    const ord23 = shareOf(e23?.party?.ordinary)
     const pv = {}
     const vol = { total: 0 }
     for (const c of CATS) {
       const v = catV[c] * weight[c][id]
       vol[c] = v; vol.total += v
       if (!v) continue
-      const row = c === 'overseas' ? merge(e23?.party?.overseas, e23?.party?.overseasPartyOnly) : e23?.party?.[c]
-      const n = sumv(row)
-      const m = shareOf(row)
-      const w = n / (n + p.shrink)
       const mix = {}
       let z = 0
       for (const [a, s26] of Object.entries(o26)) {
+        const known = a in natOrdShare
+        const key = `${prev}|${c}|${a}`
+        const d = known ? (shiftCache[key] ??= deltaFor(prev, c, a)) : 0
         let val
-        if (!(a in ord23) || !ord23[a]) val = s26 * (natRatio[c][a] ?? 1)
-        else if (p.method === 'diff') val = Math.max(0, s26 + w * ((m[a] || 0) - ord23[a]) + (1 - w) * ((shareOf(nat.cat[c])[a] || 0) - natOrdShare[a]))
-        else {
-          const r = ord23[a] ? Math.min(4, Math.max(0.2, (m[a] || 0) / ord23[a])) : 1
-          const rr = Math.exp(w * Math.log(Math.max(r, 0.05)) + (1 - w) * Math.log(Math.max(natRatio[c][a] ?? 1, 0.05)))
-          val = s26 * rr
-        }
-        mix[a] = val; z += val
+        if (p.method === 'diff') {
+          const m = shareOf(catRow(e23, c))[a] || 0, o = shareOf(e23?.party?.ordinary)[a] || 0
+          const f = sumv(catRow(e23, c)) / (sumv(catRow(e23, c)) + p.shrink)
+          val = Math.max(0, s26 + f * (m - o) + (1 - f) * ((shareOf(nat.cat[c])[a] || 0) - (natOrdShare[a] || 0)))
+        } else if (p.method === 'ratio') val = s26 * Math.exp(d)
+        else val = expit(logit(s26) + d)
+        mix[a] = known || p.method !== 'diff' ? val : s26
+        z += mix[a]
       }
       for (const [a, val] of Object.entries(mix)) pv[a] = (pv[a] || 0) + (z ? val / z : 0) * v
     }
@@ -120,42 +161,32 @@ export function predictSpecials({ spec23, map, cur, params = {}, candParty23 = n
     out.national.total += vol.total
   }
 
-  // ---- electorate votes: same idea on candidate votes, using 2023 candidate parties when known
+  // ---- electorate votes: the candidate's party's special-vs-ordinary shift, damped by p.evPass
+  const evVol = { before: 0.969, onDay: 0.966, partyOnly: 0, overseas: 0.987 }
   for (const id of ids) {
     const prev = map[id]?.prev
-    const e23 = spec23.electorates[prev]
-    const ev = {}
     const cands = cur[id].cands || []
     const ordTot = cands.reduce((t, c) => t + c.votes, 0)
-    const evVol = { before: 0.969, onDay: 0.966, partyOnly: 0, overseas: 0.987 }
+    const vols = out.electorates[id].volume
     let evTotal = 0
-    for (const c of CATS) evTotal += out.electorates[id].volume[c] * evVol[c]
-    // candidate-level ratio by party (from party-vote ratios unless 2023 candidate parties are supplied)
-    const share = {}
+    for (const c of CATS) evTotal += vols[c] * evVol[c]
+    const w = {}
     let z = 0
     for (const c of cands) {
       const s26 = ordTot ? c.votes / ordTot : 0
-      let r = 1
-      let wsum = 0
+      let lr = 0, vsum = 0
       for (const k of ['before', 'onDay', 'overseas']) {
-        const vk = out.electorates[id].volume[k] * evVol[k]
+        const vk = vols[k] * evVol[k]
         if (!vk) continue
-        const row = k === 'overseas' ? merge(e23?.party?.overseas, e23?.party?.overseasPartyOnly) : e23?.party?.[k]
-        const n = sumv(row); const m = shareOf(row)[c.abbrev]; const o = shareOf(e23?.party?.ordinary)[c.abbrev]
-        const w = n / (n + p.shrink)
-        const rk = o && m != null ? Math.min(4, Math.max(0.2, m / o)) : 1
-        const nk = natRatio[k]?.[c.abbrev] ?? 1
-        const rr = Math.exp(w * Math.log(Math.max(rk, 0.05)) + (1 - w) * Math.log(Math.max(nk, 0.05)))
-        r += 0; wsum += vk; share[k + c.name] = rr
+        const known = c.abbrev in natOrdShare
+        const d = known ? (shiftCache[`${prev}|${k}|${c.abbrev}`] ??= deltaFor(prev, k, c.abbrev)) : 0
+        lr += vk * d; vsum += vk
       }
-      // blend categories by their volume
-      let lr = 0
-      for (const k of ['before', 'onDay', 'overseas']) { const vk = out.electorates[id].volume[k] * evVol[k]; if (vk && wsum) lr += (vk / wsum) * Math.log(share[k + c.name]) }
-      const val = s26 * Math.exp(p.evPass * lr)
-      ev[c.name] = { name: c.name, abbrev: c.abbrev, w: val }
+      const val = s26 * Math.exp(p.evPass * (vsum ? lr / vsum : 0))
+      w[c.name] = { name: c.name, abbrev: c.abbrev, w: val }
       z += val
     }
-    out.electorates[id].ev = Object.values(ev).map((x) => ({ name: x.name, abbrev: x.abbrev, votes: z ? (x.w / z) * evTotal : 0 }))
+    out.electorates[id].ev = Object.values(w).map((x) => ({ name: x.name, abbrev: x.abbrev, votes: z ? (x.w / z) * evTotal : 0 }))
   }
   return out
 }
@@ -208,7 +239,7 @@ export function project({ spec23, map, cur, params, blocs }) {
 // Runs a grid of reasonable assumptions and reports how often each outcome occurs.
 export function ensemble({ spec23, map, cur, blocs }) {
   const runs = []
-  for (const scenario of Object.keys(SCENARIOS)) for (const method of ['ratio', 'diff']) for (const shrink of [0, 2000, 1e12]) for (const allocation of ['share2023', 'turnoutAdjusted']) for (const volume of [PUBLIC.specialsEstimate, Math.round((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)]) for (const evPass of [0.5, 0.7, 1]) runs.push({ scenario, method, shrink, allocation, volume, evPass })
+  for (const scenario of Object.keys(SCENARIOS)) for (const method of ['logit', 'ratio', 'diff']) for (const shrink of [0, 2000, 1e12]) for (const allocation of ['share2023', 'turnoutAdjusted']) for (const volume of [PUBLIC.specialsEstimate, Math.round((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)]) for (const evPass of [0.5, 0.7, 1]) runs.push({ scenario, method, shrink, allocation, volume, evPass })
   const flips = {}
   const govt = {}
   const maj = { yes: 0, no: 0 }
@@ -247,30 +278,32 @@ export function leeReplica({ spec23, cur, specials = PUBLIC.specialsEstimate }) 
 }
 
 // (2) Backtest on 2023: how well does each predictor recover each electorate's actual special-vote party mix?
-// naive = specials look like ordinary votes; national = national ratios applied to the electorate's ordinary mix.
+// naive = specials look like ordinary votes; ratio / logit = a national special-vs-ordinary shift applied to the
+// electorate's ordinary mix (as a multiplier, or on the log-odds scale, which suits big and small parties alike).
 export function backtest2023(spec23) {
   const nat = national23(spec23)
   const natOrd = shareOf(nat.ord)
   const spAllNat = {}
   for (const c of CATS) for (const [a, v] of Object.entries(nat.cat[c])) spAllNat[a] = (spAllNat[a] || 0) + v
-  const ratio = {}
   const spS = shareOf(spAllNat)
-  for (const a of Object.keys(natOrd)) ratio[a] = natOrd[a] ? spS[a] / natOrd[a] : 1
   const parties = ['NAT', 'LAB', 'GP', 'ACT', 'NZF', 'OPP', 'TPMAO']
-  const err = { naive: Object.fromEntries(parties.map((a) => [a, []])), national: Object.fromEntries(parties.map((a) => [a, []])), flat: Object.fromEntries(parties.map((a) => [a, []])) }
+  const pred = {
+    naive: (o, a) => o[a] || 0,
+    ratio: (o, a) => (o[a] || 0) * (natOrd[a] ? spS[a] / natOrd[a] : 1),
+    logit: (o, a) => (natOrd[a] > 0 && spS[a] > 0 ? expit(logit(o[a] || 1e-4) + logit(spS[a]) - logit(natOrd[a])) : o[a] || 0),
+  }
+  const err = Object.fromEntries(Object.keys(pred).map((k) => [k, Object.fromEntries(parties.map((a) => [a, []]))]))
   for (const e of Object.values(spec23.electorates)) {
     const sp = {}
     for (const c of [...CATS, 'overseasPartyOnly']) for (const [a, v] of Object.entries(e.party[c] || {})) sp[a] = (sp[a] || 0) + v
-    const actual = shareOf(sp)
     if (sumv(sp) < 500) continue
+    const actual = shareOf(sp)
     const ord = shareOf(e.party.ordinary)
-    const pred = {}
-    let z = 0
-    for (const [a, s] of Object.entries(ord)) { pred[a] = s * (ratio[a] ?? 1); z += pred[a] }
-    for (const a of parties) {
-      err.naive[a].push(Math.abs((ord[a] || 0) - (actual[a] || 0)) * 100)
-      err.national[a].push(Math.abs((pred[a] || 0) / z - (actual[a] || 0)) * 100)
-      err.flat[a].push(Math.abs((spS[a] || 0) - (actual[a] || 0)) * 100)
+    for (const [k, f] of Object.entries(pred)) {
+      const raw = {}
+      let z = 0
+      for (const a of Object.keys(ord)) { raw[a] = f(ord, a); z += raw[a] }
+      for (const a of parties) err[k][a].push(Math.abs((raw[a] || 0) / z - (actual[a] || 0)) * 100)
     }
   }
   const mean = (q) => q.reduce((t, v) => t + v, 0) / (q.length || 1)
@@ -291,12 +324,12 @@ const gauss = (rand) => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math
 
 function gridRuns() {
   const runs = []
-  for (const scenario of Object.keys(SCENARIOS)) for (const method of ['ratio', 'diff']) for (const shrink of [0, 2000, 1e12]) for (const allocation of ['share2023', 'turnoutAdjusted']) for (const volume of [PUBLIC.specialsEstimate, Math.round((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)]) for (const evPass of [0.5, 0.7, 1]) runs.push({ scenario, method, shrink, allocation, volume, evPass })
+  for (const scenario of Object.keys(SCENARIOS)) for (const method of ['logit', 'ratio', 'diff']) for (const shrink of [0, 2000, 1e12]) for (const allocation of ['share2023', 'turnoutAdjusted']) for (const volume of [PUBLIC.specialsEstimate, Math.round((PUBLIC.specialsEstimate * PUBLIC.actual2023) / PUBLIC.estimate2023)]) for (const evPass of [0.5, 0.7, 1]) runs.push({ scenario, method, shrink, allocation, volume, evPass })
   return runs
 }
 
 // Monte Carlo over (a) the grid of assumptions above, (b) electorate-vote noise, (c) national party-vote noise.
-export function simulate({ spec23, map, cur, blocs, draws = 1500, seed = 7, every = 4 }) {
+export function simulate({ spec23, map, cur, blocs, draws = 1500, seed = 7, every = 6 }) {
   const runs = gridRuns().filter((_, i) => i % every === 0) // thin the grid: it is smooth, and this keeps the browser quick
   const proj = runs.map((params) => project({ spec23, map, cur, params, blocs }))
   const rand = rngSeed(seed)
