@@ -6,18 +6,10 @@ import Parliament from './Parliament.jsx'
 import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
-import UpdatesFeed from './UpdatesFeed.jsx'
-import Forecast from './Forecast.jsx'
-import SeatsToWatch from './SeatsToWatch.jsx'
 import Parliamentarians from './Parliamentarians.jsx'
 import Insights from './Insights.jsx'
-import { SeatsOverTime, SeatChangesTimeline } from './History.jsx'
-import { fetchEvents } from './updatesApi.js'
 import { POLLS } from './polls.js'
-import WINNERS_2023 from './winners2023.js'
-import PREV_2023 from './prev2023.js'
 import './drawer.css'
-import './updates.css'
 
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const POLL_FINAL_MS = 15 * 60_000 // once every electorate is final only special votes change, so ease off
@@ -65,13 +57,6 @@ function surname(full) {
   const m = /^(Mc|Mac)([A-Z]+)$/.exec(sn)
   return m ? m[1] + cap(m[2]) : sn
 }
-// Black or white text, whichever reads better on this fill.
-function ink(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '')
-  if (!m) return '#fff'
-  const n = parseInt(m[1], 16)
-  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6 ? '#111' : '#fff'
-}
 const fmt = (n) => n.toLocaleString('en-NZ')
 
 // Over/under-performance vs the poll consensus, in percentage points: green when the
@@ -110,36 +95,9 @@ function PartyRow({ r, ent, compact }) {
   )
 }
 
-function RaceCard({ r, onOpen, note }) {
-  return (
-    <li>
-      <button type="button" onClick={() => onOpen(r.id)} title={`Open ${r.name}`}>
-                  <span className="cr-head">
-                    <span className="cr-name">{r.name}{r.final && <em> · final</em>}</span>
-                    <span className="cr-gap">{r.margin === 0 ? 'tied' : `${fmt(r.margin)} vote${r.margin === 1 ? '' : 's'}`} <small>({r.marginPct.toFixed(1)} pts)</small></span>
-                  </span>
-                  {note && <span className="cr-note">{note}</span>}
-                        <span className="cr-bar" role="img" aria-label={r.shares.slice(0, 3).map((x) => `${x.name} ${x.abbrev} ${x.pct.toFixed(0)}%`).join(', ')}>
-                    {r.shares.map((x, i) => (
-                      <i key={i} style={{ width: `${x.pct}%`, background: x.color, color: ink(x.color) }} title={`${x.name} (${x.abbrev}) ${fmt(x.votes)} votes, ${x.pct.toFixed(1)}%`}>
-                        {i < 2 && x.pct >= 14 ? <span>{x.abbrev} {x.pct >= 38 ? `${x.name} ` : ''}<b>{x.pct.toFixed(0)}%</b></span> : null}
-                      </i>
-                    ))}
-                  </span>
-                  <span className="cr-foot">
-                    <span className="cr-prog" aria-hidden="true"><i style={{ width: `${Math.max(2, r.counted)}%` }} /></span>
-                    <span>{Math.round(r.counted)}% of places counted</span>
-                  </span>
-                </button>
-    </li>
-  )
-}
-
 // Simple hash routing (#/electorates etc.) so it works on GitHub Pages with no server setup.
 const PAGES = [
   ['overview', 'Overview'],
-  ['watch', 'Seats to watch'],
-  ['forecast', 'Forecast'],
   ['mps', 'Parliamentarians'],
   ['insights', 'Insights'],
   ['electorates', 'Electorates'],
@@ -161,7 +119,6 @@ function usePage() {
 
 export default function App() {
   const page = usePage()
-  const [feedOpen, setFeedOpen] = useState(false) // slide-over for screens too narrow for the sidebar
   const [meta, setMeta] = useState(null)
   const [nat, setNat] = useState(null)
   const [leaders, setLeaders] = useState({})
@@ -206,28 +163,16 @@ export default function App() {
     return () => { live = false }
   }, [meta, cycle])
 
-  // Booth-lean forecast (generated from booth-level results compared with 2023).
+  // Booth-level comparison with 2023 (static file; used for swing by region on the Insights tab).
   const [forecast, setForecast] = useState(null)
-  const [forecastError, setForecastError] = useState(null)
   useEffect(() => {
     let live = true
-    fetch(`${import.meta.env.BASE_URL}forecast.json?t=${Date.now()}`, { cache: 'no-store' })
+    fetch(`${import.meta.env.BASE_URL}forecast.json`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then((j) => { if (live) { setForecast(j); setForecastError(null) } })
-      .catch((e) => { if (live) setForecastError(e.message) })
+      .then((j) => { if (live) setForecast(j) })
+      .catch(() => {})
     return () => { live = false }
-  }, [cycle])
-
-  // Live feed of changes recorded by the Worker (lead changes, projected seat changes, ...).
-  const [events, setEvents] = useState(null)
-  const [eventsError, setEventsError] = useState(null)
-  useEffect(() => {
-    let live = true
-    fetchEvents(DATA_BASE)
-      .then((r) => { if (live) { setEvents(r.events); setEventsError(null) } })
-      .catch((e) => { if (live) setEventsError(e.message) })
-    return () => { live = false }
-  }, [cycle])
+  }, [])
 
   const fills = useMemo(() => {
     if (!meta) return {}
@@ -255,68 +200,6 @@ export default function App() {
     }
     return n
   }, [leaders, meta, nat])
-
-  // Closest electorates: smallest gap between the top two candidates, among electorates
-  // with enough votes counted for the gap to mean anything.
-  const closeRaces = useMemo(() => {
-    if (!meta) return []
-    const rows = []
-    for (const e of meta.electorates) {
-      const d = leaders[e.id]
-      if (!d || !d.cands || d.cands.length < 2) continue
-      const total = d.cands.reduce((t, c) => t + c.votes, 0)
-      const [a, b] = d.cands
-      if (total < 300 || a.votes <= 0) continue
-      const info = (c) => {
-        const cand = meta.candidates[c.id]
-        const abbrev = cand ? (meta.parties[cand.party]?.abbrev ?? 'Ind.') : ''
-        return { name: surname(cand?.name), abbrev, votes: c.votes, pct: (c.votes / total) * 100, color: colorOf(meta.parties[cand?.party]?.abbrev) }
-      }
-      const shares = d.cands.filter((c) => c.votes > 0).map(info)
-      rows.push({ id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final })
-    }
-    return rows.filter((r) => r.marginPct <= 10).sort((x, y) => x.marginPct - y.marginPct).slice(0, 24)
-  }, [leaders, meta])
-
-  // Seats that have flipped. Baseline = the party that won the *predecessor* seat in 2023
-  // (src/prev2023.js follows renamed seats, e.g. Wellington Central -> Wellington North).
-  // The notional 2023 result on the new boundaries (src/winners2023.js) is shown as context:
-  // `flips` are leaders that differ from the sitting party; `notionalOnly` are seats where the
-  // sitting party is leading but the boundary changes had notionally handed the seat to
-  // another party (so it counts as a gain/loss against the notional seat totals).
-  const { flips, notionalOnly } = useMemo(() => {
-    const flips = []
-    const notionalOnly = []
-    if (!meta) return { flips, notionalOnly }
-    for (const e of meta.electorates) {
-      const d = leaders[e.id]
-      const prev = PREV_2023[e.id]
-      const notional = WINNERS_2023[e.id]
-      if (!d || !d.cands || d.cands.length < 2 || !prev || !prev.prevParty) continue
-      const total = d.cands.reduce((t, c) => t + c.votes, 0)
-      const [a, b] = d.cands
-      if (total < 300 || a.votes <= 0) continue
-      const info = (c) => {
-        const cand = meta.candidates[c.id]
-        const abbrev = cand ? (meta.parties[cand.party]?.abbrev ?? 'Ind.') : ''
-        return { name: surname(cand?.name), abbrev, votes: c.votes, pct: (c.votes / total) * 100, color: colorOf(meta.parties[cand?.party]?.abbrev) }
-      }
-      const shares = d.cands.filter((c) => c.votes > 0).map(info)
-      const to = shares[0].abbrev
-      if (!to) continue
-      const row = { id: e.id, name: e.name, shares, margin: a.votes - b.votes, marginPct: ((a.votes - b.votes) / total) * 100, counted: d.pctPlaces || 0, final: !!d.final, to, prev, notionalParty: notional?.party ?? prev.notionalParty }
-      const seatName = prev.renamed ? `${prev.prevSeat} (now ${e.name})` : e.name
-      if (to !== prev.prevParty) {
-        const expected = row.notionalParty === to
-        flips.push({ ...row, from: prev.prevParty, note: `${seatName} was held by ${prev.prevParty} in 2023${prev.prevMargin != null ? ` (by ${prev.prevMargin} pts)` : ''} → ${to} leads by ${row.marginPct.toFixed(1)} pts${expected ? `. Expected on the new boundaries (notional ${row.notionalParty}${notional?.margin != null ? ` by ${notional.margin} pts` : ''}).` : '.'}` })
-      } else if (row.notionalParty && row.notionalParty !== to) {
-        notionalOnly.push({ ...row, from: row.notionalParty, note: `${seatName}: ${prev.prevParty} held it in 2023, but boundary changes made it a notional ${row.notionalParty} seat${notional?.margin != null ? ` (by ${notional.margin} pts)` : ''}. ${to} leads by ${row.marginPct.toFixed(1)} pts, so against the notional seat it is a ${to} gain.` })
-      }
-    }
-    flips.sort((x, y) => y.marginPct - x.marginPct)
-    notionalOnly.sort((x, y) => y.marginPct - x.marginPct)
-    return { flips, notionalOnly }
-  }, [leaders, meta])
 
   // Share of each electorate's voting places counted (0-1); drives the map's opacity.
   const progress = useMemo(() => {
@@ -408,16 +291,6 @@ export default function App() {
     const h = Number(m[1])
     return `${h % 12 || 12}:${m[2]} ${h >= 12 ? 'pm' : 'am'}`
   })()
-
-  const feed = (
-    <UpdatesFeed
-      events={events}
-      error={eventsError}
-      loading={!events && !eventsError}
-      colorOf={colorOf}
-      onSelectElectorate={(e) => setSelectedId(String(Number(e)))}
-    />
-  )
 
   return (
     <div className="shell">
@@ -526,7 +399,7 @@ export default function App() {
             <tbody>{otherRows.map((r) => <PartyRow key={r.id} r={r} ent={ent} compact />)}</tbody>
           </table></div>
           <p className="muted small">
-            <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (<span className="pollgap over">▲ green</span>) or under-performing (<span className="pollgap under">▼ red</span>) it, in percentage points; hover a figure to see the poll number itself. Early counts are not a random sample of voters, so early gaps often shrink or flip as more votes come in.
+            <b>Poll consensus</b> is the house-effect-adjusted average of public polls as at {POLLS.asAt} ({POLLS.source}); <b>vs polls</b> shows who is over- (<span className="pollgap over">▲ green</span>) or under-performing (<span className="pollgap under">▼ red</span>) it, in percentage points; hover a figure to see the poll number itself.
           </p>
           <p className="muted small">
             <b>From party vote</b> is each party's proportional share of the 120 seats (only parties with 5% of the party vote or an electorate seat qualify).
@@ -534,21 +407,7 @@ export default function App() {
           </p>
         </section>
       </div>
-      <SeatsOverTime events={events} rows={rows} colorOf={colorOf} shortName={shortName} blocDefs={BLOCS} />
       </>
-      )}
-
-      {page === 'forecast' && (
-        <Forecast
-          forecast={forecast}
-          error={forecastError}
-          rows={rows}
-          colorOf={colorOf}
-          shortName={shortName}
-          entitlements={entitlements}
-          blocDefs={BLOCS}
-          majorityOf={(n) => Math.floor(n / 2) + 1}
-        />
       )}
 
       {page === 'electorates' && (
@@ -590,15 +449,8 @@ export default function App() {
       </>
       )}
 
-      {page === 'watch' && (
-        <>
-          <SeatsToWatch flips={flips} notionalOnly={notionalOnly} closeRaces={closeRaces} forecast={forecast} colorOf={colorOf} blocDefs={BLOCS} onOpen={setSelectedId} />
-          <SeatChangesTimeline events={events} colorOf={colorOf} />
-        </>
-      )}
-
       {page === 'mps' && (
-        <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} forecast={forecast} entitlements={entitlements} />
+        <Parliamentarians meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} />
       )}
 
       {page === 'insights' && (
@@ -610,23 +462,21 @@ export default function App() {
           <div className="kicker">About & data</div>
           <h2>Where the numbers come from</h2>
           <h3 className="subhead">Results</h3>
-          <p>Preliminary results come straight from the New Zealand Electoral Commission's public results feed, refreshed every 5 minutes (press Refresh to reload the page). They are not final: special votes are counted later and official results are due 27 November.</p>
+          <p>Preliminary results come straight from the New Zealand Electoral Commission's public results feed, refreshed every 15 minutes now that every electorate is final (press Refresh to reload the page). They are not final: special votes are counted later and official results are due 27 November.</p>
           <h3 className="subhead">Projected seats and overhang</h3>
-          <p>Each party's <b>party-vote seats</b> are calculated from its share of the party vote using the Sainte-Laguë method over 120 seats, among parties with at least 5% of the party vote or one electorate seat. <b>Electorates</b> are the seats a party is currently leading. If a party leads more electorates than its party-vote seats, the extra seats are an <b>overhang</b>, added on top of the usual 120, and the number needed for a majority rises accordingly. Early in the count these projections can swing a lot.</p>
+          <p>Each party's <b>party-vote seats</b> are calculated from its share of the party vote using the Sainte-Laguë method over 120 seats, among parties with at least 5% of the party vote or one electorate seat. <b>Electorates</b> are the seats a party is currently leading. If a party leads more electorates than its party-vote seats, the extra seats are an <b>overhang</b>, added on top of the usual 120, and the number needed for a majority rises accordingly.</p>
           <h3 className="subhead">Blocs</h3>
           <p>Government: National + ACT + NZ First. Cross-bench: Opportunity. Opposition: Labour + Greens + Te Pāti Māori + Te Tai Tokerau Party + independents (counted from electorates where an independent leads, as the Commission's party totals don't include them). Any other party that wins seats is shown as "Other parties".</p>
           <h3 className="subhead">Polls and 2023 comparisons</h3>
-          <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote. Early counts are not a random sample of voters, so early gaps often shrink or flip.</p>
+          <p><b>vs polls</b> compares each party's share with the house-effect-adjusted consensus of public polls as at {POLLS.asAt} ({POLLS.source}); green means doing better than the polls, red worse. Hover a figure to see the poll number. <b>vs 2023</b> compares with the nationwide 2023 party vote.</p>
           <h3 className="subhead">Maps and electorates</h3>
-          <p>Map colour is the party of the candidate currently leading an electorate; fainter colour means fewer of its voting places are counted. The Forecast tab compares each booth counted so far with the same booth in 2023 (matched by address) to estimate whether the booths still to come lean one way, then recomputes the party vote and seats on that basis; it is a rough guide, not a prediction. Seats to watch plots every seat that has flipped or is within 10 points on one scale. <b>Flipped</b> compares each electorate's current leader with the party that won the predecessor seat in 2023 (following renamed seats), and notes where the 2025 boundary changes notionally changed the result (an estimate by The Tally Room, so tentative). Close races are listed up to 24 seats where the top two candidates are within 10 points of each other (smallest gap first), among electorates with at least 300 votes counted. Booth positions are approximate; some booths (mobile teams, care homes) have no location.</p>
+          <p>Map colour is the party of the candidate leading each electorate. In the electorate panel, the booth map shows how each voting place voted: as a dot map (one dot per vote when zoomed in, scattered inside the Stats NZ statistical area the voting place sits in; each dot stands for more votes as you zoom out) or as pie charts sized by the votes counted. Booth positions are approximate; some voting places (mobile teams, care homes) have no location. The Parliamentarians tab compares sitting MPs with the current seat winners and list order; the Insights tab compares 2026 results with 2023 in the same voting places and with 2023 Census demographics.</p>
           <h3 className="subhead">Demographics</h3>
           <p>The Insights tab links each general electorate's party vote to the 2023 Census. Census counts by statistical area 1 (Stats NZ, CC BY 4.0) are added up for each 2025 electorate by the electorate containing each area's centre point, so electorate edges are approximate. Correlations compare electorates only and do not show how individuals voted. Māori electorates are left out because they overlap the general ones.</p>
-          <h3 className="subhead">Live updates</h3>
-          <p>A small service watches the Commission's feed every minute and records electorate seats changing hands, projected seat changes, overhang changes, voting places counted and finished electorates. It appears in the Updates panel on every page (a button on narrow screens) and started recording when this feature was switched on.</p>
           <h3 className="subhead">Data and licences</h3>
           <ul>
             <li>Results: New Zealand Electoral Commission preliminary results feed{asAt ? ` (feed updated ${asAt} NZ time)` : ''}.</li>
-            <li>Electorate boundaries: Representation Commission 2025 (CC BY 4.0), clipped to the coastline using Stats NZ Statistical Area 2 2023 boundaries.</li>
+            <li>Electorate boundaries: Representation Commission 2025 (CC BY 4.0), clipped to the coastline using Stats NZ Statistical Area 2 2023 boundaries; Statistical Area 3 2023 boundaries (Stats NZ) are used for the dot map.</li>
             <li>Street maps: © MapTiler © OpenStreetMap contributors.</li>
             <li>2023 results: Electoral Commission official results (as published; small differences between sources are possible).</li>
             <li>Poll consensus: ŌVERHANG.</li>
@@ -654,18 +504,6 @@ export default function App() {
         Electorate boundaries: Representation Commission 2025 (CC BY 4.0).
       </p>
     </main>
-    <aside className="updates-side" aria-label="Live updates">{feed}</aside>
-    <button type="button" className="feed-fab" onClick={() => setFeedOpen(true)} aria-haspopup="dialog">
-      <span className="feed-fab-dot" aria-hidden="true" /> Updates
-    </button>
-    {feedOpen && (
-      <div className="feed-overlay" role="dialog" aria-modal="true" aria-label="Live updates" onClick={(e) => { if (e.target === e.currentTarget) setFeedOpen(false) }}>
-        <div className="feed-sheet">
-          <button type="button" className="feed-close" onClick={() => setFeedOpen(false)} aria-label="Close updates">×</button>
-          {feed}
-        </div>
-      </div>
-    )}
     </div>
   )
 }

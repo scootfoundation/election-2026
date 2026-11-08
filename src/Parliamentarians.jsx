@@ -32,10 +32,7 @@ function Avatar({ p, colorOf }) {
   )
 }
 
-export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, shortName, onOpen, forecast, entitlements }) {
-  const hasFc = !!(forecast && forecast.ready && forecast.electorates && forecast.electorates.length)
-  const [mode, setMode] = useState('actual')
-  const fc = mode === 'forecast' && hasFc
+export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, shortName, onOpen }) {
   const [party, setParty] = useState('all')
   const [show, setShow] = useState({ kept: false })
 
@@ -43,33 +40,15 @@ export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, sh
     const cand = meta.candidates
     const abbrevOf = (c) => meta.parties[cand[c]?.party]?.abbrev || 'Ind.'
     const elecName = Object.fromEntries(meta.electorates.map((e) => [String(e.id), e.name]))
-    const won = new Map() // c_no -> { e, name, margin, counted, final, proj }
+    // Electorate winners (current leaders) and list seats from the feed's party seats.
+    const won = new Map() // c_no -> { e, name, margin, counted, final }
     const listN = new Map() // party abbrev -> list seats
-    if (!fc) {
-      // Actuals: current leaders and the feed's party seats.
-      for (const [eid, d] of Object.entries(leaders)) {
-        const [a, b] = d.cands || []
-        if (!a || a.votes <= 0) continue
-        won.set(String(a.id), { e: eid, name: elecName[eid] || eid, margin: a.votes - (b ? b.votes : 0), counted: d.pctPlaces || 0, final: !!d.final })
-      }
-      for (const r of rows) listN.set(r.abbrev, Math.max(0, (ent[r.id] ?? 0) - r.candSeats))
-    } else {
-      // Forecast: each electorate's projected winner, and list seats from the projected party vote.
-      const byKey = new Map(Object.entries(cand).map(([c, x]) => [`${x.name}|${Number(x.electorate)}`, c]))
-      const wins = {}
-      for (const e of forecast.electorates) {
-        const pl = e.sp ? e.sp.projLead : e.projLead
-        const c = pl && byKey.get(`${pl.name}|${e.e}`)
-        if (!c) continue
-        const margin = e.sp ? e.sp.projMargin : e.projMargin
-        won.set(c, { e: String(e.e), name: elecName[String(e.e)] || e.name, margin: Math.abs(margin), counted: 100, final: !!e.final, proj: true })
-        wins[pl.abbrev] = (wins[pl.abbrev] || 0) + 1
-      }
-      const useSp = forecast.electorates.some((e) => e.sp) && forecast.parties.some((x) => x.projectedPctSp != null)
-      const projRows = forecast.parties.map((x, i) => ({ id: x.abbrev, abbrev: x.abbrev, votes: useSp ? x.projectedVotesSp : x.projectedVotes, pct: useSp ? x.projectedPctSp : x.projectedPct, candSeats: wins[x.abbrev] || 0, idx: i }))
-      const pe = entitlements(projRows)
-      for (const r of projRows) listN.set(r.abbrev, Math.max(0, (pe[r.id] ?? 0) - r.candSeats))
+    for (const [eid, d] of Object.entries(leaders)) {
+      const [a, b] = d.cands || []
+      if (!a || a.votes <= 0) continue
+      won.set(String(a.id), { e: eid, name: elecName[eid] || eid, margin: a.votes - (b ? b.votes : 0), counted: d.pctPlaces || 0, final: !!d.final })
     }
+    for (const r of rows) listN.set(r.abbrev, Math.max(0, (ent[r.id] ?? 0) - r.candSeats))
     // List winners per party: top-ranked list candidates who haven't won an electorate.
     const listed = new Map() // c_no -> { rank, abbrev }
     for (const [abbrev, n] of listN) {
@@ -95,7 +74,7 @@ export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, sh
     for (const [c, w] of won) if (!mpByCno.has(c)) people.push({ key: 'gain', name: display(cand[c].name), abbrev: abbrevOf(c), was: 'New to Parliament', now: { text: `${w.name} electorate`, ...w }, fresh: true })
     for (const [c, l] of listed) if (!mpByCno.has(c)) people.push({ key: 'newlist', name: display(cand[c].name), abbrev: l.abbrev, was: 'New to Parliament', now: { text: `List #${l.rank}`, list: true }, fresh: true })
     return people
-  }, [meta, leaders, rows, ent, fc, forecast, entitlements])
+  }, [meta, leaders, rows, ent])
 
   const parties = [...new Set(model.map((p) => p.abbrev))].sort()
   const by = (k) => model.filter((p) => p.key === k && (party === 'all' || p.abbrev === party)).sort((a, b) => a.abbrev.localeCompare(b.abbrev) || a.name.localeCompare(b.name))
@@ -113,7 +92,7 @@ export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, sh
         {p.now ? (
           p.now.e ? (
             <button type="button" className="mp-link" onClick={() => onOpen(p.now.e)} title={`Open ${p.now.name}`}>
-              {p.now.text}<small>{p.now.final ? ' · final' : p.now.proj ? ` · projected +${fmt(p.now.margin)}` : ` · leads by ${fmt(p.now.margin)}`}</small>
+              {p.now.text}<small>{p.now.final ? ' · final' : ` · leads by ${fmt(p.now.margin)}`}</small>
             </button>
           ) : (<span>{p.now.text}</span>)
         ) : <span className="muted">–</span>}
@@ -126,13 +105,8 @@ export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, sh
       <div className="kicker">Parliamentarians</div>
       <h2>Who is in, who is out</h2>
       <p className="muted small">
-        Sitting MPs from the 54th Parliament compared with how the count stands now. With <b>Actual count so far</b>, electorate seats go to each electorate's current leader and list seats to each party's top-ranked list candidates who have not won an electorate. <b>Forecast final result</b> uses the Forecast tab's projections instead. Either way it is <b>provisional</b>.
+        Sitting MPs from the 54th Parliament compared with how the count stands now. Electorate seats go to each electorate's leader and list seats to each party's top-ranked list candidates who have not won an electorate. Results are <b>preliminary</b>: special votes are still to be counted and could change list seats.
       </p>
-      <div className="mp-mode" role="group" aria-label="Actual count or forecast">
-        <button type="button" className={!fc ? 'on' : ''} aria-pressed={!fc} onClick={() => setMode('actual')}>Actual count so far</button>
-        <button type="button" className={fc ? 'on' : ''} aria-pressed={fc} disabled={!hasFc} onClick={() => setMode('forecast')} title={hasFc ? '' : 'The forecast is not available yet'}>Forecast final result</button>
-      </div>
-      {fc && <p className="muted small">Forecast: electorate seats go to each seat's projected winner and list seats are recomputed from the projected party vote, including estimated special votes (see the Forecast tab).</p>}
       <div className="stw-stats mps-stats">
         <div><b>{count('out') + count('retired')}</b><span>sitting MPs out ({count('out')} lost, {count('retired')} not standing)</span></div>
         <div><b>{count('gain') + count('newlist')}</b><span>coming in ({count('gain')} electorate, {count('newlist')} list)</span></div>

@@ -148,7 +148,7 @@ export default function Insights({ meta, leaders, nat, forecast, colorOf, shortN
     <section className="sec insights">
       <div className="kicker">Insights</div>
       <h2>Swings by region, and other things worth noticing</h2>
-      <p className="muted small">Swing is the change in a party's share of the party vote since 2023, measured only in voting places counted so far that we could match to the same place in 2023{when ? ` (updated ${when})` : ''}. Early places are not a random sample, so swings can shift as the count completes. Candidate-vs-party comparisons leave out the Māori electorates.</p>
+      <p className="muted small">Swing is the change in a party's share of the party vote since 2023, measured only in voting places counted so far that we could match to the same place in 2023. Special votes are not included. Candidate-vs-party comparisons leave out the Māori electorates.</p>
 
       <h3 className="subhead">Swing by region</h3>
       {hasSwing ? (
