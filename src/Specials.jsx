@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Parliament from './Parliament.jsx'
-import { PUBLIC, PATTERNS, YEARS, DEFAULTS, SD_EV_PTS, SD_PV_PTS, VOLUME_MULTIPLIERS, SAME_DAY, project, simulateAll, perElection, leeReplica, backtestPair, sameDayDecomposition } from './specialsModel.js'
+import { PUBLIC, YEARS, DEFAULTS, DEFAULT_PARAMS, SAME_DAY, project, runSim, perElection, paramsToModel, leeReplica, backtestPair, sameDayDecomposition } from './specialsModel.js'
 
 // "Specials" tab: estimates the special votes still to be counted, electorate by electorate, from the special-vote results of
 // the last four elections, adjusted for the end of same-day enrolment, and checks the assumptions against published estimates.
@@ -21,12 +21,40 @@ function useJson(path) {
   return v
 }
 
+
+// A number field that can be typed into freely and commits a valid number on every keystroke.
+function Num({ value, onChange, step = 1, min = 0, max, width = 92, label }) {
+  const [txt, setTxt] = useState(String(value))
+  useEffect(() => { if (Number(txt) !== value) setTxt(String(value)) }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <input className="sp-num" type="number" inputMode="decimal" aria-label={label} style={{ width }} value={txt} step={step} min={min} max={max}
+      onChange={(e) => { setTxt(e.target.value); const n = Number(e.target.value); if (e.target.value !== '' && Number.isFinite(n)) onChange(n) }} />
+  )
+}
+const WEIGHT_PRESETS = {
+  'Equal': { 2014: 25, 2017: 25, 2020: 25, 2023: 25 },
+  'Before same-day enrolment': { 2014: 50, 2017: 50, 2020: 0, 2023: 0 },
+  'With same-day enrolment': { 2014: 0, 2017: 0, 2020: 50, 2023: 50 },
+  'Last election only': { 2014: 0, 2017: 0, 2020: 0, 2023: 100 },
+}
+
 export default function Specials({ meta, leaders, colorOf, shortName, onOpen, blocDefs }) {
   const s14 = useJson('specials2014.json'), s17 = useJson('specials2017.json'), s20 = useJson('specials2020.json'), s23 = useJson('specials2023.json')
   const map = useJson('specials-map.json')
   const published = useJson('specials-estimates.json') // optional: per-electorate estimates, if supplied
-  const [pattern, setPattern] = useState(DEFAULTS.pattern)
-  const [sims, setSims] = useState(null)
+  const [P, setP] = useState(DEFAULT_PARAMS)
+  const [res, setRes] = useState(null)
+  const [alt, setAlt] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return undefined
+    const k = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', k)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', k); document.body.style.overflow = prev }
+  }, [open])
   const name = (a) => shortName({ abbrev: a, name: a })
   const specs = useMemo(() => (s23 && s20 && s17 && s14 ? { 2014: s14, 2017: s17, 2020: s20, 2023: s23 } : null), [s14, s17, s20, s23])
 
@@ -46,36 +74,66 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
   }, [meta, leaders])
 
   const ready = !!(specs && map && cur)
-  const central = useMemo(() => (ready ? project({ specs, map, cur, params: { pattern }, blocs: BLOCS }) : null), [ready, specs, map, cur, pattern])
-  const each = useMemo(() => (ready ? perElection({ specs, map, cur, blocs: BLOCS }) : null), [ready, specs, map, cur])
   useEffect(() => {
     if (!ready) return undefined
-    setSims(null)
-    const t = setTimeout(() => setSims(simulateAll({ specs, map, cur, blocs: BLOCS })), 30) // runs after first paint
+    setBusy(true)
+    const t = setTimeout(() => { // runs after the page has painted; every change to an assumption lands here
+      setRes(runSim({ specs, map, cur, blocs: BLOCS, params: P }))
+      setAlt(runSim({ specs, map, cur, blocs: BLOCS, params: { ...P, mode: 'chances', weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 100 } }, draws: 800 }))
+      setBusy(false)
+    }, 350)
     return () => clearTimeout(t)
-  }, [ready, specs, map, cur])
-  const sdd = useMemo(() => (specs ? sameDayDecomposition(specs) : null), [specs])
-  const noDisc = useMemo(() => (ready ? perElection({ specs, map, cur, blocs: BLOCS, params: { enrol: 'none' } }) : null), [ready, specs, map, cur])
+  }, [ready, specs, map, cur, P])
+  const central = res ? res.central : null
+  const each = res ? res.each : null
+  const sdd = useMemo(() => (specs ? sameDayDecomposition(specs, P.sameDay, P.validity) : null), [specs, P.sameDay, P.validity])
+  const noDisc = useMemo(() => {
+    if (!ready || !res) return null
+    const m = 1 + (P.volLo + P.volHi) / 200
+    return perElection({ specs, map, cur, blocs: BLOCS, params: { ...paramsToModel(P, { 2014: 0, 2017: 0, 2020: 0, 2023: 0 }, m), enrol: 'none' } })
+  }, [ready, res, specs, map, cur, P])
   const sens = useMemo(() => {
-    if (!ready) return null
-    const base = project({ specs, map, cur, params: { pattern: 'all' }, blocs: BLOCS })
+    if (!ready || !res) return null
+    const m = 1 + (P.volLo + P.volHi) / 200
+    const W = Object.fromEntries(YEARS.map((y) => [y, Math.max(0, Number(P.weights[y]) || 0)]))
+    const tot = YEARS.reduce((t, y) => t + W[y], 0) || 1
+    const blend = Object.fromEntries(YEARS.map((y) => [y, W[y] / tot]))
+    const base = project({ specs, map, cur, params: paramsToModel(P, blend, m), blocs: BLOCS })
     const t = (o) => Object.values(o).reduce((a, b) => a + b, 0)
     const key = (x) => JSON.stringify(Object.entries(x.seats.seats).sort())
     let maxDiff = 0, sameSeats = true
-    for (const params of [{ dayScale: 0.5 }, { dayScale: 1.5 }, { beforeRemoved: 300000 }]) {
-      const x = project({ specs, map, cur, params: { pattern: 'all', ...params }, blocs: BLOCS })
+    for (const q of [{ ...P, dayVoted: 50 }, { ...P, dayVoted: 150 }, { ...P, lateRemoved: 300000 }]) {
+      const x = project({ specs, map, cur, params: paramsToModel(q, blend, m), blocs: BLOCS })
       for (const a of MAIN) maxDiff = Math.max(maxDiff, Math.abs((x.pv[a] / t(x.pv) - base.pv[a] / t(base.pv)) * 100))
       if (key(x) !== key(base)) sameSeats = false
     }
     return { maxDiff, sameSeats }
-  }, [ready, specs, map, cur])
+  }, [ready, res, specs, map, cur, P])
   const lee = useMemo(() => (ready ? leeReplica({ specs, cur }) : null), [ready, specs, cur])
   const back = useMemo(() => (specs ? { a: backtestPair(specs[2023], specs[2020]), b: backtestPair(specs[2020], specs[2023]) } : null), [specs])
 
   if (specs === null || map === null || [s14, s17, s20, s23].some((x) => x === null)) return <section className="sec"><div className="kicker">Specials</div><h2>Special votes forecast</h2><p className="muted small">The special-vote history isn't available right now.</p></section>
   if (!ready) return <section className="sec"><div className="kicker">Specials</div><h2>Special votes forecast</h2><p className="muted small">Loading…</p></section>
 
-  const sim = sims ? sims[pattern] : null
+  if (!central) return <section className="sec"><div className="kicker">Specials</div><h2>Special votes forecast</h2><p className="muted small">Calculating…</p></section>
+  const sim = res
+  const set = (patch) => setP((q) => ({ ...q, ...patch }))
+  // numbers from past elections shown beside the fields
+  const H = (() => {
+    const h = {}
+    for (const y of YEARS) {
+      const sp = {}, od = {}
+      let spT = 0, tot = 0
+      for (const e of Object.values(specs[y].electorates)) {
+        for (const c of ['before', 'onDay', 'partyOnly', 'overseas', 'overseasPartyOnly']) for (const [a, v] of Object.entries(e.party[c] || {})) { sp[a] = (sp[a] || 0) + v; spT += v }
+        for (const v of Object.values(e.party.total || {})) tot += v
+        for (const [a, v] of Object.entries(e.party.ordinary || {})) od[a] = (od[a] || 0) + v
+      }
+      h[y] = { valid: spT, share: (spT / tot) * 100, sp: Object.fromEntries(Object.entries(sp).map(([a, v]) => [a, v / spT])) }
+    }
+    h.ev = [{ y: 2017, mean: -2.6, sd: 7.3, n: 14 }, { y: 2020, mean: -2.5, sd: 12.6, n: 28 }, { y: 2023, mean: 0.2, sd: 8.7, n: 23 }]
+    return h
+  })()
   const total = (o) => Object.values(o).reduce((a, b) => a + b, 0)
   const nowT = total(central.now), finT = total(central.pv)
   const seatsNow = central.seatsBefore.seats, seatsFin = central.seats.seats
@@ -111,30 +169,98 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
     <section className="sec specials">
       <div className="kicker">Specials</div>
       <h2>{headline}</h2>
-      <div className="sp-assume">
-        <h3 className="sp-assume-h">Based on these assumptions</h3>
-        <ul>
-          <li><b>Volume.</b> About {fmt(PUBLIC.specialsEstimate)} special votes (the Electoral Commission's estimate), allowing for it to come in 6–12% higher, as its past estimates did.</li>
-          <li>
-            <b>How specials differ from ordinary votes.</b>
-            <div className="stw-chips" role="group" aria-label="How special votes differ from ordinary votes">
-              {Object.entries(PATTERNS).map(([k, s]) => <button key={k} type="button" className={pattern === k ? 'on' : ''} aria-pressed={pattern === k} onClick={() => setPattern(k)} title={s.note}>{s.label}</button>)}
-            </div>
-            <span className="muted small">{PATTERNS[pattern].note}</span>
-          </li>
-          <li><b>Enrolment.</b> People who enrolled on election day (about {fmt(SAME_DAY[2020])} in 2020, {fmt(SAME_DAY[2023])} in 2023) are taken out of the past patterns. Other late enrolees can't be separated out.</li>
-          <li><b>Electorate votes.</b> A candidate's votes in the specials move 70% as much as their party's.</li>
-          <li><b>Chance.</b> Each seat's margin can vary by about 10 points of its special votes, as in past close seats.</li>
-        </ul>
-        <p className="muted small">A model, not a result: the official count finishes on 27 November.</p>
-      </div>
-      {sims && (
-        <p className="sp-sub">
-          Under these assumptions <b>{pct(sim.majority * 100, 0)}</b> of simulations keep a National–ACT–NZ First majority
-          {pattern !== 'y2023' && <> (<b>{pct(sims.y2023.majority * 100, 0)}</b> if specials differ as they did in 2023 alone, as in the published projections)</>}.
-        </p>
-      )}
 
+      <p className="sp-sub">
+        Under these assumptions <b>{pct(sim.majority * 100, 0)}</b> of simulations keep a National–ACT–NZ First majority
+        {alt && (P.weights[2014] > 0 || P.weights[2017] > 0 || P.weights[2020] > 0 || P.mode === 'blend') && <> (<b>{pct(alt.majority * 100, 0)}</b> if specials differ as they did in 2023 alone, as in the published projections)</>}.
+      </p>
+
+      <button type="button" className="sp-edit" onClick={() => setOpen(true)}>Edit assumptions</button>
+      <div className="sp-split">
+        {open && <div className="sp-modal" role="dialog" aria-modal="true" aria-label="Assumptions" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
+        <aside className={busy ? 'sp-params sp-busy' : 'sp-params'}>
+          <div className="sp-params-head">
+            <h3 className="sp-assume-h">Assumptions</h3>
+            <span className="sp-status" aria-live="polite">{busy ? 'Updating…' : <>Government majority in <b>{pct(sim.majority * 100, 0)}</b> of simulations</>}</span>
+            <button type="button" className="sp-reset" onClick={() => setP(DEFAULT_PARAMS)}>Reset all</button>
+            <button type="button" className="sp-done" onClick={() => setOpen(false)}>Done</button>
+          </div>
+          <p className="muted small">Change any number; the results update. Each starts from what past elections show.</p>
+
+          <fieldset className="sp-group">
+            <legend>How specials differ from ordinary votes</legend>
+            <table className="sp-wtable">
+              <thead><tr><th>Election</th><th>Weight</th><th>If it repeats</th></tr></thead>
+              <tbody>
+                {YEARS.map((y) => {
+                  const x = each[y]
+                  const g = gov(x)
+                  return (
+                    <tr key={y}>
+                      <td>{y}{y >= 2020 ? ' *' : ''}</td>
+                      <td><Num label={`Weight on ${y}`} value={P.weights[y]} step={5} onChange={(v) => set({ weights: { ...P.weights, [y]: v } })} width={58} /></td>
+                      <td><b className={g >= x.seats.majority ? 'sp-up' : 'sp-dn'}>{g}/{x.seats.size}</b> <span className="muted">govt seats ({x.seats.majority} needed)</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div className="sp-modes" role="radiogroup" aria-label="How the weights are used">
+              <label><input type="radio" name="mode" checked={P.mode === 'chances'} onChange={() => set({ mode: 'chances' })} /> Weights are the <b>chance</b> each election's pattern is the one that repeats</label>
+              <label><input type="radio" name="mode" checked={P.mode === 'blend'} onChange={() => set({ mode: 'blend' })} /> Weights <b>blend</b> the patterns into one average</label>
+            </div>
+            <div className="sp-presets">{Object.entries(WEIGHT_PRESETS).map(([k, w]) => <button key={k} type="button" onClick={() => set({ weights: w })}>{k}</button>)}</div>
+            <p className="sp-hist">Specials were {YEARS.map((y) => `${pct(H[y].share)} of votes in ${y}`).join(', ')}; this setting implies {pct((central.r.national.total / (nowT + central.r.national.total)) * 100)}. * Election-day enrolment existed in 2020 and 2023 (see Enrolment); in 2014 and 2017 enrolment closed the day before polling day; in 2026, 13 days before. Only 2020 and 2023 share electorate boundaries, so only they give electorate-level patterns.</p>
+          </fieldset>
+
+          <fieldset className="sp-group">
+            <legend>Volume of special votes</legend>
+            <label className="sp-field"><span>Expected total, incl. overseas and dictation</span><Num label="Expected special votes" value={P.estimate} step={1000} onChange={(v) => set({ estimate: v })} width={100} /></label>
+            <label className="sp-field"><span>of which overseas and dictation</span><Num label="Overseas and dictation votes" value={P.overseas} step={1000} onChange={(v) => set({ overseas: v })} width={100} /></label>
+            <label className="sp-field"><span>Share that are valid (%)</span><Num label="Valid share" value={Math.round(P.validity * 1000) / 10} step={0.1} max={100} onChange={(v) => set({ validity: v / 100 })} width={70} /></label>
+            <div className="sp-field"><span>Final count above the estimate (%)</span><span><Num label="Low" value={P.volLo} step={1} min={-20} onChange={(v) => set({ volLo: v })} width={52} /> to <Num label="High" value={P.volHi} step={1} min={-20} onChange={(v) => set({ volHi: v })} width={52} /></span></div>
+            <p className="sp-hist">Past: estimate → final count was 2017 {fmt(PUBLIC.estimate2017)} → 446,287 (+16%); 2020 480,000 → 504,625 (+5%); 2023 {fmt(PUBLIC.estimate2023)} → {fmt(PUBLIC.actual2023)} (+6%). Valid share: 2017 {pct(H[2017].valid / 446287 * 100)}, 2020 {pct(H[2020].valid / 504625 * 100)}, 2023 {pct(H[2023].valid / PUBLIC.actual2023 * 100)}. Overseas and dictation: 2017 61,375 (est.), 2020 62,787, 2023 78,030.</p>
+          </fieldset>
+
+          <fieldset className="sp-group">
+            <legend>Enrolment</legend>
+            <label className="sp-field"><span>Enrolled or updated on election day, 2020</span><Num label="Election-day enrolees 2020" value={P.sameDay[2020]} step={1000} onChange={(v) => set({ sameDay: { ...P.sameDay, 2020: v } })} width={90} /></label>
+            <label className="sp-field"><span>… 2023</span><Num label="Election-day enrolees 2023" value={P.sameDay[2023]} step={1000} onChange={(v) => set({ sameDay: { ...P.sameDay, 2023: v } })} width={90} /></label>
+            <label className="sp-field"><span>Share who cast a valid special (%)</span><Num label="Share who voted" value={P.dayVoted} step={5} max={200} onChange={(v) => set({ dayVoted: v })} width={70} /></label>
+            <label className="sp-field"><span>Other late enrolees: votes removed from 2023's before-day votes</span><Num label="Other late enrolees removed" value={P.lateRemoved} step={10000} onChange={(v) => set({ lateRemoved: v })} width={90} /></label>
+            <p className="sp-hist">Past (Electoral Commission): ~80,000 enrolled or updated on election day in 2020; in 2023, 600,000+ after writ day, 450,000 in the voting period, 110,000 on election day. These are people, not votes. They were about {sdd ? `${Math.round(sdd[2020].phi * 100)}% (2020) and ${Math.round(sdd[2023].phi * 100)}% (2023)` : ''} of on-polling-day specials.</p>
+          </fieldset>
+
+          <fieldset className="sp-group">
+            <legend>Electorate votes and chance</legend>
+            <label className="sp-field"><span>Candidates move this % as much as their party</span><Num label="Candidate pass-through" value={P.evPass} step={5} max={150} onChange={(v) => set({ evPass: v })} width={70} /></label>
+            <label className="sp-field"><span>Seat margin, random variation: sd (points)</span><Num label="Margin sd" value={P.sdEv} step={0.5} onChange={(v) => set({ sdEv: v })} width={70} /></label>
+            <label className="sp-field"><span>Seat margin, average shift against leader (points)</span><Num label="Margin bias" value={P.evBias} step={0.5} min={-20} onChange={(v) => set({ evBias: v })} width={70} /></label>
+            <label className="sp-field"><span>Party share of specials, random variation: sd (points)</span><Num label="Party share sd" value={P.sdPv} step={0.1} onChange={(v) => set({ sdPv: v })} width={70} /></label>
+            <label className="sp-field"><span>Trust a seat's own history up to (special votes)</span><Num label="Shrinkage" value={P.shrink} step={500} onChange={(v) => set({ shrink: v })} width={80} /></label>
+            <p className="sp-hist">Past: in close seats the top-two margin in the specials differed from the ordinary margin by {H.ev.map((r) => `${r.mean > 0 ? '+' : '−'}${Math.abs(r.mean).toFixed(1)} on average, sd ${r.sd.toFixed(1)} in ${r.y} (${r.n} seats)`).join('; ')}. In 2023, winners' candidate shares moved about 70% as much as their party's.</p>
+          </fieldset>
+
+          <fieldset className="sp-group">
+            <legend>Party shares of the specials</legend>
+            <table className="sp-wtable">
+              <thead><tr><th>Party</th><th>Ordinary now</th><th>Model</th><th>Adjust (pts)</th></tr></thead>
+              <tbody>
+                {MAIN.map((a) => (
+                  <tr key={a}>
+                    <td><span className="dot" style={{ background: colorOf(a) }} />{name(a)}</td>
+                    <td>{pct((central.now[a] / nowT) * 100, 1)}</td>
+                    <td><b>{pct((central.r.national.pv[a] / central.r.national.total) * 100, 1)}</b></td>
+                    <td><Num label={`Adjust ${a}`} value={P.partyAdj[a] || 0} step={0.5} min={-30} onChange={(v) => set({ partyAdj: { ...P.partyAdj, [a]: v } })} width={62} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="sp-hist">Share of the special votes each party got in past elections: {MAIN.map((a) => `${name(a)} ${YEARS.map((y) => ((H[y].sp[a] || 0) * 100).toFixed(0)).join('/')}`).join('; ')} (2014/2017/2020/2023, %). An adjustment adds or removes that many points of the specials share for the party and rescales it in every electorate and for its candidates.</p>
+          </fieldset>
+        </aside>
+        </div>}
+        <div className="sp-results">
       {sim && (() => {
         // Three bar-chart cards: who can govern, overhang size, and the Government's majority.
         const BarCard = ({ title, note, items, foot }) => {
@@ -244,7 +370,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
           </table>
         </div>
       )}
-      <p className="muted small">“Lead after specials” is the leader's margin over the current runner-up once the estimated special votes are added, before random variation. The chance of flipping includes variation between seats seen in 2017, 2020 and 2023 (a standard deviation of {SD_EV_PTS} points on the top-two margin among close seats), which for a seat with ~5,000 special votes is several hundred votes.</p>
+      <p className="muted small">“Lead after specials” is the leader's margin over the current runner-up once the estimated special votes are added, before random variation. The chance of flipping includes variation between seats seen in 2017, 2020 and 2023 (a standard deviation of {P.sdEv} points on the top-two margin among close seats), which for a seat with ~5,000 special votes is several hundred votes.</p>
 
         </section>
       </div>
@@ -282,7 +408,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
           <table className="ptable sp-checks">
             <thead><tr><th>Published figure</th><th>What the model gives</th><th></th></tr></thead>
             <tbody>
-              <tr><td><b>Special votes to count:</b> about {fmt(PUBLIC.specialsEstimate)} (Electoral Commission, via RNZ)</td><td>Used as the model's input: {fmt(central.r.national.total)} valid party votes after the {pct(DEFAULTS.validity * 100)} valid share seen in 2023 (RNZ assumes 96.7%).</td><td className="sp-ok">input</td></tr>
+              <tr><td><b>Special votes to count:</b> about {fmt(PUBLIC.specialsEstimate)} (Electoral Commission, via RNZ)</td><td>Used as the model's input: {fmt(central.r.national.total)} valid party votes after the {pct(P.validity * 100)} valid share (2023: 96.6%; RNZ assumes 96.7%).</td><td className="sp-ok">input</td></tr>
               <tr><td><b>Special votes in the feed:</b> 297,418 (domestic) plus {fmt(PUBLIC.overseasDictation)} overseas and dictation</td><td>{fmt(297418 + PUBLIC.overseasDictation)} in total, {fmt(PUBLIC.specialsEstimate - 297418 - PUBLIC.overseasDictation)} (1.3%) below the Commission's estimate, so the two sources agree to within rounding.</td><td className="sp-ok">agrees</td></tr>
               <tr><td><b>Commission estimates in past elections:</b> 2017 estimated {fmt(PUBLIC.estimate2017)}, 446,287 were issued (417,980 counted); 2020 estimated 480,000, 504,625 counted; 2023 estimated {fmt(PUBLIC.estimate2023)}, {fmt(PUBLIC.actual2023)} counted</td><td>All three estimates came in too low (by 16%, 5% and 6%), so the simulation draws the volume from the published figure, +6% and +12%.</td><td className="sp-note">in model</td></tr>
               <tr><td><b>Data check:</b> Graeme Edgeler (Public Address, 2020) reports that in 2017 National did 20.7% worse in the special votes than in the ordinary vote, Labour 19.5% better, Greens 44.2% better and the Māori Party 57% better</td><td>From our 2017 tables: {(() => { const sp = {}, od = {}; for (const e of Object.values(specs[2017].electorates)) { for (const c of ['before', 'onDay', 'partyOnly', 'overseas']) for (const [a, v] of Object.entries(e.party[c] || {})) sp[a] = (sp[a] || 0) + v; for (const [a, v] of Object.entries(e.party.ordinary || {})) od[a] = (od[a] || 0) + v } const ts = Object.values(sp).reduce((a, b) => a + b, 0), to = Object.values(od).reduce((a, b) => a + b, 0); const r = (a) => `${(((sp[a] / ts) / (od[a] / to) - 1) * 100) > 0 ? '+' : '−'}${Math.abs(((sp[a] / ts) / (od[a] / to) - 1) * 100).toFixed(1)}%`; return `National ${r('NAT')}, Labour ${r('LAB')}, Greens ${r('GP')}, Māori Party ${r('TPMAO')}` })()}, and 417,980 valid special votes, the same count he gives. The tables are being read correctly.</td><td className="sp-ok">matches</td></tr>
@@ -298,15 +424,17 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
 
         <h4 className="ins-h">How the estimate works, and what it assumes</h4>
         <ol className="sp-notes">
-          <li><b>Volume.</b> The Commission's estimate ({fmt(PUBLIC.specialsEstimate)}) minus the {fmt(PUBLIC.overseasDictation)} overseas and dictation votes gives the domestic specials. 96.6% are assumed valid, as in 2023. The Commission's past estimates were all too low (by 16%, 5% and 6%), so the simulation also tries {VOLUME_MULTIPLIERS.map((m) => `${Math.round(PUBLIC.specialsEstimate * m).toLocaleString('en-NZ')}`).join(', ')}.</li>
+          <li><b>Volume.</b> The Commission's estimate ({fmt(PUBLIC.specialsEstimate)}) minus the {fmt(PUBLIC.overseasDictation)} overseas and dictation votes gives the domestic specials. 96.6% are assumed valid, as in 2023. The Commission's past estimates were all too low (by 16%, 5% and 6%), so the simulation lets the final count come in {P.volLo}% to {P.volHi}% above the estimate (about {fmt(P.estimate * (1 + P.volLo / 100))} to {fmt(P.estimate * (1 + P.volHi / 100))}).</li>
           <li><b>Categories.</b> Special votes fall into four groups with different party mixes: cast before polling day, cast on polling day, party-vote-only, and overseas. Domestic volume is split between the first three using the chosen elections' shares, and overseas takes the published figure. Election-day enrolees (80,000 in 2020, 110,000 in 2023) are removed from the on-polling-day volume, and from its party mix: the other on-polling-day voters are assumed to differ from before-polling-day special voters by the average gap seen in 2014 and 2017, when election-day enrolment didn't exist.</li>
           <li><b>Between electorates.</b> Each electorate gets the share of each category that its predecessor seat had in 2020 and 2023 (average). New seats use their closest predecessor.</li>
           <li><b>Party mix.</b> For each party and category, the gap between its special-vote share and ordinary-vote share (on the log-odds scale) is averaged over the chosen elections and applied to its 2026 ordinary share in each electorate. For 2020 and 2023 the electorate's own gap is blended in, weighted by how many special votes it had.</li>
-          <li><b>Electorate votes.</b> The same shift for the candidate's party is applied, damped to {DEFAULTS.evPass} of its strength (in 2023, winners' candidate shares moved about 0.7 as much as their party's), because earlier candidates' parties aren't available here. Independents get no adjustment.</li>
-          <li><b>Uncertainty.</b> Each simulation picks a combination of past patterns, an enrolment assumption and a volume, then adds random variation of {SD_EV_PTS} points to each seat's top-two margin (the spread seen in close seats in 2017, 2020 and 2023) and {SD_PV_PTS} point to party shares. It does not cover things the model can't see, such as a different party mix among the people who can no longer enrol late.</li>
+          <li><b>Electorate votes.</b> The same shift for the candidate's party is applied, damped to {P.evPass}% of its strength (in 2023, winners' candidate shares moved about 0.7 as much as their party's), because earlier candidates' parties aren't available here. Independents get no adjustment.</li>
+          <li><b>Uncertainty.</b> Each simulation picks one past pattern (or the blend), a volume within the range above, then adds random variation of {P.sdEv} points to each seat's top-two margin (the spread seen in close seats in 2017, 2020 and 2023) and {P.sdPv} points to party shares. It does not cover things the model can't see, such as a different party mix among the people who can no longer enrol late.</li>
           <li><b>Not available:</b> the Commission's own page with its estimate could not be read automatically (it blocks automated requests), so any per-electorate estimates it contains are not used. If you have them, add them as <code>public/specials-estimates.json</code> ({'{'}"1": 5200, …{'}'} by electorate number) and the model will use them for the split between electorates and report how they compare.</li>
         </ol>
       </details>
+        </div>
+      </div>
     </section>
   )
 }

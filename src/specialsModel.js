@@ -34,7 +34,7 @@ export const PATTERNS = {
   sameDay: { label: 'As with same-day enrolment', note: 'Specials differ as they did in 2020 and 2023, when people could enrol on election day (the model removes an allowance for those voters).', weights: { 2014: 0, 2017: 0, 2020: 1, 2023: 1 } },
   y2023: { label: 'As in the last election only', note: 'Specials differ as they did in 2023 alone, which is what the published projections (Chuan-Zheng Lee, RNZ) assume.', weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 1 } },
 }
-export const DEFAULTS = { dayScale: 1, beforeRemoved: 0, pattern: 'all', enrol: 'removeDay', method: 'logit', shrink: 4000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share', evPass: 0.7, published: null }
+export const DEFAULTS = { estimate: PUBLIC.specialsEstimate, overseas: PUBLIC.overseasDictation, sameDay: SAME_DAY, partyAdj: {}, dayScale: 1, beforeRemoved: 0, pattern: 'all', enrol: 'removeDay', method: 'logit', shrink: 4000, volume: PUBLIC.specialsEstimate, validity: 0.966, allocation: 'share', evPass: 0.7, published: null }
 
 const merge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b || {})) o[k] = (o[k] || 0) + v; return o }
 const shareOf = (row) => { const t = sumv(row); const o = {}; for (const [k, v] of Object.entries(row || {})) o[k] = t ? v / t : 0; return o }
@@ -78,7 +78,7 @@ function regularOnDay(cat, gapOn) {
 // What the discount implies about election-day enrolees: for 2020 and 2023, the share of on-polling-day specials they were
 // (people enrolling on the day / on-polling-day specials) and the party mix left over once the 'regular' on-polling-day
 // voters (before-day mix shifted by the 2014/2017 gap) are taken out.
-export function sameDayDecomposition(specs) {
+export function sameDayDecomposition(specs, counts = SAME_DAY, validity = 0.966) {
   const nat = Object.fromEntries(YEARS.filter((y) => specs[y]).map((y) => [y, nationalOf(specs[y].electorates)]))
   const ordS = Object.fromEntries(Object.entries(nat).map(([y, n]) => [y, shareOf(n.ord)]))
   const gapOn = onDayGap(nat, ordS)
@@ -86,7 +86,7 @@ export function sameDayDecomposition(specs) {
   for (const y of [2020, 2023]) {
     if (!nat[y]) continue
     const on = shareOf(nat[y].cat.onDay), reg = regularOnDay(Object.fromEntries(CATS.map((c) => [c, shareOf(nat[y].cat[c])])), gapOn)
-    const phi = Math.min(0.9, (SAME_DAY[y] * 0.966) / sumv(nat[y].cat.onDay))
+    const phi = Math.min(0.9, ((counts[y] || 0) * validity) / sumv(nat[y].cat.onDay))
     const group = {}
     let z = 0
     for (const a of Object.keys(on)) { group[a] = Math.max(0.0005, (on[a] - (1 - phi) * (reg[a] || 0)) / phi); z += group[a] }
@@ -113,12 +113,13 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
   // Election-day enrolees (2020, 2023) were counted in the on-polling-day special votes. To discount them we assume the
   // remaining ('regular') on-polling-day voters differ from before-polling-day special voters by what we see in 2014 and 2017
   // (no election-day enrolment then). The group's own mix is whatever is left over (see sameDayDecomposition).
+  const counts = p.enrol === 'none' ? {} : (p.sameDay || SAME_DAY)
   const regular = {}
   const adjOn = {} // national log-odds correction applied to the on-polling-day gap in same-day elections
-  if (p.enrol !== 'none') {
+  {
     const gapOn = onDayGap(nat, ordS)
     for (const y of years) {
-      if (!ELECTION_INFO[y].sameDay) continue
+      if (!ELECTION_INFO[y].sameDay || !(counts[y] > 0)) continue
       const reg = regularOnDay(catS[y], gapOn)
       regular[y] = reg
       adjOn[y] = {}
@@ -131,15 +132,15 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
 
   // ---- category volumes (valid party votes), weighted over elections' domestic category shares
   const valid = p.validity
-  const scale = p.volume / PUBLIC.specialsEstimate
-  const overseasV = PUBLIC.overseasDictation * scale * valid
-  const domesticV = (p.volume - PUBLIC.overseasDictation * scale) * valid
+  const scale = p.volume / p.estimate
+  const overseasV = p.overseas * scale * valid
+  const domesticV = (p.volume - p.overseas * scale) * valid
   const share = { before: 0, onDay: 0, partyOnly: 0 }
   for (const y of years) {
     let v = { before: sumv(nat[y].cat.before), onDay: sumv(nat[y].cat.onDay), partyOnly: sumv(nat[y].cat.partyOnly) }
-    if (ELECTION_INFO[y].sameDay && p.enrol !== 'none') {
+    if (ELECTION_INFO[y].sameDay && counts[y] > 0) {
       // remove the election-day enrolments (110,000 in 2023, scaled by each election's on-day volume), and optionally party-only
-      v.onDay = Math.max(0, v.onDay - (SAME_DAY[y] || 0) * 0.966 * (p.dayScale ?? 1))
+      v.onDay = Math.max(0, v.onDay - (counts[y] || 0) * 0.966 * (p.dayScale ?? 1))
       if (p.beforeRemoved) v.before = Math.max(0, v.before - p.beforeRemoved * (sumv(nat[y].cat.before) / (sumv(nat[2023].cat.before) || 1)))
       if (p.enrol === 'removeLate') v.partyOnly = 0
     }
@@ -214,6 +215,24 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
     out.national.total += vol.total
   }
 
+  // Optional user adjustment: change each party's national share of the specials by `partyAdj[a]` percentage points,
+  // by rescaling it in every electorate (and, damped by evPass, its candidates' votes).
+  const factor = {}
+  const adjKeys = Object.keys(p.partyAdj || {}).filter((a) => p.partyAdj[a])
+  if (adjKeys.length) {
+    const tot = out.national.total
+    for (const a of adjKeys) { const s0 = (out.national.pv[a] || 0) / tot; factor[a] = s0 > 0 ? Math.max(0.05, (s0 + p.partyAdj[a] / 100) / s0) : 1 }
+    out.national.pv = {}
+    for (const id of ids) {
+      const e = out.electorates[id]
+      let z = 0
+      const np = {}
+      for (const [a, v] of Object.entries(e.pv)) { np[a] = v * (factor[a] ?? 1); z += np[a] }
+      for (const a of Object.keys(np)) { np[a] = z ? (np[a] / z) * e.volume.total : 0; out.national.pv[a] = (out.national.pv[a] || 0) + np[a] }
+      e.pv = np
+    }
+  }
+
   // ---- electorate votes: the candidate's party's special-vs-ordinary shift, damped by evPass
   const evVol = { before: 0.969, onDay: 0.966, partyOnly: 0, overseas: 0.987 }
   for (const id of ids) {
@@ -229,7 +248,7 @@ export function predictSpecials({ specs, spec23, map, cur, params = {} }) {
       const s26 = ordTot ? c.votes / ordTot : 0
       let lr = 0, vsum = 0
       if (known.has(c.abbrev)) for (const k of ['before', 'onDay', 'overseas']) { const vk = vols[k] * evVol[k]; if (vk) { lr += vk * deltaFor(prev, k, c.abbrev); vsum += vk } }
-      const val = s26 * Math.exp(p.evPass * (vsum ? lr / vsum : 0))
+      const val = s26 * Math.exp(p.evPass * (vsum ? lr / vsum : 0)) * ((factor[c.abbrev] ?? 1) ** p.evPass)
       w.push({ name: c.name, abbrev: c.abbrev, w: val }); z += val
     }
     out.electorates[id].ev = w.map((x) => ({ name: x.name, abbrev: x.abbrev, votes: z ? (x.w / z) * evTotal : 0 }))
@@ -319,19 +338,19 @@ export function simulateAll({ specs, spec23, map, cur, blocs, draws = 1200, seed
 }
 export function simulate(args) { return simulateAll(args).all }
 
-function mc({ proj, cur, blocs, draws, seed }) {
+function mc({ proj, pick, cur, blocs, draws, seed, sdEv = SD_EV_PTS, evBias = EV_BIAS_PTS, sdPv = SD_PV_PTS }) {
   const rand = rngSeed(seed)
   const ids = Object.keys(cur)
   const flipCount = {}, govtDist = {}, overhangDist = {}, marginDist = {}, seatsAcc = {}
   const outcome = { govt: 0, opp: 0, kingmaker: 0, govtNeedsX: 0, oppNeedsX: 0, none: 0 }
   let majority = 0
   for (let d = 0; d < draws; d++) {
-    const pr = proj[Math.floor(rand() * proj.length)]
+    const pr = pick ? pick(rand) : proj[Math.floor(rand() * proj.length)]
     const wins = {}
     for (const id of ids) {
       const e = pr.el[id]
       const vol = Math.max(500, e.volume * 0.96)
-      const m = e.leaderMargin + (EV_BIAS_PTS / 100) * vol + (SD_EV_PTS / 100) * vol * gauss(rand)
+      const m = e.leaderMargin + (evBias / 100) * vol + (sdEv / 100) * vol * gauss(rand)
       let w = e.after.lead
       if (e.after.lead.name === e.now.lead.name || e.after.lead.name === e.now.second.name) w = m >= 0 ? e.now.lead : e.now.second
       wins[w.abbrev] = (wins[w.abbrev] || 0) + 1
@@ -339,7 +358,7 @@ function mc({ proj, cur, blocs, draws, seed }) {
     }
     const spTot = pr.r.national.total
     const pv = {}
-    for (const a of Object.keys(pr.pv)) pv[a] = Math.max(0, pr.pv[a] + (pr.r.national.pv[a] !== undefined ? gauss(rand) * (SD_PV_PTS / 100) * spTot : 0))
+    for (const a of Object.keys(pr.pv)) pv[a] = Math.max(0, pr.pv[a] + (pr.r.national.pv[a] !== undefined ? gauss(rand) * (sdPv / 100) * spTot : 0))
     const st = seatsFrom(pv, wins)
     const g = blocs.govt.reduce((t, a) => t + (st.seats[a] || 0), 0)
     const x = blocs.cross.reduce((t, a) => t + (st.seats[a] || 0), 0)
@@ -357,7 +376,7 @@ function mc({ proj, cur, blocs, draws, seed }) {
   }
   const seats = Object.fromEntries(Object.entries(seatsAcc).map(([a, q]) => { q.sort((x, y) => x - y); return [a, { lo: q[Math.floor(q.length * 0.1)], mid: q[Math.floor(q.length / 2)], hi: q[Math.floor(q.length * 0.9)] }] }))
   const per = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v / draws]))
-  return { draws, runs: proj.length, flips: per(flipCount), govtDist: per(govtDist), overhangDist: per(overhangDist), marginDist: per(marginDist), majority: majority / draws, outcome: per(outcome), seats, central: proj[0] }
+  return { draws, runs: proj ? proj.length : 0, flips: per(flipCount), govtDist: per(govtDist), overhangDist: per(overhangDist), marginDist: per(marginDist), majority: majority / draws, outcome: per(outcome), seats, central: proj ? proj[0] : null }
 }
 
 // ---- checks ------------------------------------------------------------------------------------
@@ -432,4 +451,44 @@ export function perElection({ specs, map, cur, blocs, params = {} }) {
     out[y] = project({ specs, map, cur, blocs, params: { ...params, weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 0, [y]: 1 } } })
   }
   return out
+}
+
+
+// ---- the transparent version: every number the simulation depends on is a field ---------------------------
+// Defaults are filled from past elections (see the history shown beside each field on the Specials tab).
+export const DEFAULT_PARAMS = {
+  estimate: PUBLIC.specialsEstimate, // total special votes the Commission expects, incl. overseas and dictation
+  overseas: PUBLIC.overseasDictation, // of which overseas and dictation
+  validity: 0.966, // share of specials that are valid (2023: 96.6%)
+  volLo: 0, volHi: 12, // the final count can exceed the estimate by this many % (past estimates were 5% to 16% low)
+  weights: { 2014: 25, 2017: 25, 2020: 25, 2023: 25 }, // weight on each election's special-vs-ordinary pattern
+  mode: 'chances', // 'chances': each simulation uses ONE election's pattern, chosen with these probabilities; 'blend': the weighted average
+  sameDay: { ...SAME_DAY }, // election-day enrolees to take out of past patterns
+  dayVoted: 100, // % of them assumed to have cast a valid special vote
+  lateRemoved: 0, // further valid special votes to take out of 2023's before-polling-day category (other late enrolees)
+  shrink: 4000, // special votes at which an electorate's own past pattern gets half the weight
+  evPass: 70, // % of a party's shift in the specials that its candidates share
+  sdEv: 10, evBias: 0, // electorate-vote noise: sd and mean (points of the specials vote, on the top-two margin)
+  sdPv: 0.5, // party-vote noise: sd, points of the specials share
+  partyAdj: {}, // optional: adjust a party's share of the specials by this many points
+}
+
+export function paramsToModel(P, weights, volMult) {
+  return { weights, volume: Math.round(P.estimate * volMult), estimate: P.estimate, overseas: P.overseas, validity: P.validity, sameDay: P.sameDay, dayScale: P.dayVoted / 100, beforeRemoved: P.lateRemoved, shrink: P.shrink, evPass: P.evPass / 100, partyAdj: P.partyAdj, enrol: 'removeDay' }
+}
+
+export function runSim({ specs, map, cur, blocs, params, draws = 1200, seed = 7 }) {
+  const P = { ...DEFAULT_PARAMS, ...params }
+  const W = Object.fromEntries(YEARS.map((y) => [y, Math.max(0, Number(P.weights[y]) || 0)]))
+  const tot = YEARS.reduce((t, y) => t + W[y], 0) || 1
+  const blend = Object.fromEntries(YEARS.map((y) => [y, W[y] / tot]))
+  const mults = [...new Set([1 + P.volLo / 100, 1 + (P.volLo + P.volHi) / 200, 1 + P.volHi / 100].map((x) => Math.round(x * 1e4) / 1e4))]
+  const mid = 1 + (P.volLo + P.volHi) / 200
+  const variants = P.mode === 'chances' ? YEARS.filter((y) => W[y] > 0).map((y) => ({ weights: { 2014: 0, 2017: 0, 2020: 0, 2023: 0, [y]: 1 }, prob: W[y] / tot })) : [{ weights: blend, prob: 1 }]
+  const proj = variants.map((v) => mults.map((m) => project({ specs, map, cur, blocs, params: paramsToModel(P, v.weights, m) })))
+  const pick = (rand) => { let r = rand(), i = 0; while (i < variants.length - 1 && r > variants[i].prob) { r -= variants[i].prob; i++ } const row = proj[i]; return row[Math.floor(rand() * row.length)] }
+  const sim = mc({ pick, cur, blocs, draws, seed, sdEv: P.sdEv, evBias: P.evBias, sdPv: P.sdPv })
+  const central = project({ specs, map, cur, blocs, params: paramsToModel(P, blend, mid) })
+  const each = perElection({ specs, map, cur, blocs, params: paramsToModel(P, blend, mid) })
+  return { ...sim, central, each, params: P }
 }
