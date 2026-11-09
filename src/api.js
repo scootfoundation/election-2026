@@ -11,8 +11,11 @@ const STATIC = /^(candidates|parties|electorates|statistics)\.xml$/
 async function getXml(path) {
   const isStatic = STATIC.test(path)
   const url = isStatic ? `${DATA_BASE}/${path}` : `${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`
-  const res = await fetch(url, { cache: isStatic ? 'default' : 'no-store' })
-  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
+  let res = null
+  try { res = await fetch(url, { cache: isStatic ? 'default' : 'no-store' }) } catch { /* fall through to the bundled copy */ }
+  // The lookup tables don't change, so if the feed is unreachable use the copy shipped with the site.
+  if ((!res || !res.ok) && isStatic) res = await fetch(`${import.meta.env.BASE_URL}feed/${path}`)
+  if (!res || !res.ok) throw new Error(`${path}: HTTP ${res ? res.status : 'network error'}`)
   const doc = new DOMParser().parseFromString(await res.text(), 'application/xml')
   if (doc.querySelector('parsererror')) throw new Error(`${path}: invalid XML`)
   return doc

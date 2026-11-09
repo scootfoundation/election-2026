@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<electorates>
+    <electorate e_no="1">
+        <electorate_name>Auckland Central</electorate_name>
+    </electorate>
+    <electorate e_no="2">
+        <electorate_name>Banks Peninsula</electorate_name>
+    </electorate>
+    <electorate e_no="3">
+        <electorate_name>Botany</electorate_name>
+    </electorate>
+    <electorate e_no="4">
+        <electorate_name>Christchurch Central</electorate_name>
+    </electorate>
+    <electorate e_no="5">
+        <electorate_name>Christchurch East</electorate_name>
+    </electorate>
+    <electorate e_no="6">
+        <electorate_name>Coromandel</electorate_name>
+    </electorate>
+    <electorate e_no="7">
+        <electorate_name>Dunedin</electorate_name>
+    </electorate>
+    <electorate e_no="8">
+        <electorate_name>East Cape</electorate_name>
+    </electorate>
+    <electorate e_no="9">
+        <electorate_name>East Coast Bays</electorate_name>
+    </electorate>
+    <electorate e_no="10">
+        <electorate_name>Epsom</electorate_name>
+    </electorate>
+    <electorate e_no="11">
+        <electorate_name>Glendene</electorate_name>
+    </electorate>
+    <electorate e_no="12">
+        <electorate_name>Hamilton East</electorate_name>
+    </electorate>
+    <electorate e_no="13">
+        <electorate_name>Hamilton West</electorate_name>
+    </electorate>
+    <electorate e_no="14">
+        <electorate_name>Henderson</electorate_name>
+    </electorate>
+    <electorate e_no="15">
+        <electorate_name>Hutt South</electorate_name>
+    </electorate>
+    <electorate e_no="16">
+        <electorate_name>Ilam</electorate_name>
+    </electorate>
+    <electorate e_no="17">
+        <electorate_name>Invercargill</electorate_name>
+    </electorate>
+    <electorate e_no="18">
+        <electorate_name>Kaikōura</electorate_name>
+    </electorate>
+    <electorate e_no="19">
+        <electorate_name>Kaipara ki Mahurangi</electorate_name>
+    </electorate>
+    <electorate e_no="20">
+        <electorate_name>Kapiti</electorate_name>
+    </electorate>
+    <electorate e_no="21">
+        <electorate_name>Kenepuru</electorate_name>
+    </electorate>
+    <electorate e_no="22">
+        <electorate_name>Māngere</electorate_name>
+    </electorate>
+    <electorate e_no="23">
+        <electorate_name>Manurewa</electorate_name>
+    </electorate>
+    <electorate e_no="24">
+        <electorate_name>Maungakiekie</electorate_name>
+    </electorate>
+    <electorate e_no="25">
+        <electorate_name>Mt Albert</electorate_name>
+    </electorate>
+    <electorate e_no="26">
+        <electorate_name>Mt Maunganui</electorate_name>
+    </electorate>
+    <electorate e_no="27">
+        <electorate_name>Mt Roskill</electorate_name>
+    </electorate>
+    <electorate e_no="28">
+        <electorate_name>Napier</electorate_name>
+    </electorate>
+    <electorate e_no="29">
+        <electorate_name>Nelson</electorate_name>
+    </electorate>
+    <electorate e_no="30">
+        <electorate_name>New Plymouth</electorate_name>
+    </electorate>
+    <electorate e_no="31">
+        <electorate_name>North Shore</electorate_name>
+    </electorate>
+    <electorate e_no="32">
+        <electorate_name>Northcote</electorate_name>
+    </electorate>
+    <electorate e_no="33">
+        <electorate_name>Northland</electorate_name>
+    </electorate>
+    <electorate e_no="34">
+        <electorate_name>Ōtāhuhu</electorate_name>
+    </electorate>
+    <electorate e_no="35">
+        <electorate_name>Pakuranga</electorate_name>
+    </electorate>
+    <electorate e_no="36">
+        <electorate_name>Palmerston North</electorate_name>
+    </electorate>
+    <electorate e_no="37">
+        <electorate_name>Papakura</electorate_name>
+    </electorate>
+    <electorate e_no="38">
+        <electorate_name>Port Waikato</electorate_name>
+    </electorate>
+    <electorate e_no="39">
+        <electorate_name>Rangitata</electorate_name>
+    </electorate>
+    <electorate e_no="40">
+        <electorate_name>Rangitīkei</electorate_name>
+    </electorate>
+    <electorate e_no="41">
+        <electorate_name>Remutaka</electorate_name>
+    </electorate>
+    <electorate e_no="42">
+        <electorate_name>Rotorua</electorate_name>
+    </electorate>
+    <electorate e_no="43">
+        <electorate_name>Selwyn</electorate_name>
+    </electorate>
+    <electorate e_no="44">
+        <electorate_name>Southland</electorate_name>
+    </electorate>
+    <electorate e_no="45">
+        <electorate_name>Taieri</electorate_name>
+    </electorate>
+    <electorate e_no="46">
+        <electorate_name>Takanini</electorate_name>
+    </electorate>
+    <electorate e_no="47">
+        <electorate_name>Tāmaki</electorate_name>
+    </electorate>
+    <electorate e_no="48">
+        <electorate_name>Taranaki-King Country</electorate_name>
+    </electorate>
+    <electorate e_no="49">
+        <electorate_name>Taupō</electorate_name>
+    </electorate>
+    <electorate e_no="50">
+        <electorate_name>Tauranga</electorate_name>
+    </electorate>
+    <electorate e_no="51">
+        <electorate_name>Tukituki</electorate_name>
+    </electorate>
+    <electorate e_no="52">
+        <electorate_name>Upper Harbour</electorate_name>
+    </electorate>
+    <electorate e_no="53">
+        <electorate_name>Waikato</electorate_name>
+    </electorate>
+    <electorate e_no="54">
+        <electorate_name>Waimakariri</electorate_name>
+    </electorate>
+    <electorate e_no="55">
+        <electorate_name>Wairarapa</electorate_name>
+    </electorate>
+    <electorate e_no="56">
+        <electorate_name>Waitākere</electorate_name>
+    </electorate>
+    <electorate e_no="57">
+        <electorate_name>Waitaki</electorate_name>
+    </electorate>
+    <electorate e_no="58">
+        <electorate_name>Wellington Bays</electorate_name>
+    </electorate>
+    <electorate e_no="59">
+        <electorate_name>Wellington North</electorate_name>
+    </electorate>
+    <electorate e_no="60">
+        <electorate_name>West Coast-Tasman</electorate_name>
+    </electorate>
+    <electorate e_no="61">
+        <electorate_name>Whanganui</electorate_name>
+    </electorate>
+    <electorate e_no="62">
+        <electorate_name>Whangaparāoa</electorate_name>
+    </electorate>
+    <electorate e_no="63">
+        <electorate_name>Whangārei</electorate_name>
+    </electorate>
+    <electorate e_no="64">
+        <electorate_name>Wigram</electorate_name>
+    </electorate>
+    <electorate e_no="65">
+        <electorate_name>Hauraki-Waikato</electorate_name>
+    </electorate>
+    <electorate e_no="66">
+        <electorate_name>Ikaroa-Rāwhiti</electorate_name>
+    </electorate>
+    <electorate e_no="67">
+        <electorate_name>Tāmaki Makaurau</electorate_name>
+    </electorate>
+    <electorate e_no="68">
+        <electorate_name>Te Tai Hauāuru</electorate_name>
+    </electorate>
+    <electorate e_no="69">
+        <electorate_name>Te Tai Tokerau</electorate_name>
+    </electorate>
+    <electorate e_no="70">
+        <electorate_name>Te Tai Tonga</electorate_name>
+    </electorate>
+    <electorate e_no="71">
+        <electorate_name>Waiariki</electorate_name>
+    </electorate>
+</electorates>
