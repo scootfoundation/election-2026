@@ -62,7 +62,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       const url = await toPng(el, { pixelRatio: 2, backgroundColor: bg, imagePlaceholder: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', filter: (n) => !(n instanceof HTMLElement && n.dataset.noshot !== undefined) })
       const a = document.createElement('a')
       a.href = url
-      a.download = `${label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'cabinet'}.png`
+      a.download = `${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'cabinet'}.png`
       a.click()
     } catch { setCopied('pngfail'); setTimeout(() => setCopied(''), 4000) } finally { setSaving(false) }
   }
@@ -273,7 +273,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             })}</div>
             <h4 className="cb-gh">Proportionality</h4>
             <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
-            <div className="cb-prop">{byParty.map((x) => {
+            <div className="cb-prop">{byParty.filter((x) => x.n > 0 || seatOf(x.a) > 0).map((x) => {
               const pm = ministers.length ? Math.round((x.n / ministers.length) * 100) : 0
               const ps = seats ? Math.round((seatOf(x.a) / seats) * 100) : 0
               return (
