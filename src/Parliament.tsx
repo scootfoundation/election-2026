@@ -1,3 +1,4 @@
+import { localImg } from './imgMap'
 import { useId, useMemo, useRef, useState } from 'react'
 import type { MembersByParty, Member, SeatGroup, SeatParty } from './types'
 import { Popover } from 'react-aria-components'
@@ -71,7 +72,7 @@ function SeatCard({ p, mp }: { p: SeatParty; mp: Member | null }) {
   return (
     <div className="seatcard" style={{ '--c': p.color }}>
       <span className="seatcard-face">
-        {big ? <img src={big} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
+        {big ? <img src={localImg(big)} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
       </span>
       <div className="seatcard-body">
         <b>{mp ? mp.name : 'MP not yet identified'}</b>

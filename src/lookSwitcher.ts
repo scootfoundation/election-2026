@@ -1,6 +1,9 @@
 // Temporary: lets you flip between look-and-feel experiments (see looks.css). Remove once one is chosen.
 const LOOKS: [string, string][] = [['', 'Current'], ['a', 'A Paper'], ['b', 'B Ink & rules'], ['c', 'C Soft editorial']]
 
+/** A build can lock the look with VITE_LOOK (used for the standalone previews); the switcher is then hidden. */
+const LOCKED: string = import.meta.env['VITE_LOOK'] ?? ''
+
 export function installLookSwitcher(): void {
   const set = (k: string): void => {
     if (k) document.documentElement.dataset.look = k
@@ -21,6 +24,7 @@ export function installLookSwitcher(): void {
     b.onclick = () => set(k)
     box.append(b)
   }
+  if (LOCKED) { document.documentElement.dataset.look = LOCKED; return }
   document.body.append(box)
   set(new URL(location.href).searchParams.get('look') ?? '')
 }
