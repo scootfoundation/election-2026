@@ -7,7 +7,7 @@ import { MPS_2023 } from './mps2023.js'
 const fmt = (n) => Math.round(n).toLocaleString('en-NZ')
 const title = (s) => s.toLowerCase().replace(/(^|[\s'’-])(\p{Ll})/gu, (_, p, c) => p + c.toUpperCase())
 const fixCase = (s) => (s === s.toUpperCase() ? title(s) : s.replace(/^(Mc|Mac)([A-Z]+)$/, (_, a, b) => a + title(b)))
-const display = (raw) => {
+export const display = (raw) => {
   const s = String(raw || '')
   const i = s.indexOf(',')
   return i < 0 ? fixCase(s) : `${fixCase(s.slice(i + 1).trim())} ${fixCase(s.slice(0, i).trim())}`
@@ -22,21 +22,8 @@ const GROUPS = [
   { key: 'kept', label: 'Re-elected', sub: 'Sitting MPs who keep their place' },
 ]
 
-function Avatar({ p, colorOf }) {
-  const [bad, setBad] = useState(false)
-  const initials = p.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('')
-  return (
-    <span className="mp-ava" style={{ borderColor: colorOf(p.abbrev), background: colorOf(p.abbrev) }}>
-      {p.img && !bad ? <img src={p.img} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(true)} /> : <span>{initials}</span>}
-    </span>
-  )
-}
-
-export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, shortName, onOpen }) {
-  const [party, setParty] = useState('all')
-  const [show, setShow] = useState({ kept: false })
-
-  const model = useMemo(() => {
+// Who would sit in Parliament as the count stands (shared with the cabinet builder).
+export function buildPeople(meta, leaders, rows, ent) {
     const cand = meta.candidates
     const abbrevOf = (c) => meta.parties[cand[c]?.party]?.abbrev || 'Ind.'
     const elecName = Object.fromEntries(meta.electorates.map((e) => [String(e.id), e.name]))
@@ -69,12 +56,28 @@ export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, sh
       else if (w) key = m.electorate ? 'kept' : 'gain'
       else if (l) key = m.electorate ? 'tolist' : 'kept'
       else key = 'out'
-      people.push({ key, name: m.name, img: m.img, abbrev: m.party, was: m.electorate ? `${m.electorate} electorate` : 'List', now: w ? { text: `${w.name} electorate`, ...w } : l ? { text: `List #${l.rank}`, list: true } : null })
+      people.push({ id: c, eid: w ? w.e : null, key, name: m.name, img: m.img, abbrev: m.party, was: m.electorate ? `${m.electorate} electorate` : 'List', now: w ? { text: `${w.name} electorate`, ...w } : l ? { text: `List #${l.rank}`, list: true } : null })
     }
-    for (const [c, w] of won) if (!mpByCno.has(c)) people.push({ key: 'gain', name: display(cand[c].name), abbrev: abbrevOf(c), was: 'New to Parliament', now: { text: `${w.name} electorate`, ...w }, fresh: true })
-    for (const [c, l] of listed) if (!mpByCno.has(c)) people.push({ key: 'newlist', name: display(cand[c].name), abbrev: l.abbrev, was: 'New to Parliament', now: { text: `List #${l.rank}`, list: true }, fresh: true })
+    for (const [c, w] of won) if (!mpByCno.has(c)) people.push({ id: c, eid: w.e, key: 'gain', name: display(cand[c].name), abbrev: abbrevOf(c), was: 'New to Parliament', now: { text: `${w.name} electorate`, ...w }, fresh: true })
+    for (const [c, l] of listed) if (!mpByCno.has(c)) people.push({ id: c, eid: null, key: 'newlist', name: display(cand[c].name), abbrev: l.abbrev, was: 'New to Parliament', now: { text: `List #${l.rank}`, list: true }, fresh: true })
     return people
-  }, [meta, leaders, rows, ent])
+}
+
+export function Avatar({ p, colorOf }) {
+  const [bad, setBad] = useState(false)
+  const initials = p.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('')
+  return (
+    <span className="mp-ava" style={{ borderColor: colorOf(p.abbrev), background: colorOf(p.abbrev) }}>
+      {p.img && !bad ? <img src={p.img} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(true)} /> : <span>{initials}</span>}
+    </span>
+  )
+}
+
+export default function Parliamentarians({ meta, leaders, rows, ent, colorOf, shortName, onOpen }) {
+  const [party, setParty] = useState('all')
+  const [show, setShow] = useState({ kept: false })
+
+  const model = useMemo(() => buildPeople(meta, leaders, rows, ent), [meta, leaders, rows, ent])
 
   const parties = [...new Set(model.map((p) => p.abbrev))].sort()
   const by = (k) => model.filter((p) => p.key === k && (party === 'all' || p.abbrev === party)).sort((a, b) => a.abbrev.localeCompare(b.abbrev) || a.name.localeCompare(b.name))

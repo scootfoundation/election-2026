@@ -7,6 +7,7 @@ import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import Parliamentarians from './Parliamentarians.jsx'
+import Cabinet from './Cabinet.jsx'
 import Insights from './Insights.jsx'
 import Specials from './Specials.jsx'
 import { POLLS } from './polls.js'
@@ -101,6 +102,7 @@ const PAGES = [
   ['overview', 'Overview'],
   ['specials', 'Specials'],
   ['mps', 'Parliamentarians'],
+  ['cabinet', 'Cabinet builder'],
   ['insights', 'Insights'],
   ['electorates', 'Electorates'],
   ['about', 'About & data'],
@@ -453,6 +455,10 @@ export default function App() {
 
       {page === 'specials' && (
         <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} />
+      )}
+
+      {page === 'cabinet' && (
+        <Cabinet meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} blocDefs={BLOCS} />
       )}
 
       {page === 'mps' && (
