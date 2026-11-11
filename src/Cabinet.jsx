@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MPS_2023 } from './mps2023.js'
 import { buildPeople, Avatar, display } from './Parliamentarians.jsx'
 import { MINISTRY } from './ministry.js'
+import { SPOKES } from './spokes.js'
 
 // Cabinet builder, four stacked steps: arrangement and ministry size, ministers in order (inside / outside Cabinet),
 // portfolios, then a graphic of the result. Electorate seats won by a thin margin (special votes could flip them) offer
@@ -34,6 +35,16 @@ function entitlements(rows, seats = 120) {
   return ent
 }
 const SWING = 2 // percentage points of party vote
+
+// What each MP does for their party: current portfolios for the government parties, shadow spokesperson roles for Labour.
+const ROLES = (() => {
+  const m = {}
+  const clean = (r) => r.replace(/^(Associate )?(Spokesperson|Minister)( Responsible)?( for| of)?( the)? /i, (x, a) => (a ? 'Assoc. ' : '')).replace(/^Assoc\. /, 'Assoc. ')
+  for (const [pf, n] of MINISTRY) (m[norm(n)] ||= []).push(clean(pf))
+  for (const [n, rs] of Object.entries(SPOKES)) m[norm(n)] = rs.map(clean)
+  return m
+})()
+const roleText = (name) => { const r = ROLES[norm(name)]; if (!r || !r.length) return ''; return r.slice(0, 2).join(' · ') + (r.length > 2 ? ` +${r.length - 2}` : '') }
 
 const b64 = {
   enc: (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
@@ -346,7 +357,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                       <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
                         <span className="cb-ln">{p.list || '–'}</span>
                         <Avatar p={p} colorOf={colorOf} />
-                        <span className="cb-chip-t"><b>{p.name}</b><small>{p.where}{poolTags(p)}</small></span>
+                        <span className="cb-chip-t"><b>{p.name}</b><small>{p.pend ? p.where : roleText(p.name) || '\u00a0'}{poolTags(p)}</small></span>
                       </button>
                     ))}
                   </div>
