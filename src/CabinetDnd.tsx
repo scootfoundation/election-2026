@@ -1,0 +1,217 @@
+import { useEffect, useRef, type ReactNode } from 'react'
+import { Button, DropIndicator, GridList, GridListItem, isTextDropItem, useDragAndDrop, type DropItem, type DropTarget } from 'react-aria-components'
+import { Avatar } from './Avatar'
+import type { DropTarget as PlanDropTarget, PoolPerson } from './cabinet/model'
+
+// Drag and drop for the cabinet builder, built on react-aria-components: mouse, keyboard (the ⋮⋮ handle) and
+// screen-reader friendly. Ministers reorder within and between the Cabinet / outside-Cabinet lists; portfolios
+// are dragged from the unassigned list onto a minister (or back to unassign).
+export const T_MIN = 'application/x-minister'
+export const T_PF = 'application/x-portfolio'
+
+/** The text payloads of dropped items that carry our own drag type. */
+const texts = (items: DropItem[], type: string): Promise<string[]> => Promise.all(items.flatMap((i) => (isTextDropItem(i) && i.types.has(type) ? [i.getText(type)] : [])))
+const indicator = (target: DropTarget) => <DropIndicator target={target} className="cb-dropind" />
+
+/** A react-aria drop position, as the plan model understands it. */
+const toTarget = (t: DropTarget): PlanDropTarget => (t.type === 'item' ? { key: String(t.key), dropPosition: t.dropPosition } : null)
+
+export interface MinisterListProps {
+  title: string; kind: 'cab' | 'out'; list: PoolPerson[]; size: number | null; colorOf: (abbrev: string) => string; nameOf: (abbrev: string) => string
+  tags: (m: PoolPerson) => ReactNode; onDropIds: (ids: string[], kind: 'cab' | 'out', target: PlanDropTarget) => void
+  onMove: (id: string, dir: number) => void; onSwap: (id: string) => void; onRemove: (id: string) => void
+}
+
+export function MinisterList({ title, kind, list, size, colorOf, nameOf, tags, onDropIds, onMove, onSwap, onRemove }: MinisterListProps) {
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((k) => ({ [T_MIN]: String(k), 'text/plain': String(k) })),
+    acceptedDragTypes: [T_MIN],
+    getDropOperation: () => 'move',
+    onReorder: (e) => onDropIds([...e.keys].map(String), kind, toTarget(e.target)),
+    onInsert: async (e) => onDropIds(await texts(e.items, T_MIN), kind, toTarget(e.target)),
+    onRootDrop: async (e) => onDropIds(await texts(e.items, T_MIN), kind, null),
+    renderDropIndicator: indicator,
+  })
+  return (
+    <div className="cb-grp" data-dnd="minlist" data-kind={kind}>
+      <h4>{title} <span className={size !== null && list.length > size ? 'cb-over' : 'muted'}>· {size !== null ? `${list.length} of ${size}` : list.length}</span></h4>
+      {size !== null && <div className={`cb-meter${list.length > size ? ' over' : ''}`}><i style={{ width: `${Math.min(100, (list.length / size) * 100)}%` }} /></div>}
+      <GridList aria-label={title} items={list} dragAndDropHooks={dragAndDropHooks} className="cb-ord" renderEmptyState={() => <p className="muted small">None yet. Click MPs in the list to add them, or drag them here.</p>}>
+        {(m) => {
+          const i = list.indexOf(m)
+          return (
+            <GridListItem id={m.id} textValue={m.name} className="cb-ordrow" style={{ '--c': colorOf(m.abbrev) }}>
+              <Button slot="drag" className="cb-grip" aria-label={`Drag ${m.name}`}>⋮⋮</Button>
+              <span className="cb-n">{i + 1}</span>
+              <Avatar p={m} colorOf={colorOf} />
+              <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}</small></span>
+              <span className="cb-btns">
+                <Button className="cb-touch" onPress={() => onMove(m.id, -1)} isDisabled={i === 0} aria-label={`Move ${m.name} up`}>↑</Button>
+                <Button className="cb-touch" onPress={() => onMove(m.id, 1)} isDisabled={i === list.length - 1} aria-label={`Move ${m.name} down`}>↓</Button>
+                <Button className="cb-touch" onPress={() => onSwap(m.id)} aria-label={kind === 'cab' ? `Move ${m.name} outside Cabinet` : `Move ${m.name} into Cabinet`}>{kind === 'cab' ? '⇩' : '⇧'}</Button>
+                <Button onPress={() => onRemove(m.id)} aria-label={`Remove ${m.name}`}>×</Button>
+              </span>
+            </GridListItem>
+          )
+        }}
+      </GridList>
+    </div>
+  )
+}
+
+interface PortfolioListProps {
+  label: string; pfs: string[]; className: string; onAssignMany: (pfs: string[], holder: string | null) => void; ownerId: string | null
+  onRemove?: (pf: string) => void; empty: string; now?: ((pf: string) => string | null) | undefined
+}
+
+function PortfolioList({ label, pfs, className, onAssignMany, ownerId, onRemove, empty, now }: PortfolioListProps) {
+  const { dragAndDropHooks } = useDragAndDrop({
+    getItems: (keys) => [...keys].map((k) => ({ [T_PF]: String(k), 'text/plain': String(k) })),
+    acceptedDragTypes: [T_PF],
+    getDropOperation: () => 'move',
+    onRootDrop: async (e) => onAssignMany(await texts(e.items, T_PF), ownerId),
+  })
+  return (
+    <GridList aria-label={label} items={pfs.map((id) => ({ id }))} dragAndDropHooks={dragAndDropHooks} className={className} renderEmptyState={() => <span className="muted small cb-empty">{empty}</span>}>
+      {(it) => (
+        <GridListItem id={it.id} textValue={it.id} className="cb-pf">
+          <Button slot="drag" className="cb-grip" aria-label={`Drag ${it.id}`}>⋮⋮</Button>
+          <span className="cb-pft">{it.id}{now && now(it.id) && <small className="cb-now">{now(it.id)}</small>}</span>
+          {onRemove && <Button className="cb-pfx" onPress={() => onRemove(it.id)} aria-label={`Remove ${it.id}`}>×</Button>}
+        </GridListItem>
+      )}
+    </GridList>
+  )
+}
+
+export interface MinisterCardProps {
+  m: PoolPerson; group: string; rank: number; mine: string[]; options: { pf: string; holder: string | null | undefined }[]; colorOf: (abbrev: string) => string
+  nameOf: (abbrev: string) => string; tags: (m: PoolPerson) => ReactNode; onAssignMany: (pfs: string[], holder: string | null) => void; onAssign: (pf: string, holder: string | null) => void
+}
+
+export function MinisterCard({ m, group, rank, mine, options, colorOf, nameOf, tags, onAssignMany, onAssign }: MinisterCardProps) {
+  return (
+    <div className="cb-card" data-dnd="card" data-id={m.id} style={{ '--c': colorOf(m.abbrev) }}>
+      <div className="cb-card-h">
+        <span className="cb-n">{rank}</span>
+        <Avatar p={m} colorOf={colorOf} />
+        <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {group}{tags(m)}</small></span>
+      </div>
+      <PortfolioList label={`Portfolios for ${m.name}`} pfs={mine} className="cb-drop" onAssignMany={onAssignMany} ownerId={m.id} onRemove={(pf) => onAssign(pf, null)} empty="Drop portfolios here" />
+      <select className="cb-addsel cb-touch" value="" onChange={(e) => e.target.value && onAssign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
+        <option value="">+ Add portfolio…</option>
+        {options.map((o) => <option key={o.pf} value={o.pf}>{o.pf}{o.holder ? ` (now ${o.holder})` : ''}</option>)}
+      </select>
+    </div>
+  )
+}
+
+export function PortfolioBank({ free, onAssignMany, now, children }: { free: string[]; onAssignMany: (pfs: string[], holder: string | null) => void; now?: ((pf: string) => string | null) | undefined; children?: ReactNode }) {
+  return (
+    <div className="cb-bankchips">
+      <PortfolioList label="Unassigned portfolios" pfs={free} className="cb-bankchips-list" onAssignMany={onAssignMany} ownerId={null} empty="All assigned." now={now} />
+      {children}
+    </div>
+  )
+}
+
+// ---- Pointer drag ------------------------------------------------------------------------------------------------------
+// Mouse, touch and pen drag with plain pointer events, which behave the same in every browser; the browser's native drag
+// and drop (which is flaky in places) is switched off for these rows. A mouse can grab a row anywhere; touch and pen use the
+// ⋮⋮ handle so the page can still scroll. Keyboard drag (Enter on a handle) stays with react-aria. Drop targets are marked
+// with data-dnd (card / bank / minlist) in the markup.
+interface DragState {
+  pid: number; row: HTMLElement; kind: 'pf' | 'min'; key: string; x: number; y: number; active: boolean
+  ghost: HTMLElement | null; dx: number; dy: number; over: Hit | null; pos: 'before' | 'after' | null
+}
+interface Hit { t: HTMLElement; row: HTMLElement | null; rect: DOMRect | null }
+
+export function PointerDrag({ onAssign, onMove }: { onAssign: (pfs: string[], holder: string | null) => void; onMove: (ids: string[], kind: 'cab' | 'out', target: PlanDropTarget) => void }) {
+  const cb = useRef({ onAssign, onMove })
+  cb.current = { onAssign, onMove }
+  useEffect(() => {
+    let st: DragState | null = null
+    const clear = (): void => document.querySelectorAll('.dnd-over, .dnd-before, .dnd-after').forEach((e) => e.classList.remove('dnd-over', 'dnd-before', 'dnd-after'))
+    const targetAt = (x: number, y: number): Hit | null => {
+      const el = document.elementFromPoint(x, y)
+      const t = el?.closest<HTMLElement>('[data-dnd]')
+      if (!el || !t) return null
+      const row = el.closest<HTMLElement>('[role="row"][data-key]')
+      return { t, row, rect: row ? row.getBoundingClientRect() : null }
+    }
+    const begin = (d: DragState): void => {
+      const r = d.row.getBoundingClientRect()
+      const ghost = d.row.cloneNode(true) as HTMLElement
+      ghost.removeAttribute('id'); ghost.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'))
+      Object.assign(ghost.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, margin: '0', pointerEvents: 'none', zIndex: '3000', opacity: '.9', boxShadow: '0 8px 24px rgba(15,23,42,.3)' })
+      document.body.appendChild(ghost)
+      d.row.style.opacity = '.4'
+      d.ghost = ghost; d.dx = d.x - r.left; d.dy = d.y - r.top; d.active = true
+      document.body.style.userSelect = 'none'; document.body.style.cursor = 'grabbing'
+    }
+    const stop = (): void => {
+      document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', end, true); document.removeEventListener('pointercancel', end, true)
+    }
+    function move(e: PointerEvent): void {
+      const d = st
+      if (!d || e.pointerId !== d.pid) return
+      if (!d.active) {
+        if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5) return
+        begin(d)
+      }
+      e.preventDefault()
+      if (d.ghost) { d.ghost.style.left = `${e.clientX - d.dx}px`; d.ghost.style.top = `${e.clientY - d.dy}px` }
+      clear(); d.over = null
+      const h = targetAt(e.clientX, e.clientY)
+      if (h) {
+        const kind = h.t.dataset['dnd']
+        const ok = d.kind === 'pf' ? kind === 'card' || kind === 'bank' : kind === 'minlist'
+        if (ok) {
+          d.over = h
+          if (d.kind === 'min' && h.row && h.rect && h.row !== d.row) { const after = e.clientY >= h.rect.top + h.rect.height / 2; h.row.classList.add(after ? 'dnd-after' : 'dnd-before'); d.pos = after ? 'after' : 'before' } else { h.t.classList.add('dnd-over'); d.pos = null }
+        }
+      }
+      if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14)
+    }
+    function end(e: PointerEvent): void {
+      const d = st
+      if (!d || e.pointerId !== d.pid) return
+      st = null
+      stop()
+      if (!d.active) return
+      d.ghost?.remove(); d.row.style.opacity = ''; document.body.style.userSelect = ''; document.body.style.cursor = ''
+      clear()
+      const h = d.over
+      if (!h || e.type === 'pointercancel') return
+      if (d.kind === 'pf') cb.current.onAssign([d.key], h.t.dataset['dnd'] === 'card' ? h.t.dataset['id'] ?? null : null)
+      else {
+        const kind = h.t.dataset['kind'] === 'out' ? 'out' : 'cab'
+        const rowKey = h.row?.dataset['key']
+        cb.current.onMove([d.key], kind, rowKey !== undefined && rowKey !== d.key ? { key: rowKey, dropPosition: d.pos ?? 'before' } : null)
+      }
+    }
+    const down = (e: PointerEvent): void => {
+      const el = e.target
+      if (e.button > 0 || !(el instanceof Element)) return
+      const row = el.closest<HTMLElement>('[role="row"][data-key]')
+      if (!row || !row.closest('[data-dnd]')) return
+      if (el.closest('button, select, input, a')) return // the × / arrow buttons and menus keep their own clicks
+      if (e.pointerType !== 'mouse') {
+        const grip = row.querySelector('.cb-grip')
+        const g = grip?.getBoundingClientRect() // react-aria makes the handle pointer-events:none, so hit-test by position
+        if (!g || g.width === 0 || e.clientX < g.left - 8 || e.clientX > g.right + 8 || e.clientY < g.top - 8 || e.clientY > g.bottom + 8) return
+        e.stopPropagation() // skip react-aria's tap-to-pick-up mode: drag directly
+      }
+      st = { pid: e.pointerId, row, kind: row.classList.contains('cb-pf') ? 'pf' : 'min', key: row.dataset['key'] ?? '', x: e.clientX, y: e.clientY, active: false, ghost: null, dx: 0, dy: 0, over: null, pos: null }
+      document.addEventListener('pointermove', move, true); document.addEventListener('pointerup', end, true); document.addEventListener('pointercancel', end, true)
+    }
+    const noNative = (e: DragEvent): void => {
+      const el = e.target
+      if (el instanceof Element && el.closest('[role="row"][data-key]') && el.closest('[data-dnd]')) { e.preventDefault(); e.stopPropagation() }
+    }
+    document.addEventListener('pointerdown', down, true)
+    document.addEventListener('dragstart', noNative, true)
+    return () => { document.removeEventListener('pointerdown', down, true); document.removeEventListener('dragstart', noNative, true); stop(); clear() }
+  }, [])
+  return null
+}
