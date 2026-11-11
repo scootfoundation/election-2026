@@ -3,8 +3,8 @@ import { MPS_2023 } from './mps2023.js'
 import { buildPeople, Avatar, display } from './Parliamentarians.jsx'
 import { MINISTRY } from './ministry.js'
 
-// Cabinet builder: choose a governing arrangement, pick ministers from those parties' MPs, then
-// assign portfolios. Electorate seats won by a thin margin (special votes could flip them) offer
+// Cabinet builder, four stacked steps: arrangement and ministry size, ministers in order (inside / outside Cabinet),
+// portfolios, then a graphic of the result. Electorate seats won by a thin margin (special votes could flip them) offer
 // both of the top two candidates. The selection is kept in the page URL so a cabinet can be shared.
 
 const PORTFOLIOS = MINISTRY.map(([p]) => p)
@@ -113,28 +113,31 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
     return [...byId.values()]
   }, [meta, leaders, rows, ent])
   const byId = useMemo(() => Object.fromEntries(people.map((p) => [p.id, p])), [people])
+  const CURRENT_MINISTERS = new Set(MINISTRY.map(([, n]) => norm(n))).size
+  const DEF_CAB = 20, DEF_OUT = Math.max(0, CURRENT_MINISTERS - DEF_CAB)
 
-  const portfolioOrder = PORTFOLIOS
-  // The current ministry, for the people who would be in this Parliament and in these parties.
-  const currentMinistry = (parties) => {
-    const mins = [], asg = {}
-    for (const [pf, name] of MINISTRY) {
+  // The current ministry, ordered by seniority (first portfolio in the list), for people who'd be in this Parliament and these parties.
+  const currentMinistry = (parties, cabSize) => {
+    const asg = {}, order = []
+    MINISTRY.forEach(([pf, name]) => {
       const person = people.find((x) => norm(x.name) === norm(name) && parties.includes(x.abbrev))
-      if (!person) continue
-      if (!mins.includes(person.id)) mins.push(person.id)
+      if (!person) return
+      if (!order.includes(person.id)) order.push(person.id)
       asg[pf] = person.id
-    }
-    return { mins, asg }
+    })
+    return { cab: order.slice(0, cabSize), out: order.slice(cabSize), asg }
   }
 
   const [arr, setArr] = useState(shared?.r || 'govt')
   const partiesOf = (k) => arrs.find((x) => x.key === k).parties
   const parties = partiesOf(arr)
-  const init = useMemo(() => (shared ? null : currentMinistry(partiesOf('govt'))), []) // eslint-disable-line react-hooks/exhaustive-deps
-  const [mins, setMins] = useState(shared?.m || init.mins) // chosen minister ids
+  const init = useMemo(() => (shared ? null : currentMinistry(partiesOf('govt'), DEF_CAB)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [cabSize, setCabSize] = useState(shared?.cs ?? DEF_CAB)
+  const [outSize, setOutSize] = useState(shared?.os ?? DEF_OUT)
+  const [cab, setCab] = useState(shared?.c || init.cab) // ordered ids inside Cabinet
+  const [out, setOut] = useState(shared?.o || init.out) // ordered ids outside Cabinet
   const [asg, setAsg] = useState(shared?.a || init.asg) // portfolio -> person id
   const [extra, setExtra] = useState(shared?.x || [])
-  const [step, setStep] = useState(1)
   const [q, setQ] = useState('')
   const [more, setMore] = useState({})
   const [copied, setCopied] = useState('')
@@ -142,41 +145,45 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const [over, setOver] = useState(null)
   const [pfq, setPfq] = useState('')
 
-  const portfolios = [...portfolioOrder, ...extra]
+  const portfolios = [...PORTFOLIOS, ...extra]
   const seatOf = (a) => rows.find((r) => r.abbrev === a)?.seats || 0
   const nameOf = (a) => shortName({ abbrev: a, name: a })
-  const seatsOf = (k) => partiesOf(k).reduce((t, a) => t + seatOf(a), 0)
-  const seats = seatsOf(arr)
-  const total = Math.max(120, rows.reduce((t, r) => t + (r.seats || 0), 0))
-  const majority = Math.floor(total / 2) + 1
+  const seats = parties.reduce((t, a) => t + seatOf(a), 0)
 
   useEffect(() => {
-    const st = { r: arr, m: mins, a: asg, x: extra }
+    const st = { r: arr, cs: cabSize, os: outSize, c: cab, o: out, a: asg, x: extra }
     try { history.replaceState(null, '', '#/cabinet?c=' + b64.enc(st)) } catch { /* ignore */ }
-  }, [arr, mins, asg, extra])
+  }, [arr, cabSize, outSize, cab, out, asg, extra])
 
-  const sel = new Set(mins)
+  const sel = new Set([...cab, ...out])
+  const dropAsg = (keep) => Object.fromEntries(Object.entries(asg).filter(([, v]) => keep.has(v)))
   const choose = (k) => {
     if (k === arr) return
     const wasGovt = arrs.find((x) => x.key === arr).current, toGovt = arrs.find((x) => x.key === k).current
     const list = partiesOf(k)
     setArr(k)
-    if (toGovt && !wasGovt) { const d = currentMinistry(list); setMins(d.mins); setAsg(d.asg) } // start from the current ministry
-    else if (wasGovt && !toGovt) { setMins([]); setAsg({}) }
+    if (toGovt && !wasGovt) { const d = currentMinistry(list, cabSize); setCab(d.cab); setOut(d.out); setAsg(d.asg) } // start from the current ministry
+    else if (wasGovt && !toGovt) { setCab([]); setOut([]); setAsg({}) }
     else {
-      const keep = new Set(mins.filter((id) => byId[id] && list.includes(byId[id].abbrev)))
-      setMins([...keep]); setAsg(Object.fromEntries(Object.entries(asg).filter(([, v]) => keep.has(v))))
+      const ok = (id) => byId[id] && list.includes(byId[id].abbrev)
+      const c = cab.filter(ok), o = out.filter(ok)
+      setCab(c); setOut(o); setAsg(dropAsg(new Set([...c, ...o])))
     }
   }
-  const resetCurrent = () => { const d = currentMinistry(parties); setMins(d.mins); setAsg(d.asg) }
-  const toggle = (id) => {
-    if (sel.has(id)) { setMins(mins.filter((x) => x !== id)); setAsg(Object.fromEntries(Object.entries(asg).filter(([, v]) => v !== id))) } else setMins([...mins, id])
+  const resetCurrent = () => { const d = currentMinistry(parties, cabSize); setCab(d.cab); setOut(d.out); setAsg(d.asg) }
+  const remove = (id) => { setCab(cab.filter((x) => x !== id)); setOut(out.filter((x) => x !== id)); setAsg(dropAsg(new Set([...cab, ...out].filter((x) => x !== id)))) }
+  const toggle = (id) => { if (sel.has(id)) remove(id); else if (cab.length < cabSize) setCab([...cab, id]); else setOut([...out, id]) }
+  const move = (id, dir) => {
+    const inCab = cab.includes(id), list = inCab ? cab : out, set = inCab ? setCab : setOut
+    const i = list.indexOf(id), j = i + dir
+    if (j < 0 || j >= list.length) return
+    const n = [...list]; [n[i], n[j]] = [n[j], n[i]]; set(n)
   }
+  const swapGroup = (id) => { if (cab.includes(id)) { setCab(cab.filter((x) => x !== id)); setOut([id, ...out]) } else { setOut(out.filter((x) => x !== id)); setCab([...cab, id]) } }
   const assign = (pf, id) => { const n = { ...asg }; if (id) n[pf] = id; else delete n[pf]; setAsg(n) }
 
-  const ministers = mins.map((id) => byId[id]).filter(Boolean)
-  const rank = (m) => Math.min(...portfolios.map((p, i) => (asg[p] === m.id ? i : 999)))
-  const cards = [...ministers].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+  const mCab = cab.map((id) => byId[id]).filter(Boolean), mOut = out.map((id) => byId[id]).filter(Boolean)
+  const ministers = [...mCab, ...mOut]
   const filled = portfolios.filter((p) => asg[p])
   const free = portfolios.filter((p) => !asg[p] && (!pfq || p.toLowerCase().includes(pfq.toLowerCase())))
   const idle = ministers.filter((m) => !Object.values(asg).includes(m.id))
@@ -185,124 +192,180 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const sameSeat = [...new Set(pendingPicked.map((m) => m.pend.eid))].filter((e) => pendingPicked.filter((m) => m.pend.eid === e).length > 1)
   const total_n = ministers.length || 1
   const current = arrs.find((x) => x.key === arr).current
+  const label = arrs.find((x) => x.key === arr).label
 
   const copy = async (what) => {
     let text
     if (what === 'link') text = location.href
-    else text = ['Cabinet (' + arrs.find((x) => x.key === arr).label + ')', ...filled.map((p) => `${p}: ${byId[asg[p]]?.name}${byId[asg[p]]?.pend ? ' (pending seat)' : ''}`)].join('\n')
+    else {
+      const line = (m) => `${m.name} (${nameOf(m.abbrev)}): ${portfolios.filter((p) => asg[p] === m.id).join('; ') || '—'}`
+      text = [`Cabinet (${label})`, ...mCab.map((m, i) => `${i + 1}. ${line(m)}`), '', 'Outside Cabinet', ...mOut.map((m, i) => `${i + 1}. ${line(m)}`)].join('\n')
+    }
     try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(''), 1800) } catch { setCopied('failed') }
   }
 
-  // Drag and drop (portfolio chips onto minister cards); the "Add portfolio" menu on each card is the touch alternative.
+  // Drag and drop (portfolio rows onto minister cards); each card's "Add portfolio" menu is the touch alternative.
   const drag = (e, pf) => { e.dataTransfer.setData('text/plain', pf); e.dataTransfer.effectAllowed = 'move' }
   const dropOn = (e, id) => { e.preventDefault(); const pf = e.dataTransfer.getData('text/plain'); setOver(null); if (pf && portfolios.includes(pf)) assign(pf, id) }
   const allow = (e, id) => { e.preventDefault(); setOver(id) }
-
   const pfChip = (pf, onRemove) => (
     <span key={pf} className="cb-pf" draggable onDragStart={(e) => drag(e, pf)}><span className="cb-grip" aria-hidden="true">⋮⋮</span><span className="cb-pft">{pf}</span>{onRemove && <button type="button" aria-label={`Remove ${pf}`} onClick={onRemove}>×</button>}</span>
   )
+  const tags = (m) => <>{m.pend && <span className="cb-tag">pending</span>}{m.marg && <span className="cb-tag marg">Marginal</span>}</>
+  const num = (v, set) => (e) => set(Math.max(0, Math.min(60, Math.round(Number(e.target.value) || 0))))
+
+  const Group = ({ title, list, size, kind }) => (
+    <div className="cb-grp">
+      <h4>{title} <span className={list.length > size ? 'cb-over' : 'muted'}>· {list.length} of {size}</span></h4>
+      {!list.length && <p className="muted small">None yet. Click MPs in the list to add them.</p>}
+      <ol className="cb-ord">
+        {list.map((m, i) => (
+          <li key={m.id} style={{ '--c': colorOf(m.abbrev) }}>
+            <span className="cb-n">{i + 1}</span>
+            <Avatar p={m} colorOf={colorOf} />
+            <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}</small></span>
+            <span className="cb-btns">
+              <button type="button" onClick={() => move(m.id, -1)} disabled={i === 0} aria-label={`Move ${m.name} up`}>↑</button>
+              <button type="button" onClick={() => move(m.id, 1)} disabled={i === list.length - 1} aria-label={`Move ${m.name} down`}>↓</button>
+              <button type="button" onClick={() => swapGroup(m.id)} aria-label={kind === 'cab' ? `Move ${m.name} outside Cabinet` : `Move ${m.name} into Cabinet`} title={kind === 'cab' ? 'Move outside Cabinet' : 'Move into Cabinet'}>{kind === 'cab' ? '⇩' : '⇧'}</button>
+              <button type="button" onClick={() => remove(m.id)} aria-label={`Remove ${m.name}`}>×</button>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+
+  const Card = ({ m }) => {
+    const mine = portfolios.filter((p) => asg[p] === m.id)
+    return (
+      <div className={`cb-card${over === m.id ? ' over' : ''}`} style={{ '--c': colorOf(m.abbrev) }} onDragOver={(e) => allow(e, m.id)} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, m.id)}>
+        <div className="cb-card-h">
+          <Avatar p={m} colorOf={colorOf} />
+          <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}</small></span>
+        </div>
+        <div className="cb-drop">
+          {mine.map((pf) => pfChip(pf, () => assign(pf, null)))}
+          {!mine.length && <span className="muted small">Drop portfolios here</span>}
+        </div>
+        <select className="cb-addsel" value="" onChange={(e) => e.target.value && assign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
+          <option value="">+ Add portfolio…</option>
+          {portfolios.filter((p) => asg[p] !== m.id).map((p) => <option key={p} value={p}>{p}{asg[p] ? ` (now ${byId[asg[p]]?.name})` : ''}</option>)}
+        </select>
+      </div>
+    )
+  }
+
+  const Tile = ({ m, i, big }) => {
+    const mine = portfolios.filter((p) => asg[p] === m.id)
+    return (
+      <div className={`cb-tile${big ? ' big' : ''}`} style={{ '--c': colorOf(m.abbrev) }}>
+        <div className="cb-tile-h"><span className="cb-n">{i + 1}</span><Avatar p={m} colorOf={colorOf} /><span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{m.pend ? ' · pending seat' : ''}</small></span></div>
+        <ul>{mine.map((p) => <li key={p}>{p}</li>)}{!mine.length && <li className="muted">No portfolio</li>}</ul>
+      </div>
+    )
+  }
 
   return (
     <section className="sec cabinet">
       <div className="kicker">Cabinet builder</div>
-      <h2>Pick a government, choose ministers, assign portfolios</h2>
-      <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending, unless the list would return them anyway; only one will sit. List MPs whose place would change if a party's vote moved by up to {SWING} points are included and marked Marginal. The two coalition options start from the current ministry. Chris Bishop is left out. Your selections are saved in the page link.</p>
+      <h2>Build a ministry in four steps</h2>
+      <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending, unless the list would return them anyway; only one will sit. List MPs whose place would change if a party's vote moved by up to {SWING} points are marked Marginal. Chris Bishop is left out. Your choices are saved in the page link, and you can change any step at any time.</p>
 
-      <div className="cb-arr" role="group" aria-label="Governing arrangement">
-        {arrs.map((o) => {
-          return <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}>{o.label}</button>
-        })}
-      </div>
-
-      <div className="cb-steps" role="tablist" aria-label="Steps">
-        {[['1', 'Ministers'], ['2', 'Portfolios'], ['3', 'Summary']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={step === +k} className={step === +k ? 'on' : ''} onClick={() => setStep(+k)}>{k} · {l}</button>)}
-      </div>
-
-      <div className="cb-cols" data-step={step}>
-        <div className="cb-col cb-pool">
-          <h3>1 · MPs <span className="muted">· {mins.length} chosen</span></h3>
-          <input className="cb-search" type="search" placeholder="Search MPs" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search MPs" />
-          {[...parties].sort((x, y) => seatOf(y) - seatOf(x)).map((a) => {
-            const all = people.filter((p) => p.abbrev === a && (!q || p.name.toLowerCase().includes(q.toLowerCase()))).sort((x, y) => (x.list || 999) - (y.list || 999) || x.name.localeCompare(y.name))
-            const open = !!more[a] || !!q
-            const list = open ? all : all.filter((p, i) => i < SHOW || sel.has(p.id))
-            return (
-              <div key={a} className="cb-party">
-                <div className="cb-ph" style={{ '--c': colorOf(a) }}><b>{nameOf(a)}</b><span className="muted"> · {all.length} MPs · {all.filter((p) => sel.has(p.id)).length} chosen · by list position</span></div>
-                <div className="cb-chips">
-                  {list.map((p) => (
-                    <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
-                      <span className="cb-ln">{p.list || '–'}</span>
-                      <Avatar p={p} colorOf={colorOf} />
-                      <span className="cb-chip-t"><b>{p.name}</b><small>{p.where}{p.pend && <span className="cb-tag">pending</span>}{p.marg && <span className="cb-tag marg">Marginal</span>}</small></span>
-                    </button>
-                  ))}
-                </div>
-                {!q && all.length > SHOW && <button type="button" className="cb-more" onClick={() => setMore({ ...more, [a]: !more[a] })}>{open ? 'Show fewer' : `Show ${all.length - list.length} more`}</button>}
-              </div>
-            )
-          })}
-          <button type="button" className="cb-next" onClick={() => setStep(2)}>Next: portfolios →</button>
+      <div className="cb-step">
+        <h3><span>1</span> Governing arrangement and ministry size</h3>
+        <div className="cb-arr" role="group" aria-label="Governing arrangement">
+          {arrs.map((o) => <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}>{o.label}</button>)}
         </div>
+        <div className="cb-sizes">
+          <label>Ministers in Cabinet <input type="number" min="0" max="60" value={cabSize} onChange={num(cabSize, setCabSize)} /></label>
+          <label>Ministers outside Cabinet <input type="number" min="0" max="60" value={outSize} onChange={num(outSize, setOutSize)} /></label>
+          <span className="muted small">Starts at {DEF_CAB} in Cabinet and {DEF_OUT} outside (the current ministry has {CURRENT_MINISTERS} ministers).</span>
+        </div>
+      </div>
 
-        <div className="cb-col cb-cab">
-          <h3>2 · Ministers <span className="muted">· {filled.length} of {portfolios.length} portfolios assigned</span></h3>
-          {!ministers.length && <p className="muted small">Choose ministers from the MPs list first. Then drag portfolios onto them (or use each card's menu).</p>}
-          <div className="cb-cards">
-            {cards.map((m) => {
-              const mine = portfolios.filter((p) => asg[p] === m.id)
+      <div className="cb-step">
+        <h3><span>2</span> Choose and order the ministers</h3>
+        <div className="cb-two">
+          <div className="cb-pool">
+            <input className="cb-search" type="search" placeholder="Search MPs" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search MPs" />
+            {[...parties].sort((x, y) => seatOf(y) - seatOf(x)).map((a) => {
+              const all = people.filter((p) => p.abbrev === a && (!q || p.name.toLowerCase().includes(q.toLowerCase()))).sort((x, y) => (x.list || 999) - (y.list || 999) || x.name.localeCompare(y.name))
+              const open = !!more[a] || !!q
+              const list = open ? all : all.filter((p, i) => i < SHOW || sel.has(p.id))
               return (
-                <div key={m.id} className={`cb-card${over === m.id ? ' over' : ''}`} style={{ '--c': colorOf(m.abbrev) }} onDragOver={(e) => allow(e, m.id)} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, m.id)}>
-                  <div className="cb-card-h">
-                    <Avatar p={m} colorOf={colorOf} />
-                    <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {m.where}{m.pend && <span className="cb-tag">pending</span>}{m.marg && <span className="cb-tag marg">Marginal</span>}</small></span>
-                    <button type="button" className="cb-x" aria-label={`Remove ${m.name} as a minister`} onClick={() => toggle(m.id)}>×</button>
+                <div key={a} className="cb-party">
+                  <div className="cb-ph" style={{ '--c': colorOf(a) }}><b>{nameOf(a)}</b><span className="muted"> · {all.length} MPs · {all.filter((p) => sel.has(p.id)).length} chosen · by list position</span></div>
+                  <div className="cb-chips">
+                    {list.map((p) => (
+                      <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
+                        <span className="cb-ln">{p.list || '–'}</span>
+                        <Avatar p={p} colorOf={colorOf} />
+                        <span className="cb-chip-t"><b>{p.name}</b><small>{p.where}{tags(p)}</small></span>
+                      </button>
+                    ))}
                   </div>
-                  <div className="cb-drop">
-                    {mine.map((pf) => pfChip(pf, () => assign(pf, null)))}
-                    {!mine.length && <span className="muted small">Drop portfolios here</span>}
-                  </div>
-                  <select className="cb-addsel" value="" onChange={(e) => e.target.value && assign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
-                    <option value="">+ Add portfolio…</option>
-                    {portfolios.filter((p) => asg[p] !== m.id).map((p) => <option key={p} value={p}>{p}{asg[p] ? ` (now ${byId[asg[p]]?.name})` : ''}</option>)}
-                  </select>
+                  {!q && all.length > SHOW && <button type="button" className="cb-more" onClick={() => setMore({ ...more, [a]: !more[a] })}>{open ? 'Show fewer' : `Show ${all.length - list.length} more`}</button>}
                 </div>
               )
             })}
           </div>
-          <button type="button" className="cb-next" onClick={() => setStep(3)}>Next: summary →</button>
+          <div className="cb-ministry">
+            <p className="muted small">Click an MP to add them (Cabinet first, then outside Cabinet once it is full). Order is seniority, top first.</p>
+            <Group title="Cabinet" list={mCab} size={cabSize} kind="cab" />
+            <Group title="Outside Cabinet" list={mOut} size={outSize} kind="out" />
+          </div>
         </div>
+      </div>
 
-        <div className="cb-side">
-          <div className="cb-col cb-bank" onDragOver={(e) => allow(e, 'bank')} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, null)} style={over === 'bank' ? { outline: '2px dashed var(--fg)' } : undefined}>
-            <h3>Portfolios <span className="muted">· {free.length} unassigned</span></h3>
+      <div className="cb-step">
+        <h3><span>3</span> Assign portfolios</h3>
+        <div className="cb-two cb-two-pf">
+          <div>
+            {!ministers.length && <p className="muted small">Choose ministers in step 2 first.</p>}
+            {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
+            <div className="cb-cards">{mCab.map((m) => <Card key={m.id} m={m} />)}</div>
+            {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
+            <div className="cb-cards">{mOut.map((m) => <Card key={m.id} m={m} />)}</div>
+          </div>
+          <div className="cb-bank" onDragOver={(e) => allow(e, 'bank')} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, null)} style={over === 'bank' ? { outline: '2px dashed var(--fg)' } : undefined}>
+            <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
+            <p className="muted small">Drag onto a minister, or drop here to unassign.</p>
             <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
             <div className="cb-bankchips">{free.map((pf) => pfChip(pf))}{!free.length && <span className="muted small">All assigned.</span>}</div>
             <form className="cb-add" onSubmit={(e) => { e.preventDefault(); const v = newPf.trim(); if (v && !portfolios.includes(v)) setExtra([...extra, v]); setNewPf('') }}>
               <input value={newPf} onChange={(e) => setNewPf(e.target.value)} placeholder="Add a portfolio" aria-label="Add a portfolio" /><button type="submit">Add</button>
             </form>
           </div>
+        </div>
+      </div>
 
-          <div className="cb-col cb-sum">
-            <h3>3 · Summary</h3>
-            <p className="small"><b>{ministers.length}</b> ministers · <b>{filled.length}</b> of {portfolios.length} portfolios assigned</p>
-            <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
-            <table className="cb-bal"><thead><tr><th>Party</th><th>Ministers</th><th>Share</th><th>Seat share</th></tr></thead><tbody>
-              {byParty.map((x) => <tr key={x.a}><td><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)}</td><td>{x.n}</td><td>{ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}%</td><td>{seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}%</td></tr>)}
-            </tbody></table>
-            {pendingPicked.length > 0 && <p className="cb-warn">⚠ {pendingPicked.length} chosen minister{pendingPicked.length > 1 ? 's' : ''} in seats awaiting special votes: {pendingPicked.map((m) => m.name).join(', ')}.</p>}
-            {sameSeat.length > 0 && <p className="cb-warn">⚠ You chose both candidates in {sameSeat.map((e) => meta.electorates.find((x) => String(x.id) === e)?.name).join(', ')}; only one can win.</p>}
-            {idle.length > 0 && <p className="muted small">Without a portfolio: {idle.map((m) => m.name).join(', ')}.</p>}
-            <div className="cb-actions">
-              {current && <button type="button" onClick={resetCurrent}>Reset to current ministry</button>}
-              <button type="button" onClick={() => copy('link')}>{copied === 'link' ? 'Link copied' : 'Copy share link'}</button>
-              <button type="button" onClick={() => copy('text')} disabled={!filled.length}>{copied === 'text' ? 'Copied' : 'Copy as text'}</button>
-              <button type="button" onClick={() => { setMins([]); setAsg({}); setExtra([]) }}>Clear</button>
-            </div>
+      <div className="cb-step">
+        <h3><span>4</span> The ministry</h3>
+        <div className="cb-result">
+          <div className="cb-rhead">
+            <b>{label}</b>
+            <span className="muted"> · {mCab.length} in Cabinet · {mOut.length} outside · {filled.length} of {portfolios.length} portfolios assigned</span>
+          </div>
+          <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
+          <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} ({ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats)</span>)}</div>
+          {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
+          <div className="cb-tiles">{mCab.map((m, i) => <Tile key={m.id} m={m} i={i} big={asg['Prime Minister'] === m.id} />)}</div>
+          {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
+          <div className="cb-tiles cb-small">{mOut.map((m, i) => <Tile key={m.id} m={m} i={i} />)}</div>
+          {free.length > 0 && filled.length > 0 && <p className="muted small">Unassigned: {portfolios.filter((p) => !asg[p]).join('; ')}.</p>}
+          {pendingPicked.length > 0 && <p className="cb-warn">⚠ {pendingPicked.length} minister{pendingPicked.length > 1 ? 's' : ''} in seats awaiting special votes: {pendingPicked.map((m) => m.name).join(', ')}.</p>}
+          {sameSeat.length > 0 && <p className="cb-warn">⚠ Both candidates chosen in {sameSeat.map((e) => meta.electorates.find((x) => String(x.id) === e)?.name).join(', ')}; only one can win.</p>}
+          {idle.length > 0 && <p className="cb-warn">Without a portfolio: {idle.map((m) => m.name).join(', ')}.</p>}
+          <div className="cb-actions">
+            {current && <button type="button" onClick={resetCurrent}>Reset to current ministry</button>}
+            <button type="button" onClick={() => copy('link')}>{copied === 'link' ? 'Link copied' : 'Copy share link'}</button>
+            <button type="button" onClick={() => copy('text')} disabled={!ministers.length}>{copied === 'text' ? 'Copied' : 'Copy as text'}</button>
+            <button type="button" onClick={() => { setCab([]); setOut([]); setAsg({}); setExtra([]) }}>Clear</button>
           </div>
         </div>
       </div>
-      <p className="muted small">Ministers are drawn from MPs on the preliminary count, so list-seat holders could change when special votes are counted. The current ministry and portfolio names are from Wikipedia's page on the Sixth National Government (CC BY-SA) and may contain errors or omit recent changes; only ministers who would be in the new Parliament are carried over. Names are matched to the Commission's candidate list.</p>
+      <p className="muted small">Ministers are drawn from MPs on the preliminary count, so list-seat holders could change when special votes are counted. The current ministry and portfolio names are from Wikipedia's page on the Sixth National Government (CC BY-SA) and may contain errors; the Cabinet / outside split of the current ministers is by seniority, not the official list. Names are matched to the Commission's candidate list.</p>
     </section>
   )
 }
