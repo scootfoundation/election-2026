@@ -1,0 +1,85 @@
+/* Look-and-feel experiments, layered over styles.css + skin.css. Pick one with ?look=a|b|c (or the switcher, bottom-left).
+   a = "Paper"       — warm paper page, serif headlines, flat hairline cards, underline tabs (the middle)
+   b = "Ink & rules" — white page, hard ink rules, square cards, serif + small caps labels (nearest the broadsheet)
+   c = "Soft editorial" — the app skin (slate page, rounded white cards, pill nav) with serif headlines and numbers (nearest the app)  */
+html[data-look] { --serif:Georgia,"Times New Roman",serif; }
+html[data-look] h1.sitetitle, html[data-look] .headline, html[data-look] .ed-title, html[data-look] .cb-sh h3,
+html[data-look] .statbar b, html[data-look] .stats b, html[data-look] .stw-stats b, html[data-look] .mps-stats b, html[data-look] .sp-stats b { font-family:var(--serif); }
+html[data-look] h1.sitetitle { font-weight:700; letter-spacing:-.02em; }
+html[data-look] .headline { font-weight:700; letter-spacing:-.015em; }
+
+/* ---------- a: Paper ---------- */
+html[data-look="a"] { --page:#f6f2ea; --ln:#ddd5c6; --card:#efe9dc; --fg:#1c1917; --mu:#6b645a; --ac:#b42318; --accent:#9a1b12; --sh:none; --paper:#fffdf9; }
+html[data-look="a"] body { background:var(--page); }
+html[data-look="a"] .pagenav { background:none; border:0; border-bottom:1px solid var(--fg); border-radius:0; box-shadow:none; padding:0; gap:0; margin:12px 0 22px; display:flex; }
+html[data-look="a"] .pagenav a { border-radius:0; padding:10px 16px; margin-bottom:-1px; border-bottom:3px solid transparent; color:var(--mu); font-weight:650; }
+html[data-look="a"] .pagenav a:hover { background:none; color:var(--fg); }
+html[data-look="a"] .pagenav a.on { background:none; color:var(--fg); border-bottom-color:var(--ac); }
+html[data-look="a"] .layout > section, html[data-look="a"] .statbar > div, html[data-look="a"] .stw-stats > div, html[data-look="a"] .stw-stats > button, html[data-look="a"] .mps-stats > div, html[data-look="a"] .sp-stats > div,
+html[data-look="a"] .sp-card, html[data-look="a"] .sp-group, html[data-look="a"] .sp-params, html[data-look="a"] .sp-assume, html[data-look="a"] .ins-card, html[data-look="a"] .banner { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html[data-look="a"] .ins-card { border-top:3px solid var(--fg); border-radius:0 0 6px 6px; }
+html[data-look="a"] .sec table { background:var(--paper); border-radius:6px; }
+html[data-look="a"] tbody tr:hover { background:#faf6ee; }
+html[data-look="a"] .kicker, html[data-look="a"] .layout .kicker, html[data-look="a"] .sec .kicker, html[data-look="a"] .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.12em; font-size:.68rem; font-weight:700; }
+html[data-look="a"] th { text-transform:uppercase !important; letter-spacing:.08em !important; font-size:.64rem; }
+html[data-look="a"] .stw-chips button, html[data-look="a"] .mp-toggle, html[data-look="a"] .sp-reset, html[data-look="a"] .sp-presets button, html[data-look="a"] .stw-sort select, html[data-look="a"] .stw-controls select, html[data-look="a"] .refresh-btn,
+html[data-look="a"] .mp-mode, html[data-look="a"] .ed-seg { border-radius:6px !important; box-shadow:none; background:var(--paper); border-color:var(--ln); }
+html[data-look="a"] .mp-mode button, html[data-look="a"] .ed-seg button { border-radius:0; }
+html[data-look="a"] .stw-chips button.on, html[data-look="a"] .mp-mode button.on, html[data-look="a"] .ed-seg button.on, html[data-look="a"] .sp-edit, html[data-look="a"] .sp-done { background:var(--fg); border-color:var(--fg); color:#fff; border-radius:6px; }
+html[data-look="a"] .pill { background:var(--ac); color:#fff; border-radius:2px; }
+html[data-look="a"] .ed-head, html[data-look="a"] .ed-drawer { background:var(--paper); }
+html[data-look="a"] .cb-box, html[data-look="a"] .cb-unf { background:var(--paper); }
+html[data-look="a"] .cb-wz.on span { background:var(--ac); border-color:var(--ac); }
+
+/* ---------- b: Ink & rules ---------- */
+html[data-look="b"] { --page:#ffffff; --ln:#d4d4d8; --card:#f4f4f5; --fg:#111111; --mu:#52525b; --ac:#b42318; --accent:#b42318; --sh:none; }
+html[data-look="b"] body { background:#fff; }
+html[data-look="b"] .shell > main > hr { display:block; border-top:3px double var(--fg); margin:8px 0 0; }
+html[data-look="b"] .pagenav { background:none; border:0; border-top:1px solid var(--fg); border-bottom:1px solid var(--fg); border-radius:0; box-shadow:none; padding:0; gap:0; margin:0 0 22px; display:flex; width:100%; }
+html[data-look="b"] .pagenav a { border-radius:0; padding:9px 18px; color:var(--fg); text-transform:uppercase; letter-spacing:.1em; font-size:.72rem; font-weight:700; border-right:1px solid var(--ln); }
+html[data-look="b"] .pagenav a:hover { background:var(--card); color:var(--fg); }
+html[data-look="b"] .pagenav a.on { background:var(--fg); color:#fff; }
+html[data-look="b"] .layout > section { background:none; border:0; border-radius:0; box-shadow:none; border-top:2px solid var(--fg); padding:10px 0 0; }
+html[data-look="b"] .statbar > div, html[data-look="b"] .stw-stats > div, html[data-look="b"] .stw-stats > button, html[data-look="b"] .mps-stats > div, html[data-look="b"] .sp-stats > div, html[data-look="b"] .sp-card, html[data-look="b"] .sp-group, html[data-look="b"] .sp-params, html[data-look="b"] .sp-assume, html[data-look="b"] .ins-card { background:#fff; border:1px solid var(--ln); border-top:3px solid var(--fg); border-radius:0; box-shadow:none; }
+html[data-look="b"] .banner { background:var(--card); border:0; border-left:3px solid var(--ac); border-radius:0; box-shadow:none; }
+html[data-look="b"] .sec table { background:none; border-radius:0; }
+html[data-look="b"] tbody tr:hover { background:var(--card); }
+html[data-look="b"] .kicker, html[data-look="b"] .layout .kicker, html[data-look="b"] .sec .kicker, html[data-look="b"] .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.14em; font-size:.68rem; font-weight:700; }
+html[data-look="b"] th { text-transform:uppercase !important; letter-spacing:.1em !important; font-size:.64rem; }
+html[data-look="b"] .subhead { font-family:var(--serif); font-weight:700; border-top:1px solid var(--fg); }
+html[data-look="b"] .stw-chips button, html[data-look="b"] .mp-toggle, html[data-look="b"] .sp-reset, html[data-look="b"] .sp-presets button, html[data-look="b"] .stw-sort select, html[data-look="b"] .stw-controls select, html[data-look="b"] .refresh-btn,
+html[data-look="b"] .mp-mode, html[data-look="b"] .ed-seg { border-radius:0 !important; box-shadow:none; background:#fff; border-color:var(--fg); }
+html[data-look="b"] .mp-mode button, html[data-look="b"] .ed-seg button { border-radius:0; }
+html[data-look="b"] .stw-chips button.on, html[data-look="b"] .mp-mode button.on, html[data-look="b"] .ed-seg button.on, html[data-look="b"] .sp-edit, html[data-look="b"] .sp-done { background:var(--fg); border-color:var(--fg); color:#fff; border-radius:0; }
+html[data-look="b"] .pill { background:var(--ac); color:#fff; border-radius:0; }
+html[data-look="b"] .ed-head, html[data-look="b"] .ed-drawer { background:#fff; }
+html[data-look="b"] .cb-box, html[data-look="b"] .cb-unf { background:#fff; border-radius:0; }
+html[data-look="b"] .cb-wz.on span { background:var(--ac); border-color:var(--ac); }
+
+/* ---------- c: Soft editorial ---------- */
+html[data-look="c"] { --page:#f4f6f9; --fg:#0f172a; --mu:#64748b; --ac:#9f1d14; --accent:#2563eb; }
+html[data-look="c"] .kicker, html[data-look="c"] .layout .kicker, html[data-look="c"] .sec .kicker, html[data-look="c"] .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.12em; font-size:.68rem; font-weight:700; }
+html[data-look="c"] .layout > section { border-radius:14px; }
+html[data-look="c"] .statbar b, html[data-look="c"] .stw-stats b, html[data-look="c"] .mps-stats b, html[data-look="c"] .sp-stats b { font-weight:700; }
+html[data-look="c"] .subhead { font-family:var(--serif); font-weight:700; font-size:1.02rem; }
+html[data-look="c"] .pagenav a.on { background:var(--ac); }
+html[data-look="c"] .ins-card { border-radius:12px; border-top:1px solid var(--ln); border-left:4px solid var(--ac); }
+
+/* cabinet wizard panel, per look */
+html[data-look="a"] .cabinet .cb-step { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html[data-look="a"] .cb-sh { border-bottom:1px solid var(--fg); padding-bottom:8px; }
+html[data-look="a"] .cb-sh h3 { font-size:1.25rem !important; }
+html[data-look="a"] .cb-sh h3 span, html[data-look="a"] .cabinet .cb-wz.on span { background:var(--ac); color:#fff; border-radius:50%; }
+html[data-look="a"] .cb-gh { font-family:var(--serif); }
+html[data-look="b"] .cabinet .cb-step { background:#fff; border:0; border-top:2px solid var(--fg); border-radius:0; box-shadow:none; padding-left:0; padding-right:0; }
+html[data-look="b"] .cb-sh { border-bottom:1px solid var(--ln); padding-bottom:8px; }
+html[data-look="b"] .cb-sh h3 { font-size:1.25rem !important; }
+html[data-look="b"] .cb-sh h3 span { background:var(--ac); color:#fff; border-radius:0; }
+html[data-look="b"] .cabinet .cb-wz span { border-radius:0; }
+html[data-look="b"] .cb-gh { font-family:var(--serif); text-transform:uppercase; letter-spacing:.1em; font-size:.8rem; border-bottom:1px solid var(--fg); padding-bottom:4px; }
+html[data-look="c"] .cb-sh h3 span, html[data-look="c"] .cabinet .cb-wz.on span { background:var(--ac); color:#fff; }
+
+/* switcher */
+#look-switch { position:fixed; left:10px; bottom:10px; z-index:9999; display:flex; gap:4px; background:#111; padding:4px; border-radius:8px; font:600 12px/1 system-ui,sans-serif; }
+#look-switch button { all:unset; cursor:pointer; color:#bbb; padding:6px 10px; border-radius:5px; }
+#look-switch button.on { background:#fff; color:#111; }
