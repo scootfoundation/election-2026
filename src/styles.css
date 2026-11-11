@@ -726,3 +726,20 @@ h2 { font-size:1.3rem; }
 .cabinet .cb-outs { grid-template-columns:repeat(2, minmax(0,1fr)); gap:44px 14px; }
 @media (min-width:1100px) { .cb-rsplit { grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); } .cabinet .cb-rsplit .cb-outs { grid-template-columns:repeat(2, minmax(0,1fr)); } }
 @media (max-width:560px) { .cabinet .cb-outs { grid-template-columns:minmax(0,1fr); } }
+
+.cabinet .cb-now { display:block; font:.7rem var(--sans); color:var(--mut); font-weight:400; margin-top:1px; }
+/* Wizard stepper: a connected line of numbered steps */
+.cabinet .cb-wiz { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0; margin:8px 0 22px; padding:0; }
+.cabinet .cb-wz { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; background:none; border:0; box-shadow:none; border-radius:0; padding:0 4px; font:600 .85rem var(--sans); color:var(--mut); cursor:pointer; }
+.cabinet .cb-wz::before { content:''; position:absolute; top:15px; left:-50%; right:50%; height:3px; background:var(--line); z-index:0; }
+.cabinet .cb-wz:first-child::before { display:none; }
+.cabinet .cb-wz.done::before, .cabinet .cb-wz.on::before { background:var(--ink); }
+.cabinet .cb-wz span { position:relative; z-index:1; width:32px; height:32px; border-radius:50%; background:var(--surf); border:3px solid var(--line); color:var(--mut); display:grid; place-items:center; font-size:.85rem; font-weight:700; }
+.cabinet .cb-wz.done span { background:var(--ink); border-color:var(--ink); color:#fff; }
+.cabinet .cb-wz.on { color:var(--ink); } .cabinet .cb-wz.on span { background:#fff; border-color:var(--ink); color:var(--ink); box-shadow:0 0 0 4px rgba(15,23,42,.12); }
+.cabinet .cb-wz:hover:not(.on) { color:var(--ink); }
+@media (max-width:560px) { .cabinet .cb-wz { font-size:.74rem; } }
+.cabinet .cb-wz.on, .cabinet .cb-wz:hover { background:none !important; border:0 !important; box-shadow:none !important; }
+.cabinet .cb-wz.on { color:var(--ink) !important; }
+.cabinet .cb-wz.on span { color:var(--ink) !important; background:#fff !important; }
+.cabinet .cb-wz.done span { color:#fff !important; background:var(--ink) !important; }

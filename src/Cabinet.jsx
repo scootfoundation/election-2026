@@ -9,6 +9,7 @@ import { useCabinet } from './cabinet/store.js'
 
 // Cabinet builder UI. All user-authored state lives in one Plan (see cabinet/model.js); this component only renders
 // derived data and dispatches actions. Pool of MPs: cabinet/pool.js. Persistence and URL sync: cabinet/store.js.
+const HOLDER = Object.fromEntries(MINISTRY.map(([pf, name]) => [pf, name]))
 const SHOW = 25 // MPs shown per party before "Show more"
 const STEPS = { 1: [1, 'Government'], 2: [2, 'Ministers'], 3: [3, 'Portfolios'], 4: [4, 'Result'] }
 const STEP_LIST = Object.values(STEPS)
@@ -53,6 +54,12 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const toggleForce = (v) => { setForce(v); try { localStorage.setItem('cb-force', v ? '1' : '0') } catch { /* ignore */ } }
   useEffect(() => { if (!toast && !notice) return undefined; const t = setTimeout(() => dispatch({ type: 'DISMISS' }), toast ? 12000 : 8000); return () => clearTimeout(t) }, [toast, notice, dispatch])
 
+  // Who holds each portfolio in the current ministry (and whether they would be in the new Parliament)
+  const currentHolder = (pf) => {
+    const name = HOLDER[pf]
+    if (!name) return null
+    return `Now: ${name}${people.some((x) => norm(x.name) === norm(name)) ? '' : ' (not returning)'}`
+  }
   const seatOf = (a) => mctx.seatsBy[a] || 0
   const nameOf = (a) => shortName({ abbrev: a, name: a })
   const free = d.free.filter((pf) => !pfq || pf.toLowerCase().includes(pfq.toLowerCase()))
@@ -219,7 +226,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
               <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
               <p className="muted small cb-desk">Drag onto a minister.</p>
               <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
-              <PortfolioBank free={free} onAssignMany={assignMany} />
+              <PortfolioBank free={free} onAssignMany={assignMany} now={currentHolder} />
               <form className="cb-add" onSubmit={(e) => { e.preventDefault(); if (newPf.trim()) dispatch({ type: 'ADD_PF', name: newPf }); setNewPf('') }}>
                 <input value={newPf} onChange={(e) => setNewPf(e.target.value)} placeholder="Add a portfolio" aria-label="Add a portfolio" /><button type="submit">Add</button>
               </form>

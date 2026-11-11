@@ -48,7 +48,7 @@ export function MinisterList({ title, kind, list, size, colorOf, nameOf, tags, o
   )
 }
 
-function PortfolioList({ label, pfs, className, onAssignMany, ownerId, onRemove, empty }) {
+function PortfolioList({ label, pfs, className, onAssignMany, ownerId, onRemove, empty, now }) {
   const { dragAndDropHooks } = useDragAndDrop({
     getItems: (keys) => [...keys].map((k) => ({ [T_PF]: String(k), 'text/plain': String(k) })),
     acceptedDragTypes: [T_PF],
@@ -60,7 +60,7 @@ function PortfolioList({ label, pfs, className, onAssignMany, ownerId, onRemove,
       {(it) => (
         <GridListItem id={it.id} textValue={it.id} className="cb-pf">
           <Button slot="drag" className="cb-grip" aria-label={`Drag ${it.id}`}>⋮⋮</Button>
-          <span className="cb-pft">{it.id}</span>
+          <span className="cb-pft">{it.id}{now && now(it.id) && <small className="cb-now">{now(it.id)}</small>}</span>
           {onRemove && <Button className="cb-pfx" onPress={() => onRemove(it.id)} aria-label={`Remove ${it.id}`}>×</Button>}
         </GridListItem>
       )}
@@ -85,10 +85,10 @@ export function MinisterCard({ m, group, rank, mine, options, colorOf, nameOf, t
   )
 }
 
-export function PortfolioBank({ free, onAssignMany, children }) {
+export function PortfolioBank({ free, onAssignMany, now, children }) {
   return (
     <div className="cb-bankchips">
-      <PortfolioList label="Unassigned portfolios" pfs={free} className="cb-bankchips-list" onAssignMany={onAssignMany} ownerId={null} empty="All assigned." />
+      <PortfolioList label="Unassigned portfolios" pfs={free} className="cb-bankchips-list" onAssignMany={onAssignMany} ownerId={null} empty="All assigned." now={now} />
       {children}
     </div>
   )
