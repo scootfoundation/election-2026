@@ -705,3 +705,7 @@ h2 { font-size:1.3rem; }
 .cabinet.cb-force .cb-touch { display:revert !important; }
 .cabinet.cb-force .cb-desk { display:none !important; }
 .cabinet .cb-force-toggle { display:inline-flex; align-items:center; gap:6px; font:.8rem var(--sans); color:var(--mut); cursor:pointer; margin:0 0 10px; }
+
+/* Pointer-drag fallback feedback */
+.cabinet .dnd-over { outline:2px dashed var(--accent); outline-offset:2px; background:var(--soft); }
+.cabinet .dnd-before { box-shadow:0 -3px 0 0 var(--accent); } .cabinet .dnd-after { box-shadow:0 3px 0 0 var(--accent); }

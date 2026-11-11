@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Avatar } from './Parliamentarians.jsx'
 import { MINISTRY } from './ministry.js'
-import { MinisterCard, MinisterList, PortfolioBank } from './CabinetDnd.jsx'
+import { MinisterCard, MinisterList, PointerDragFallback, PortfolioBank } from './CabinetDnd.jsx'
 import { SPOKES } from './spokes.js'
 import { ARRS, DEF_CAB, DEF_OUT, CURRENT_MINISTERS, SENIOR, derive, norm } from './cabinet/model.js'
 import { buildPool, PENDING_MARGIN, SWING } from './cabinet/pool.js'
@@ -148,6 +148,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
         </div>
       </div>
 
+      <PointerDragFallback onAssign={assignMany} onMove={dropIds} />
       <label className="cb-force-toggle"><input type="checkbox" checked={force} onChange={(e) => toggleForce(e.target.checked)} /> Show move buttons (if dragging doesn't work for you)</label>
       <div className="cb-step">
         <div className="cb-sh"><h3><span>2</span> Ministers</h3></div>
@@ -196,7 +197,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
             <div className="cb-cards">{mOut.map(card)}</div>
           </div>
-          <div className="cb-bank">
+          <div className="cb-bank" data-dnd="bank">
             <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
             <p className="muted small cb-desk">Drag onto a minister.</p>
             <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
