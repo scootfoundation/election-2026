@@ -44,7 +44,7 @@ const ROLES = (() => {
   for (const [n, rs] of Object.entries(SPOKES)) m[norm(n)] = rs.map(clean)
   return m
 })()
-const roleText = (name) => { const r = ROLES[norm(name)]; if (!r || !r.length) return ''; return r.slice(0, 2).join(' · ') + (r.length > 2 ? ` +${r.length - 2}` : '') }
+const roleText = (name) => { const r = ROLES[norm(name)]; if (!r || !r.length) return ''; return r.join(' · ') }
 
 const b64 = {
   enc: (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
@@ -266,7 +266,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   )
   const where = (m) => (cab.includes(m.id) ? `Cabinet ${cab.indexOf(m.id) + 1}` : out.includes(m.id) ? `Outside ${out.indexOf(m.id) + 1}` : null)
   const tags = (m) => <>{m.pend && <span className="cb-tag">pending</span>}{m.marg && <span className="cb-tag marg">Marginal</span>}</>
-  const poolTags = (m) => <>{tags(m)}{where(m) && <span className="cb-tag in">{where(m)}</span>}</>
+  const poolTags = (m) => tags(m)
   const num = (v, set) => (e) => set(Math.max(0, Math.min(60, Math.round(Number(e.target.value) || 0))))
 
   const Group = ({ title, list, size, kind }) => (

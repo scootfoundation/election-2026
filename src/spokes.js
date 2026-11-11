@@ -1,5 +1,21 @@
-// Labour spokespersons (Hipkins shadow cabinet, as of 11 March 2026), from Wikipedia's 'Shadow Cabinet of Chris Hipkins' (CC BY-SA). May be out of date.
+// Green Party spokespeople: from the party's portfolios page (supplied by the user). Labour spokespersons (Hipkins shadow cabinet, as of 11 March 2026), from Wikipedia's 'Shadow Cabinet of Chris Hipkins' (CC BY-SA). May be out of date.
 export const SPOKES = {
+"Marama Davidson": ["Child Poverty Reduction", "Conservation", "Prevention of Family Violence and Sexual Violence"],
+"Chlöe Swarbrick": ["Climate Change", "Finance", "Revenue"],
+"Julie Anne Genter": ["Building and Construction", "Economic Growth", "Infrastructure", "RMA Reform - Built Environment", "State Enterprises", "Transport", "Urban Development"],
+"Teanau Tuiono": ["Defence & Disarmament", "Foreign Affairs", "National Security and Intelligence", "Oceans and Fisheries", "Pacific Peoples", "Space", "Veterans", "Workplace Relations and Safety"],
+"Lan Pham": ["Biosecurity", "Environment", "Land Information", "RMA Reform - Environment", "Water Services"],
+"Ricardo Menéndez March": ["Auckland Issues", "Commerce & Consumer Affairs", "Immigration", "Primary Healthcare", "Social Development and Employment", "Workforce Planning and Development"],
+"Steve Abel": ["Agriculture", "Animal Welfare", "Food Safety", "Māori Crown Relations: Te Arawhiti", "Racing", "Resources", "Treaty of Waitangi Negotiations"],
+"Hūhana Lyndon": ["Forestry", "Health", "Māori Development", "Māori Education", "Māori Fisheries", "Media and Communications", "Whānau Ora"],
+"Scott Willis": ["Associate Justice (Firearms)", "Dunedin Issues", "Energy", "Hunting and Fishing", "Regional Development", "Rural Communities", "Science, Innovation and Technology", "Sport & Recreation"],
+"Kahurangi Carter": ["Arts, Culture and Heritage", "Children", "Christchurch Issues", "Disability Issues", "Drug Law Reform", "Mental Health", "Royal Commission into Abuse in Faith and State Based Care", "Takatāpui and Rainbow Communities", "Women", "Zero Waste"],
+"Celia Wade-Brown": ["Democracy & Electoral Reform", "Digitising Government", "Predator Free", "Tourism & Hospitality"],
+"Tamatha Paul": ["Corrections", "Housing", "Police", "Wellington Issues", "Youth", "Youth Justice"],
+"Lawrence Xu-Nan": ["Courts", "Education (including ECE)", "Ethnic Communities", "Justice", "Overseas New Zealanders", "Seniors", "Trade"],
+"Francisco Hernandez": ["Associate Climate Change", "Customs", "Emergency Management & Recovery", "Public Services", "Regulation", "Small Business & Manufacturing", "Statistics", "Tertiary Education"],
+"Mike Davidson": ["ACC", "Community and Voluntary Sector", "Internal Affairs", "Just Transitions", "Local Government", "Social Investment"],
+
 "Chris Hipkins": [
 "Leader of the Opposition",
 "Spokesperson for Ministerial Services",
