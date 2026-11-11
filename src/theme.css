@@ -1,0 +1,55 @@
+/* Site theme: "Paper". A warm paper page with serif headlines and numbers, sans UI text, underline tabs and a red accent,
+   made flat: sections are open and divided by rules, stat figures sit on flat tinted panels, no shadows.
+   Layered over styles.css and skin.css (loaded last). */
+:root { --serif:Georgia,"Times New Roman",serif; }
+html:root h1.sitetitle, html:root .headline, html:root .ed-title, html:root .cb-sh h3,
+html:root .statbar b, html:root .stats b, html:root .stw-stats b, html:root .mps-stats b, html:root .sp-stats b { font-family:var(--serif); }
+html:root h1.sitetitle { font-weight:700; letter-spacing:-.02em; }
+html:root .headline { font-weight:700; letter-spacing:-.015em; }
+
+/* Paper base */
+:root { --page:#f6f2ea; --ln:#ddd5c6; --card:#efe9dc; --fg:#1c1917; --mu:#6b645a; --ac:#b42318; --accent:#9a1b12; --sh:none; --paper:#fffdf9; }
+html:root body { background:var(--page); }
+html:root .pagenav { background:none; border:0; border-bottom:1px solid var(--fg); border-radius:0; box-shadow:none; padding:0; gap:0; margin:12px 0 22px; display:flex; }
+html:root .pagenav a { border-radius:0; padding:10px 16px; margin-bottom:-1px; border-bottom:3px solid transparent; color:var(--mu); font-weight:650; }
+html:root .pagenav a:hover { background:none; color:var(--fg); }
+html:root .pagenav a.on { background:none; color:var(--fg); border-bottom-color:var(--ac); }
+html:root .layout > section, html:root .statbar > div, html:root .stw-stats > div, html:root .stw-stats > button, html:root .mps-stats > div, html:root .sp-stats > div,
+html:root .sp-card, html:root .sp-group, html:root .sp-params, html:root .sp-assume, html:root .ins-card, html:root .banner { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html:root .ins-card { border-top:3px solid var(--fg); border-radius:0 0 6px 6px; }
+html:root .sec table { background:var(--paper); border-radius:6px; }
+html:root tbody tr:hover { background:#faf6ee; }
+html:root .kicker, html:root .layout .kicker, html:root .sec .kicker, html:root .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.12em; font-size:.68rem; font-weight:700; }
+html:root th { text-transform:uppercase !important; letter-spacing:.08em !important; font-size:.64rem; }
+html:root .stw-chips button, html:root .mp-toggle, html:root .sp-reset, html:root .sp-presets button, html:root .stw-sort select, html:root .stw-controls select, html:root .refresh-btn,
+html:root .mp-mode, html:root .ed-seg { border-radius:6px !important; box-shadow:none; background:var(--paper); border-color:var(--ln); }
+html:root .mp-mode button, html:root .ed-seg button { border-radius:0; }
+html:root .stw-chips button.on, html:root .mp-mode button.on, html:root .ed-seg button.on, html:root .sp-edit, html:root .sp-done { background:var(--fg); border-color:var(--fg); color:#fff; border-radius:6px; }
+html:root .pill { background:var(--ac); color:#fff; border-radius:2px; }
+html:root .ed-head, html:root .ed-drawer { background:var(--paper); }
+html:root .cb-box, html:root .cb-unf { background:var(--paper); }
+html:root .cb-wz.on span { background:var(--ac); border-color:var(--ac); }
+
+
+
+/* Cabinet wizard */
+html:root .cabinet .cb-step { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html:root .cb-sh { border-bottom:1px solid var(--fg); padding-bottom:8px; }
+html:root .cb-sh h3 { font-size:1.25rem !important; }
+html:root .cb-sh h3 span, html:root .cabinet .cb-wz.on span { background:var(--ac); color:#fff; border-radius:50%; }
+html:root .cb-gh { font-family:var(--serif); }
+
+/* Flat overrides: open sections divided by rules, stat tiles as flat tinted panels, no shadows */
+:root { --page:#f6f2ea; --paper:#fffdf9; --ln:#ddd5c6; --card:#efe9dc; }
+html:root .layout > section, html:root .sp-card, html:root .sp-group, html:root .sp-params, html:root .sp-assume { background:none; border:0; border-top:1px solid var(--fg); border-radius:0; box-shadow:none; padding:12px 0 0; }
+html:root .ins-card { background:none; border:0; border-top:3px solid var(--fg); border-radius:0; box-shadow:none; padding:10px 0 0; }
+html:root .statbar > div, html:root .stw-stats > div, html:root .stw-stats > button, html:root .mps-stats > div, html:root .sp-stats > div { background:var(--card); border:0; border-radius:4px; box-shadow:none; padding:12px 16px; }
+html:root .banner { background:var(--card); border:0; border-left:3px solid var(--ac); border-radius:0; box-shadow:none; }
+html:root .sec table { background:none; border-radius:0; }
+html:root tbody tr:hover { background:rgba(239,233,220,.6); }
+html:root .stw-chips button, html:root .mp-toggle, html:root .sp-reset, html:root .sp-presets button, html:root .refresh-btn, html:root .mp-mode, html:root .ed-seg { border-radius:4px !important; background:none; border-color:var(--fg); }
+html:root .stw-chips button.on, html:root .mp-mode button.on, html:root .ed-seg button.on { background:var(--fg); color:#fff; }
+html:root .cabinet .cb-step { background:none; border:0; border-top:1px solid var(--fg); border-radius:0; box-shadow:none; padding-left:0; padding-right:0; }
+html:root .cb-box, html:root .cb-unf { background:var(--paper); }
+html:root .ed-drawer, html:root .ed-head { background:var(--page); }
+
