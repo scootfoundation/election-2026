@@ -255,8 +255,6 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
               <b>{label}</b>
               <span className="muted"> · {mCab.length} in Cabinet · {mOut.length} outside · {filled.length} of {portfolios.length} portfolios assigned</span>
             </div>
-            <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
-            <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} · {ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats</span>)}</div>
             <div className="cb-rsplit">
             <div className="cb-r-cab">
             {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
@@ -275,6 +273,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             })}</div>
             </div>
             </div>
+            <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
+            <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} · {ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats</span>)}</div>
             <div className="cb-shotcredit muted">NZ 2026 election dashboard · {label}</div>
             </div>
             {d.free.length > 0 && (

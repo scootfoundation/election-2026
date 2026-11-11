@@ -746,3 +746,4 @@ h2 { font-size:1.3rem; }
 
 .cb-shot { padding:12px; background:var(--bg, #fff); }
 .cb-shotcredit { font-size:.7rem; margin-top:8px; }
+.cb-rsplit + .cb-bar { margin-top:16px; }
