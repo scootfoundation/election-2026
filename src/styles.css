@@ -676,3 +676,20 @@ h2 { font-size:1.3rem; }
 .cabinet .cb-oc .cb-box { border-top-width:6px; }
 .cabinet .cb-slot.l .cb-box { border-right-width:6px; } .cabinet .cb-slot.r .cb-box, .cabinet .cb-head .cb-box { border-left-width:6px; }
 .cabinet .cb-box b { font-weight:750; }
+
+/* ===== Straight party stripes: no curved coloured borders; final section back to the earlier boxed style ===== */
+.cabinet .cb-chip, .cabinet .cb-ordrow, .cabinet .cb-card, .cabinet .cb-box, .cabinet .cb-oc .cb-box, .cabinet .cb-tile { border-radius:0; }
+.cabinet .cb-card { overflow:visible; border-top-width:5px; }
+.cabinet .cb-chip { border-left-width:5px; }
+.cabinet .cb-ordrow { border-left-width:5px; }
+.cabinet .cb-chip.sel::after { border-radius:50%; }
+/* Final section as before: square white boxes, light shadow, 4px stripe on the seat side */
+.cabinet .cb-box { border:1px solid var(--ln); box-shadow:0 1px 3px rgba(0,0,0,.08); background:var(--bg); }
+.cabinet .cb-slot.l .cb-box { border-right:4px solid var(--c); }
+.cabinet .cb-slot.r .cb-box, .cabinet .cb-head .cb-box { border-left:4px solid var(--c); }
+.cabinet .cb-oc .cb-box { border-top:4px solid var(--c); }
+.cabinet .cb-box b { font-weight:700; }
+.cabinet .cb-oc .cb-box, .cabinet .cb-slot .cb-box { border-radius:0; }
+.cabinet .cb-bar { border-radius:0; height:12px; }
+.cabinet .cb-step { border-top:1px solid var(--line); }
+.cabinet .cb-sh { border-bottom:2px solid var(--ink); }
