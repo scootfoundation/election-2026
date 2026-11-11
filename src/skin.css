@@ -23,9 +23,11 @@ h1.sitetitle { font-weight:800; letter-spacing:-.02em; margin:2px 0 6px; }
 .pagenav a.on { background:var(--fg); color:#fff; border:0; }
 .banner { background:#fff; border:1px solid var(--ln); border-left:4px solid #f59e0b; border-radius:0; box-shadow:var(--sh); }
 
-/* Panels: sections and the overview columns are white rounded cards */
-.sec, .layout > section, .pagenav + section.sec { background:#fff; border:1px solid var(--ln); border-radius:16px; box-shadow:var(--sh); padding:20px 22px 22px; margin-top:18px; }
-.sec.cabinet { background:none; border:0; box-shadow:none; padding:0; margin-top:0; }
+/* Page sections sit directly on the page (no card around a whole page); the cards are the things inside them. */
+.sec, .pagenav + section.sec { background:none; border:0; border-radius:0; box-shadow:none; padding:0; margin-top:18px; }
+.layout > section { background:#fff; border:1px solid var(--ln); border-radius:16px; box-shadow:var(--sh); padding:20px 22px 22px; margin-top:0; }
+.sec.cabinet { margin-top:0; }
+.sec table { background:#fff; border-radius:12px; }
 .layout { gap:18px; }
 .layout > section { margin-top:0; }
 .headline { font-size:1.6rem; letter-spacing:-.01em; margin:2px 0 4px; }
@@ -78,10 +80,8 @@ a { color:var(--accent); }
 /* Footer */
 .foot { color:var(--mu); }
 
-/* Nested layouts inside a panel (Specials): no card in a card */
-.sec .layout > section { background:none; border:0; box-shadow:none; padding:0; border-radius:0; }
 .stw-stats > div, .mps-stats > div { border:1px solid var(--ln); border-radius:12px; background:#fff; box-shadow:var(--sh); padding:10px 14px; }
-@media (max-width:640px) { .sec, .layout > section, .pagenav + section.sec { padding:16px 14px 18px; border-radius:14px; } .pagenav { display:flex; } }
+@media (max-width:640px) { .layout > section { padding:16px 14px 18px; border-radius:14px; } .pagenav { display:flex; } }
 
 /* Mobile nav scrolls sideways instead of wrapping into a tall pill */
 @media (max-width:760px) { .pagenav { flex-wrap:nowrap; display:flex; width:100%; } .pagenav a { flex:none; } }

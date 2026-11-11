@@ -45,6 +45,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const [copied, setCopied] = useState('')
   const [newPf, setNewPf] = useState('')
   const [pfq, setPfq] = useState('')
+  const [force, setForce] = useState(() => { try { return localStorage.getItem('cb-force') === '1' } catch { return false } })
+  const toggleForce = (v) => { setForce(v); try { localStorage.setItem('cb-force', v ? '1' : '0') } catch { /* ignore */ } }
   useEffect(() => { if (!toast && !notice) return undefined; const t = setTimeout(() => dispatch({ type: 'DISMISS' }), toast ? 12000 : 8000); return () => clearTimeout(t) }, [toast, notice, dispatch])
 
   const seatOf = (a) => mctx.seatsBy[a] || 0
@@ -126,7 +128,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   }
 
   return (
-    <section className="sec cabinet">
+    <section className={`sec cabinet${force ? ' cb-force' : ''}`}>
       <div className="kicker">Ministry</div>
       <h2>Cabinet builder</h2>
       <p className="cb-lede">Build a ministry from the MPs the current count would seat.</p>
@@ -146,6 +148,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
         </div>
       </div>
 
+      <label className="cb-force-toggle"><input type="checkbox" checked={force} onChange={(e) => toggleForce(e.target.checked)} /> Show move buttons (if dragging doesn't work for you)</label>
       <div className="cb-step">
         <div className="cb-sh"><h3><span>2</span> Ministers</h3></div>
         <div className="cb-two">

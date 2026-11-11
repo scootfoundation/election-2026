@@ -695,3 +695,13 @@ h2 { font-size:1.3rem; }
 .cabinet .cb-sh { border-bottom:2px solid var(--ink); }
 
 .cabinet .cb-mini .cb-link { margin-left:auto; border:0; background:none; color:var(--accent); font:600 .82rem var(--sans); cursor:pointer; padding:0; } .cabinet .cb-mini .cb-link:hover { text-decoration:underline; }
+
+/* Unassigned portfolios: the same soft panel as the Ministers list (no card in a card) */
+.cabinet .cb-bank { background:var(--soft); border:0; box-shadow:none; border-radius:var(--r); padding:14px 16px 18px; }
+.cabinet .cb-bank .cb-search { background:#fff; }
+/* Drag handles stay visible on every device; only the move buttons depend on the pointer. A switch can force them on. */
+@media (hover:none), (pointer:coarse) { .cabinet .cb-grip { display:inline-block !important; touch-action:none; } }
+.cabinet .cb-grip { touch-action:none; }
+.cabinet.cb-force .cb-touch { display:revert !important; }
+.cabinet.cb-force .cb-desk { display:none !important; }
+.cabinet .cb-force-toggle { display:inline-flex; align-items:center; gap:6px; font:.8rem var(--sans); color:var(--mut); cursor:pointer; margin:0 0 10px; }
