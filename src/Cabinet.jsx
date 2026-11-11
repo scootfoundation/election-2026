@@ -443,7 +443,15 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
           {mCab.length > 0 && CabinetTable()}
           {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
-          <div className="cb-tiles cb-small">{mOut.map((m, i) => <Tile key={m.id} m={m} i={i} />)}</div>
+          <div className="cb-outs">{mOut.map((m, i) => {
+            const mine = portfolios.filter((p) => asg[p] === m.id)
+            return (
+              <div key={m.id} className="cb-oc" style={{ '--c': colorOf(m.abbrev) }}>
+                <div className="cb-seat"><Avatar p={m} colorOf={colorOf} /></div>
+                <div className="cb-box"><b>{m.name}</b><small>{i + 1} · {nameOf(m.abbrev)}{m.pend ? ' · pending seat' : ''}</small>{mine.length ? <ul>{mine.map((p) => <li key={p}>{p}</li>)}</ul> : <small className="muted">No portfolio</small>}</div>
+              </div>
+            )
+          })}</div>
           {portfolios.some((p) => !asg[p]) && (
             <div className="cb-unf">
               {seniorFree.length > 0 && <><h4 className="cb-gh">Senior portfolios still empty</h4><ul className="cb-chk">{seniorFree.map((p) => <li key={p}>{p}</li>)}</ul></>}

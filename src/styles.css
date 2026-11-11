@@ -433,3 +433,27 @@ h2 { font-size:1.3rem; }
   .cb-slot .cb-box, .cb-slot.l .cb-box, .cb-slot.r .cb-box { margin:0 0 0 -14px; padding-left:22px; }
   .cb-slot .cb-seat, .cb-slot.l .cb-seat, .cb-slot.r .cb-seat { margin:0; }
 }
+/* Table v2: a proper table, seats straddling its edge; outside-Cabinet cards with heads above */
+.cb-table-wrap { --tbl:#4b5262; max-width:1000px; }
+.cb-head { margin-bottom:-40px; }
+.cb-trows { padding-top:44px; }
+.cb-trow { grid-template-columns:minmax(0,1fr) 128px minmax(0,1fr); }
+.cb-tcell { background:linear-gradient(90deg, #3f4655, var(--tbl) 18%, #5a6274 50%, var(--tbl) 82%, #3f4655); border:0 !important; }
+.cb-trows .cb-trow:first-child .cb-tcell { border-radius:64px 64px 0 0 !important; box-shadow:0 -1px 0 rgba(0,0,0,.15); }
+.cb-trows .cb-trow:last-child .cb-tcell { border-radius:0 0 64px 64px !important; }
+.cb-seat .mp-ava { box-shadow:0 0 0 3px var(--bg), 0 3px 10px rgba(0,0,0,.35); }
+.cb-slot .cb-seat, .cb-slot.l .cb-seat { margin:0 -28px 0 0; } .cb-slot.r .cb-seat { margin:0 0 0 -28px; }
+.cb-slot.l .cb-box { margin-right:14px; padding-right:14px; } .cb-slot.r .cb-box { margin-left:14px; padding-left:14px; }
+.cb-slot .cb-box { box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.cb-head .cb-box { box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.cb-outs { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:44px 14px; padding-top:36px; }
+.cb-oc { position:relative; }
+.cb-oc .cb-seat { display:flex; justify-content:center; margin:-36px 0 -30px; position:relative; z-index:2; }
+.cb-oc .cb-seat .mp-ava { width:64px; height:64px; }
+.cb-oc .cb-box { border-top:4px solid var(--c); padding:38px 12px 10px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.cb-oc .cb-box ul { text-align:center; }
+@media (max-width:760px) {
+  .cb-slot .cb-box, .cb-slot.l .cb-box, .cb-slot.r .cb-box { margin:0 0 0 -14px; padding-left:22px; }
+  .cb-slot .cb-seat, .cb-slot.l .cb-seat, .cb-slot.r .cb-seat { margin:0; }
+  .cb-head { margin-bottom:6px; } .cb-trows { padding-top:0; }
+}
