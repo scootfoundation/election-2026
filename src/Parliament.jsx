@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 // NZ debating-chamber horseshoe, modelled on the Wikipedia seating plan: straight
 // benches down both sides (3 seats wide), a curved block across the top, and the
@@ -59,6 +59,7 @@ const seatsOf = (p) => Math.max(0, Math.floor(Number(p && p.seats) || 0))
 export default function Parliament({ parties = [], groups, members }) {
   const uid = useId().replace(/:/g, '')
   const faces = !!members
+  const [tip, setTip] = useState(null) // seat index being hovered or tapped
   const m = useMemo(() => {
     const allocated = parties.reduce((t, p) => t + seatsOf(p), 0)
     const total = Math.max(120, allocated)
@@ -87,11 +88,12 @@ export default function Parliament({ parties = [], groups, members }) {
           const x = Number(s.x.toFixed(1)), y = Number(s.y.toFixed(1))
           const label = `${p ? p.name : 'Unallocated'}${mp ? ` — ${mp.name}` : ''}`
           if (faces) {
+            const initials = mp ? mp.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('') : ''
             return (
-              <g key={i}>
-                <title>{label}</title>
+              <g key={i} onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)} onClick={() => setTip(tip === i ? null : i)} style={{ cursor: p ? 'pointer' : 'default' }}>
                 <circle cx={x} cy={y} r={FACE_R} fill={p ? p.color : 'none'} stroke={p ? 'none' : HOLLOW} strokeWidth={p ? 0 : 1.4} />
                 {mp && mp.img && <image href={mp.img} x={x - FACE_R + 1.5} y={y - FACE_R + 1.5} width={(FACE_R - 1.5) * 2} height={(FACE_R - 1.5) * 2} preserveAspectRatio="xMidYMin slice" clipPath={`url(#face${uid})`} />}
+                {mp && !mp.img && <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="10" fontWeight="700" style={{ font: '700 10px var(--sans)', pointerEvents: 'none' }}>{initials}</text>}
               </g>
             )
           }
@@ -102,6 +104,17 @@ export default function Parliament({ parties = [], groups, members }) {
           )
         })}
       </svg>
+      {faces && tip != null && m.seats[tip] && m.slots[tip] && (() => {
+        const s = m.seats[tip], p = m.slots[tip], mp = p.mp
+        return (
+          <div role="tooltip" className="chamber-tip" style={{ position: 'absolute', left: `${(s.x / W) * 100}%`, top: `${(s.y / H) * 100}%`, transform: `translate(${s.x < CX * 0.4 ? '-10%' : s.x > CX * 1.6 ? '-90%' : '-50%'}, calc(-100% - ${FACE_R + 4}px))`, pointerEvents: 'none', zIndex: 5, background: 'var(--fg)', color: 'var(--bg)', padding: '6px 10px', fontFamily: 'var(--sans)', fontSize: '0.78rem', lineHeight: 1.35, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,.3)', borderTop: `4px solid ${p.color}` }}>
+            <b style={{ fontSize: '0.86rem' }}>{mp ? mp.name : 'MP not yet identified'}</b>
+            <div>{p.name}{mp && mp.list && mp.list < 999 ? ` · List #${mp.list}` : ''}</div>
+            {mp && mp.elec && <div style={{ opacity: 0.85 }}>{mp.elec} electorate</div>}
+            {mp && !mp.elec && <div style={{ opacity: 0.85 }}>List MP</div>}
+          </div>
+        )
+      })()}
       <div
         className="chamber-key"
         style={{
