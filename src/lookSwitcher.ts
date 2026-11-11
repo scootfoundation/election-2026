@@ -1,5 +1,5 @@
 // Temporary: lets you flip between look-and-feel experiments (see looks.css). Remove once one is chosen.
-const LOOKS: [string, string][] = [['', 'Current'], ['a', 'A Paper'], ['b', 'B Ink & rules'], ['c', 'C Soft editorial']]
+const LOOKS: [string, string][] = [['', 'Current'], ['a', 'A Paper'], ['a-ledger', 'A Ledger'], ['a-cool', 'A Cool'], ['a-folio', 'A Folio'], ['b', 'B Ink & rules'], ['c', 'C Soft editorial']]
 
 /** A build can lock the look with VITE_LOOK (used for the standalone previews); the switcher is then hidden. */
 const LOCKED: string = import.meta.env['VITE_LOOK'] ?? ''

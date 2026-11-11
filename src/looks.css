@@ -9,27 +9,27 @@ html[data-look] h1.sitetitle { font-weight:700; letter-spacing:-.02em; }
 html[data-look] .headline { font-weight:700; letter-spacing:-.015em; }
 
 /* ---------- a: Paper ---------- */
-html[data-look="a"] { --page:#f6f2ea; --ln:#ddd5c6; --card:#efe9dc; --fg:#1c1917; --mu:#6b645a; --ac:#b42318; --accent:#9a1b12; --sh:none; --paper:#fffdf9; }
-html[data-look="a"] body { background:var(--page); }
-html[data-look="a"] .pagenav { background:none; border:0; border-bottom:1px solid var(--fg); border-radius:0; box-shadow:none; padding:0; gap:0; margin:12px 0 22px; display:flex; }
-html[data-look="a"] .pagenav a { border-radius:0; padding:10px 16px; margin-bottom:-1px; border-bottom:3px solid transparent; color:var(--mu); font-weight:650; }
-html[data-look="a"] .pagenav a:hover { background:none; color:var(--fg); }
-html[data-look="a"] .pagenav a.on { background:none; color:var(--fg); border-bottom-color:var(--ac); }
-html[data-look="a"] .layout > section, html[data-look="a"] .statbar > div, html[data-look="a"] .stw-stats > div, html[data-look="a"] .stw-stats > button, html[data-look="a"] .mps-stats > div, html[data-look="a"] .sp-stats > div,
-html[data-look="a"] .sp-card, html[data-look="a"] .sp-group, html[data-look="a"] .sp-params, html[data-look="a"] .sp-assume, html[data-look="a"] .ins-card, html[data-look="a"] .banner { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
-html[data-look="a"] .ins-card { border-top:3px solid var(--fg); border-radius:0 0 6px 6px; }
-html[data-look="a"] .sec table { background:var(--paper); border-radius:6px; }
-html[data-look="a"] tbody tr:hover { background:#faf6ee; }
-html[data-look="a"] .kicker, html[data-look="a"] .layout .kicker, html[data-look="a"] .sec .kicker, html[data-look="a"] .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.12em; font-size:.68rem; font-weight:700; }
-html[data-look="a"] th { text-transform:uppercase !important; letter-spacing:.08em !important; font-size:.64rem; }
-html[data-look="a"] .stw-chips button, html[data-look="a"] .mp-toggle, html[data-look="a"] .sp-reset, html[data-look="a"] .sp-presets button, html[data-look="a"] .stw-sort select, html[data-look="a"] .stw-controls select, html[data-look="a"] .refresh-btn,
-html[data-look="a"] .mp-mode, html[data-look="a"] .ed-seg { border-radius:6px !important; box-shadow:none; background:var(--paper); border-color:var(--ln); }
-html[data-look="a"] .mp-mode button, html[data-look="a"] .ed-seg button { border-radius:0; }
-html[data-look="a"] .stw-chips button.on, html[data-look="a"] .mp-mode button.on, html[data-look="a"] .ed-seg button.on, html[data-look="a"] .sp-edit, html[data-look="a"] .sp-done { background:var(--fg); border-color:var(--fg); color:#fff; border-radius:6px; }
-html[data-look="a"] .pill { background:var(--ac); color:#fff; border-radius:2px; }
-html[data-look="a"] .ed-head, html[data-look="a"] .ed-drawer { background:var(--paper); }
-html[data-look="a"] .cb-box, html[data-look="a"] .cb-unf { background:var(--paper); }
-html[data-look="a"] .cb-wz.on span { background:var(--ac); border-color:var(--ac); }
+html[data-look|="a"] { --page:#f6f2ea; --ln:#ddd5c6; --card:#efe9dc; --fg:#1c1917; --mu:#6b645a; --ac:#b42318; --accent:#9a1b12; --sh:none; --paper:#fffdf9; }
+html[data-look|="a"] body { background:var(--page); }
+html[data-look|="a"] .pagenav { background:none; border:0; border-bottom:1px solid var(--fg); border-radius:0; box-shadow:none; padding:0; gap:0; margin:12px 0 22px; display:flex; }
+html[data-look|="a"] .pagenav a { border-radius:0; padding:10px 16px; margin-bottom:-1px; border-bottom:3px solid transparent; color:var(--mu); font-weight:650; }
+html[data-look|="a"] .pagenav a:hover { background:none; color:var(--fg); }
+html[data-look|="a"] .pagenav a.on { background:none; color:var(--fg); border-bottom-color:var(--ac); }
+html[data-look|="a"] .layout > section, html[data-look|="a"] .statbar > div, html[data-look|="a"] .stw-stats > div, html[data-look|="a"] .stw-stats > button, html[data-look|="a"] .mps-stats > div, html[data-look|="a"] .sp-stats > div,
+html[data-look|="a"] .sp-card, html[data-look|="a"] .sp-group, html[data-look|="a"] .sp-params, html[data-look|="a"] .sp-assume, html[data-look|="a"] .ins-card, html[data-look|="a"] .banner { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html[data-look|="a"] .ins-card { border-top:3px solid var(--fg); border-radius:0 0 6px 6px; }
+html[data-look|="a"] .sec table { background:var(--paper); border-radius:6px; }
+html[data-look|="a"] tbody tr:hover { background:#faf6ee; }
+html[data-look|="a"] .kicker, html[data-look|="a"] .layout .kicker, html[data-look|="a"] .sec .kicker, html[data-look|="a"] .topbar .kicker { color:var(--ac); text-transform:uppercase; letter-spacing:.12em; font-size:.68rem; font-weight:700; }
+html[data-look|="a"] th { text-transform:uppercase !important; letter-spacing:.08em !important; font-size:.64rem; }
+html[data-look|="a"] .stw-chips button, html[data-look|="a"] .mp-toggle, html[data-look|="a"] .sp-reset, html[data-look|="a"] .sp-presets button, html[data-look|="a"] .stw-sort select, html[data-look|="a"] .stw-controls select, html[data-look|="a"] .refresh-btn,
+html[data-look|="a"] .mp-mode, html[data-look|="a"] .ed-seg { border-radius:6px !important; box-shadow:none; background:var(--paper); border-color:var(--ln); }
+html[data-look|="a"] .mp-mode button, html[data-look|="a"] .ed-seg button { border-radius:0; }
+html[data-look|="a"] .stw-chips button.on, html[data-look|="a"] .mp-mode button.on, html[data-look|="a"] .ed-seg button.on, html[data-look|="a"] .sp-edit, html[data-look|="a"] .sp-done { background:var(--fg); border-color:var(--fg); color:#fff; border-radius:6px; }
+html[data-look|="a"] .pill { background:var(--ac); color:#fff; border-radius:2px; }
+html[data-look|="a"] .ed-head, html[data-look|="a"] .ed-drawer { background:var(--paper); }
+html[data-look|="a"] .cb-box, html[data-look|="a"] .cb-unf { background:var(--paper); }
+html[data-look|="a"] .cb-wz.on span { background:var(--ac); border-color:var(--ac); }
 
 /* ---------- b: Ink & rules ---------- */
 html[data-look="b"] { --page:#ffffff; --ln:#d4d4d8; --card:#f4f4f5; --fg:#111111; --mu:#52525b; --ac:#b42318; --accent:#b42318; --sh:none; }
@@ -66,11 +66,11 @@ html[data-look="c"] .pagenav a.on { background:var(--ac); }
 html[data-look="c"] .ins-card { border-radius:12px; border-top:1px solid var(--ln); border-left:4px solid var(--ac); }
 
 /* cabinet wizard panel, per look */
-html[data-look="a"] .cabinet .cb-step { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
-html[data-look="a"] .cb-sh { border-bottom:1px solid var(--fg); padding-bottom:8px; }
-html[data-look="a"] .cb-sh h3 { font-size:1.25rem !important; }
-html[data-look="a"] .cb-sh h3 span, html[data-look="a"] .cabinet .cb-wz.on span { background:var(--ac); color:#fff; border-radius:50%; }
-html[data-look="a"] .cb-gh { font-family:var(--serif); }
+html[data-look|="a"] .cabinet .cb-step { background:var(--paper); border:1px solid var(--ln); border-radius:6px; box-shadow:none; }
+html[data-look|="a"] .cb-sh { border-bottom:1px solid var(--fg); padding-bottom:8px; }
+html[data-look|="a"] .cb-sh h3 { font-size:1.25rem !important; }
+html[data-look|="a"] .cb-sh h3 span, html[data-look|="a"] .cabinet .cb-wz.on span { background:var(--ac); color:#fff; border-radius:50%; }
+html[data-look|="a"] .cb-gh { font-family:var(--serif); }
 html[data-look="b"] .cabinet .cb-step { background:#fff; border:0; border-top:2px solid var(--fg); border-radius:0; box-shadow:none; padding-left:0; padding-right:0; }
 html[data-look="b"] .cb-sh { border-bottom:1px solid var(--ln); padding-bottom:8px; }
 html[data-look="b"] .cb-sh h3 { font-size:1.25rem !important; }
@@ -78,6 +78,48 @@ html[data-look="b"] .cb-sh h3 span { background:var(--ac); color:#fff; border-ra
 html[data-look="b"] .cabinet .cb-wz span { border-radius:0; }
 html[data-look="b"] .cb-gh { font-family:var(--serif); text-transform:uppercase; letter-spacing:.1em; font-size:.8rem; border-bottom:1px solid var(--fg); padding-bottom:4px; }
 html[data-look="c"] .cb-sh h3 span, html[data-look="c"] .cabinet .cb-wz.on span { background:var(--ac); color:#fff; }
+
+/* ---------- a variations (inherit everything from a, then override) ---------- */
+/* a-ledger: open layout. No boxes, ink rules between columns and sections, serif row labels, tight corners */
+html[data-look="a-ledger"] { --page:#f8f5ee; --paper:transparent; --ln:#d9d0bd; }
+html[data-look="a-ledger"] .layout > section, html[data-look="a-ledger"] .sp-card, html[data-look="a-ledger"] .sp-group, html[data-look="a-ledger"] .sp-params, html[data-look="a-ledger"] .sp-assume, html[data-look="a-ledger"] .ins-card { background:none; border:0; border-top:2px solid var(--fg); border-radius:0; padding:10px 0 0; }
+html[data-look="a-ledger"] .statbar > div, html[data-look="a-ledger"] .stw-stats > div, html[data-look="a-ledger"] .stw-stats > button, html[data-look="a-ledger"] .mps-stats > div, html[data-look="a-ledger"] .sp-stats > div { background:none; border:0; border-left:1px solid var(--ln); border-radius:0; padding:2px 18px; }
+html[data-look="a-ledger"] .statbar > div:first-child, html[data-look="a-ledger"] .stw-stats > div:first-child, html[data-look="a-ledger"] .mps-stats > div:first-child { border-left:0; padding-left:0; }
+html[data-look="a-ledger"] .statbar { border-bottom:1px solid var(--ln); padding-bottom:14px; margin-bottom:4px; }
+html[data-look="a-ledger"] .sec table { background:none; }
+html[data-look="a-ledger"] td:first-child { font-family:var(--serif); font-size:1rem; }
+html[data-look="a-ledger"] .shell > main > hr { display:block; border-top:3px double var(--fg); margin:6px 0 0; }
+html[data-look="a-ledger"] .pagenav { border-bottom:1px solid var(--ln); margin-top:8px; }
+html[data-look="a-ledger"] .pagenav a { font-family:var(--serif); font-size:1.02rem; font-weight:600; }
+html[data-look="a-ledger"] .stw-chips button, html[data-look="a-ledger"] .mp-toggle, html[data-look="a-ledger"] .sp-reset, html[data-look="a-ledger"] .sp-presets button, html[data-look="a-ledger"] .refresh-btn, html[data-look="a-ledger"] .mp-mode, html[data-look="a-ledger"] .ed-seg { border-radius:2px !important; background:none; }
+html[data-look="a-ledger"] .cabinet .cb-step { background:none; border:0; border-top:2px solid var(--fg); border-radius:0; padding-left:0; padding-right:0; }
+html[data-look="a-ledger"] .cb-box, html[data-look="a-ledger"] .cb-unf { background:#fffdf9; }
+
+/* a-cool: cooler grey-green paper, white cards, navy accent, rounder corners and a whisper of shadow */
+html[data-look="a-cool"] { --page:#f0f2f0; --paper:#ffffff; --ln:#d6dbd8; --card:#e8ecea; --fg:#14202b; --mu:#5a6772; --ac:#1f3a5f; --accent:#1f3a5f; --sh:0 1px 2px rgba(20,32,43,.07); }
+html[data-look="a-cool"] .layout > section, html[data-look="a-cool"] .statbar > div, html[data-look="a-cool"] .stw-stats > div, html[data-look="a-cool"] .stw-stats > button, html[data-look="a-cool"] .mps-stats > div, html[data-look="a-cool"] .sp-stats > div, html[data-look="a-cool"] .sp-card, html[data-look="a-cool"] .sp-group, html[data-look="a-cool"] .sp-params, html[data-look="a-cool"] .sp-assume, html[data-look="a-cool"] .banner { border-radius:10px; box-shadow:var(--sh); }
+html[data-look="a-cool"] .ins-card { border-radius:10px; border-top:1px solid var(--ln); border-left:4px solid var(--ac); box-shadow:var(--sh); }
+html[data-look="a-cool"] .sec table { border-radius:10px; }
+html[data-look="a-cool"] .pagenav { border-bottom-color:var(--ln); }
+html[data-look="a-cool"] .pagenav a.on { border-bottom-color:var(--ac); color:var(--ac); }
+html[data-look="a-cool"] .pill { background:var(--ac); }
+html[data-look="a-cool"] .cabinet .cb-step { border-radius:10px; box-shadow:var(--sh); }
+html[data-look="a-cool"] tbody tr:hover { background:#f6f8f7; }
+html[data-look="a-cool"] .stw-chips button, html[data-look="a-cool"] .mp-toggle, html[data-look="a-cool"] .sp-reset, html[data-look="a-cool"] .sp-presets button, html[data-look="a-cool"] .refresh-btn, html[data-look="a-cool"] .mp-mode, html[data-look="a-cool"] .ed-seg { border-radius:8px !important; }
+
+/* a-folio: deeper tan page, cream cards that sit on it, folder-style tabs, ink-brown accent */
+html[data-look="a-folio"] { --page:#e9e0cd; --paper:#fffaf0; --ln:#d3c7ad; --card:#f1e9d6; --fg:#1f1a14; --mu:#6a5f4d; --ac:#8a4b0f; --accent:#8a4b0f; --sh:0 1px 2px rgba(60,40,10,.12), 0 2px 6px rgba(60,40,10,.06); }
+html[data-look="a-folio"] .layout > section, html[data-look="a-folio"] .statbar > div, html[data-look="a-folio"] .stw-stats > div, html[data-look="a-folio"] .stw-stats > button, html[data-look="a-folio"] .mps-stats > div, html[data-look="a-folio"] .sp-stats > div, html[data-look="a-folio"] .sp-card, html[data-look="a-folio"] .sp-group, html[data-look="a-folio"] .sp-params, html[data-look="a-folio"] .sp-assume, html[data-look="a-folio"] .banner { border-radius:10px; box-shadow:var(--sh); border-color:var(--ln); }
+html[data-look="a-folio"] .ins-card { border-radius:10px; border-top:1px solid var(--ln); border-left:4px solid var(--ac); box-shadow:var(--sh); }
+html[data-look="a-folio"] .sec table { border-radius:10px; }
+html[data-look="a-folio"] .pagenav { border-bottom:1px solid var(--ln); gap:4px; margin-bottom:20px; }
+html[data-look="a-folio"] .pagenav a { background:rgba(255,250,240,.55); border:1px solid var(--ln); border-bottom:0; border-radius:8px 8px 0 0; margin-bottom:-1px; padding:9px 16px; }
+html[data-look="a-folio"] .pagenav a:hover { background:var(--paper); }
+html[data-look="a-folio"] .pagenav a.on { background:var(--paper); border-bottom:1px solid var(--paper); color:var(--fg); box-shadow:inset 0 3px 0 var(--ac); }
+html[data-look="a-folio"] .pill { background:var(--ac); }
+html[data-look="a-folio"] .cabinet .cb-step { border-radius:10px; box-shadow:var(--sh); }
+html[data-look="a-folio"] tbody tr:hover { background:#fbf4e4; }
+html[data-look="a-folio"] .stw-chips button, html[data-look="a-folio"] .mp-toggle, html[data-look="a-folio"] .sp-reset, html[data-look="a-folio"] .sp-presets button, html[data-look="a-folio"] .refresh-btn, html[data-look="a-folio"] .mp-mode, html[data-look="a-folio"] .ed-seg { border-radius:8px !important; }
 
 /* switcher */
 #look-switch { position:fixed; left:10px; bottom:10px; z-index:9999; display:flex; gap:4px; background:#111; padding:4px; border-radius:8px; font:600 12px/1 system-ui,sans-serif; }
