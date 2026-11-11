@@ -5,8 +5,6 @@ import ElectorateMap, { hasMapTiles } from './ElectorateMap.jsx'
 import { pieMarkup, pieRadius } from './pies.js'
 import { loadSa3, buildDots, SCALES } from './sa3.js'
 
-const DETAIL_MS = 5 * 60_000 // matches the page's 5-minute refresh; Refresh re-fetches via refreshKey
-const BOOTHS_MS = 5 * 60_000
 const AMBER = '#e0a526'
 const MAP_W = 320
 const MAP_H = 260
@@ -137,11 +135,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
       }
     }
     tick()
-    const timer = setInterval(tick, DETAIL_MS)
-    return () => {
-      alive = false
-      clearInterval(timer)
-    }
+    return () => { alive = false }
   }, [id, refreshKey])
 
   // Booth results and voting-place locations, every 60s while open.
@@ -174,11 +168,7 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
       }
     }
     tick()
-    const timer = setInterval(tick, BOOTHS_MS)
-    return () => {
-      alive = false
-      clearInterval(timer)
-    }
+    return () => { alive = false }
   }, [id, refreshKey])
 
   // SA3 areas containing this electorate's voting places (for the dot map).
@@ -482,6 +472,9 @@ export default function ElectorateDrawer({ electorate, meta, onClose, onSelect, 
           </div>
           </div>
           <p className="ed-note">{geo.paths ? `Boundary: Representation Commission 2025 (CC BY 4.0).${hasMapTiles ? ' Map © MapTiler © OpenStreetMap contributors.' : ''} Booth positions are approximate.` : 'Booth positions only — boundary not loaded.'}</p>
+          {booths && detail && detail.placesTotal > booths.length && (
+            <p className="ed-note">Booth results are held for {booths.length} of {detail.placesTotal} voting places in this snapshot; the totals below cover all of them.</p>
+          )}
           {unmappedCount > 0 && mapped.length > 0 && (
             <p className="ed-note">{unmappedCount} booth{unmappedCount === 1 ? '' : 's'} without coordinates appear in the table only.</p>
           )}

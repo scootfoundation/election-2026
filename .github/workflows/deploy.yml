@@ -14,8 +14,8 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          # Set repo variable DATA_BASE to your proxy, e.g. https://nz-election-proxy.you.workers.dev/xml
-          VITE_DATA_BASE: ${{ vars.DATA_BASE }}
+
+
           # Optional: MapTiler browser key (restrict it to this site's origin in MapTiler).
           VITE_MAPTILER_KEY: ${{ vars.MAPTILER_KEY }}
       - uses: actions/upload-pages-artifact@v3

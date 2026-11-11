@@ -1,21 +1,13 @@
-// In dev, '/xml' is proxied by Vite. In production set VITE_DATA_BASE to your
-// CORS-enabled proxy (see worker/proxy.js), e.g. https://nz-election.you.workers.dev/xml
-export const DATA_BASE = (import.meta.env.VITE_DATA_BASE || '/xml').replace(/\/$/, '')
+// The site ships with its data: no live API. Results (national + every electorate + booths) are static JSON under
+// data/, built by scripts/build-snapshot.py; the party / electorate / candidate lookups are XML under feed/.
+const BASE = import.meta.env.BASE_URL
 
 const txt = (el, tag) => el?.getElementsByTagName(tag)[0]?.textContent?.trim() ?? ''
 const num = (el, tag) => Number(txt(el, tag)) || 0
 
-// Lookup files that don't change during the count can be cached by the browser.
-const STATIC = /^(candidates|parties|electorates|statistics)\.xml$/
-
 async function getXml(path) {
-  const isStatic = STATIC.test(path)
-  const url = isStatic ? `${DATA_BASE}/${path}` : `${DATA_BASE}/${path}?_=${Math.floor(Date.now() / 10000)}`
-  let res = null
-  try { res = await fetch(url, { cache: isStatic ? 'default' : 'no-store' }) } catch { /* fall through to the bundled copy */ }
-  // The lookup tables don't change, so if the feed is unreachable use the copy shipped with the site.
-  if ((!res || !res.ok) && isStatic) res = await fetch(`${import.meta.env.BASE_URL}feed/${path}`)
-  if (!res || !res.ok) throw new Error(`${path}: HTTP ${res ? res.status : 'network error'}`)
+  const res = await fetch(`${BASE}feed/${path}`)
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
   const doc = new DOMParser().parseFromString(await res.text(), 'application/xml')
   if (doc.querySelector('parsererror')) throw new Error(`${path}: invalid XML`)
   return doc
@@ -52,10 +44,9 @@ export async function loadCandidates() {
   return out
 }
 
-// One request for national results plus every electorate's results (served by the Worker's /summary).
-// Throws if unavailable so callers can fall back to the per-file endpoints.
+// National results plus every electorate's results, in one static file.
 export async function fetchSummary() {
-  const res = await fetch(`${DATA_BASE.replace(/\/xml\/?$/, '')}/summary`, { cache: 'no-store' })
+  const res = await fetch(`${BASE}data/summary.json`)
   if (!res.ok) throw new Error(`summary: HTTP ${res.status}`)
   const j = await res.json()
   if (!j || !j.election || !j.electorates) throw new Error('summary: bad JSON')
@@ -78,10 +69,6 @@ export function parseNational(xml) {
   return nationalFromDoc(doc)
 }
 
-export async function loadNational() {
-  return nationalFromDoc(await getXml('election.xml'))
-}
-
 function nationalFromDoc(doc) {
   const s = doc.getElementsByTagName('statistics')[0]
   return {
@@ -102,23 +89,5 @@ function nationalFromDoc(doc) {
       candSeats: num(p, 'candidate_seats'),
       seats: num(p, 'total_seats'),
     })),
-  }
-}
-
-// Per-electorate: party/candidate vote layout is unverified until results flow,
-// so this reads defensively and returns whatever <candidate> votes it finds.
-export async function loadElectorate(id) {
-  const doc = await getXml(`e${id}/e${id}.xml`)
-  const root = doc.documentElement
-  const stats = root.getElementsByTagName('statistics')[0]
-  const cands = [...root.getElementsByTagName('candidate')]
-    .map((c) => ({ id: c.getAttribute('c_no'), votes: num(c, 'votes') }))
-    .sort((a, b) => b.votes - a.votes)
-  return {
-    id,
-    final: root.getAttribute('final') === 'true',
-    pctPlaces: num(stats, 'percent_voting_places_counted'),
-    cands,
-    partyVotes: [...(root.getElementsByTagName('partyvotes')[0]?.getElementsByTagName('party') || [])].map((el) => ({ id: el.getAttribute('p_no'), votes: num(el, 'votes') })),
   }
 }

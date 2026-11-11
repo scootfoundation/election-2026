@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import {
-  loadParties, loadElectorates, loadCandidates, loadNational, fetchSummary, parseNational, loadElectorate, DATA_BASE,
+  loadParties, loadElectorates, loadCandidates, fetchSummary, parseNational,
 } from './api.js'
 import Parliament from './Parliament.jsx'
 import NzMap from './NzMap.jsx'
@@ -15,8 +15,6 @@ import './drawer.css'
 const Cabinet = lazy(() => import('./Cabinet.jsx'))
 const Specials = lazy(() => import('./Specials.jsx'))
 
-const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
-const POLL_FINAL_MS = 15 * 60_000 // once every electorate is final only special votes change, so ease off
 const COLORS = {
   NAT: '#1f6fb5', LAB: '#d4373d', GP: '#2e9e4f', ACT: '#f2b705', NZF: '#3a3a3a',
   TPMAO: '#e8590c', OPP: '#00b9bc', NC: '#7a5ea8', ALCP: '#6aa84f', APN: '#c0508a',
@@ -129,7 +127,6 @@ export default function App() {
   const [nat, setNat] = useState(null)
   const [leaders, setLeaders] = useState({})
   const [error, setError] = useState(null)
-  const [lastOk, setLastOk] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
 
   useEffect(() => {
@@ -138,36 +135,21 @@ export default function App() {
       .catch((e) => setError(e.message))
   }, [])
 
-  // One refresh "cycle" drives everything (national, per-electorate leaders, the open
-  // drawer). It ticks every 5 minutes and when the Refresh button is pressed.
-  const [cycle, setCycle] = useState(0)
-  const allFinal = !!nat && nat.stats.electoratesFinal >= 71
-  useEffect(() => {
-    const t = setInterval(() => setCycle((c) => c + 1), allFinal ? POLL_FINAL_MS : POLL_MS)
-    return () => clearInterval(t)
-  }, [allFinal])
-
-  // National results + every electorate's results. One request to the Worker's /summary when it is
-  // available (keeps us well inside its daily request limit), else the per-file endpoints.
+  // The results ship with the site (one static file): national results plus every electorate's leaders.
+  const [cycle] = useState(0)
   useEffect(() => {
     let live = true
     ;(async () => {
-      let sum = null
-      try { sum = await fetchSummary() } catch { /* fall back below */ }
       try {
-        const n = sum ? parseNational(sum.electionXml) : await loadNational()
-        if (live) { setNat(n); setLastOk(new Date()); setError(null) }
+        const sum = await fetchSummary()
+        if (!live) return
+        setNat(parseNational(sum.electionXml))
+        setLeaders(sum.leaders)
+        setError(null)
       } catch (e) { if (live) setError(e.message) }
-      if (sum && Object.keys(sum.leaders).length >= 60) { if (live) setLeaders(sum.leaders); return }
-      if (!meta) return
-      const rs = await Promise.allSettled(meta.electorates.map((e) => loadElectorate(e.id.padStart(2, '0'))))
-      if (!live) return
-      const next = {}
-      rs.forEach((r, i) => { if (r.status === 'fulfilled') next[meta.electorates[i].id] = r.value })
-      setLeaders((prev) => (Object.keys(next).length ? next : prev))
     })()
     return () => { live = false }
-  }, [meta, cycle])
+  }, [])
 
   // Booth-level comparison with 2023 (static file; used for swing by region on the Insights tab).
   const [forecast, setForecast] = useState(null)
@@ -305,18 +287,13 @@ export default function App() {
       <div className="topbar">
         <div className="kicker">New Zealand General Election 2026 · <span className="pill">PRELIMINARY</span></div>
         <div className="refresh">
-          <span className="muted" aria-live="polite">
-            {lastOk ? `Last refreshed ${lastOk.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'Pacific/Auckland', timeZoneName: 'short' })}` : 'Loading…'}
-          </span>
-          <button type="button" className="refresh-btn" title="Reload the page (also picks up any new version of the dashboard)" onClick={() => window.location.reload()}>
-            Refresh
-          </button>
+          <span className="muted" aria-live="polite">{asAt ? `Count as at ${asAt} NZ time, 8 November` : 'Loading…'}</span>
         </div>
       </div>
       <h1 className="sitetitle">NZ General Election 2026</h1>
       <hr />
       {!started && <p className="banner">Counting hasn't started. Results are expected from 7:00pm NZDT. The data refreshes every 5 minutes; press Refresh to reload the whole page.</p>}
-      {error && <p className="banner warn">Last refresh failed ({error}). Showing the previous data.</p>}
+      {error && <p className="banner warn">Couldn't load the results ({error}).</p>}
 
       <nav className="pagenav" aria-label="Pages">
         {PAGES.map(([k, label]) => (
@@ -477,7 +454,7 @@ export default function App() {
           <div className="kicker">About & data</div>
           <h2>Where the numbers come from</h2>
           <h3 className="subhead">Results</h3>
-          <p>Preliminary results come straight from the New Zealand Electoral Commission's public results feed, refreshed every 15 minutes now that every electorate is final (press Refresh to reload the page). They are not final: special votes are counted later and official results are due 27 November.</p>
+          <p>Preliminary results are a snapshot of the New Zealand Electoral Commission's public results feed taken once every electorate was final on the preliminary count; the site no longer updates live. They are not final: special votes are counted later and official results are due 27 November.</p>
           <h3 className="subhead">Projected seats and overhang</h3>
           <p>Each party's <b>party-vote seats</b> are calculated from its share of the party vote using the Sainte-Laguë method over 120 seats, among parties with at least 5% of the party vote or one electorate seat. <b>Electorates</b> are the seats a party is currently leading. If a party leads more electorates than its party-vote seats, the extra seats are an <b>overhang</b>, added on top of the usual 120, and the number needed for a majority rises accordingly.</p>
           <h3 className="subhead">Blocs</h3>
