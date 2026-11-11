@@ -743,3 +743,6 @@ h2 { font-size:1.3rem; }
 .cabinet .cb-wz.on { color:var(--ink) !important; }
 .cabinet .cb-wz.on span { color:var(--ink) !important; background:#fff !important; }
 .cabinet .cb-wz.done span { color:#fff !important; background:var(--ink) !important; }
+
+.cb-shot { padding:12px; background:var(--bg, #fff); }
+.cb-shotcredit { font-size:.7rem; margin-top:8px; }

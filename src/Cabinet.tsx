@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { toPng } from 'html-to-image'
 import { Avatar } from './Avatar'
 import { MINISTRY } from './ministry'
 import { MinisterCard, MinisterList, PointerDrag, PortfolioBank } from './CabinetDnd'
@@ -50,6 +51,21 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const [q, setQ] = useState('')
   const [more, setMore] = useState<Record<string, boolean>>({})
   const [copied, setCopied] = useState('')
+  const shot = useRef<HTMLDivElement>(null)
+  const [saving, setSaving] = useState(false)
+  const savePng = async (): Promise<void> => {
+    const el = shot.current
+    if (!el || saving) return
+    setSaving(true)
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor
+      const url = await toPng(el, { pixelRatio: 2, backgroundColor: bg, imagePlaceholder: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', filter: (n) => !(n instanceof HTMLElement && n.dataset.noshot !== undefined) })
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'cabinet'}.png`
+      a.click()
+    } catch { setCopied('pngfail'); setTimeout(() => setCopied(''), 4000) } finally { setSaving(false) }
+  }
   const [newPf, setNewPf] = useState('')
   const [pfq, setPfq] = useState('')
   const [step, setStep] = useState<Step>(() => (loadStep() as Step))
@@ -234,6 +250,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
         <div className="cb-step" id="cb-result">
           <div className="cb-sh"><h3><span>4</span> Result</h3></div>
           <div className="cb-result">
+            <div className="cb-shot" ref={shot}>
             <div className="cb-rhead">
               <b>{label}</b>
               <span className="muted"> · {mCab.length} in Cabinet · {mOut.length} outside · {filled.length} of {portfolios.length} portfolios assigned</span>
@@ -258,6 +275,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             })}</div>
             </div>
             </div>
+            <div className="cb-shotcredit muted">NZ 2026 election dashboard · {label}</div>
+            </div>
             {d.free.length > 0 && (
               <div className="cb-unf">
                 {seniorFree.length > 0 && <><h4 className="cb-gh">Senior portfolios empty</h4><ul className="cb-chk">{seniorFree.map((p) => <li key={p}>{p}</li>)}</ul></>}
@@ -272,6 +291,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
               <button type="button" onClick={() => dispatch({ type: 'RESET' })}>{current ? 'Reset to current ministry' : 'Re-fill by seat share'}</button>
               <button type="button" onClick={() => copy('link')}>{copied === 'link' ? 'Link copied' : 'Copy share link'}</button>
               <button type="button" onClick={() => copy('text')} disabled={!ministers.length}>{copied === 'text' ? 'Copied' : 'Copy as text'}</button>
+              <button type="button" onClick={() => void savePng()} disabled={!ministers.length || saving}>{saving ? 'Preparing…' : copied === 'pngfail' ? 'Image failed' : 'Download as PNG'}</button>
               <button type="button" onClick={() => dispatch({ type: 'CLEAR' })}>Clear</button>
             </div>
           </div>
