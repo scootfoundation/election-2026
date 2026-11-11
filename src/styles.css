@@ -709,3 +709,20 @@ h2 { font-size:1.3rem; }
 /* Pointer-drag fallback feedback */
 .cabinet .dnd-over { outline:2px dashed var(--accent); outline-offset:2px; background:var(--soft); }
 .cabinet .dnd-before { box-shadow:0 -3px 0 0 var(--accent); } .cabinet .dnd-after { box-shadow:0 3px 0 0 var(--accent); }
+
+/* Wizard: one step at a time */
+.cabinet .cb-wiz { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 16px; }
+.cabinet .cb-wz { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--surf); box-shadow:var(--sh); border-radius:999px; padding:7px 16px 7px 8px; font:600 .88rem var(--sans); color:var(--mut); cursor:pointer; }
+.cabinet .cb-wz span { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--soft); color:var(--mut); font-size:.78rem; }
+.cabinet .cb-wz.done span { background:#dcfce7; color:#166534; }
+.cabinet .cb-wz.on { background:var(--ink); border-color:var(--ink); color:#fff; } .cabinet .cb-wz.on span { background:#fff; color:var(--ink); }
+.cabinet .cb-wz:hover:not(.on) { border-color:#cbd5e1; color:var(--ink); }
+.cabinet .cb-nav { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:22px; padding-top:16px; border-top:1px solid var(--line); }
+.cabinet .cb-back, .cabinet .cb-nextbtn { border-radius:999px; padding:10px 20px; font:650 .9rem var(--sans); cursor:pointer; }
+.cabinet .cb-back { background:var(--surf); border:1px solid var(--line); color:var(--ink); box-shadow:var(--sh); }
+.cabinet .cb-nextbtn { background:var(--ink); border:1px solid var(--ink); color:#fff; margin-left:auto; }
+.cabinet .cb-note { margin:10px 0 0; }
+/* Outside Cabinet in the result: two columns */
+.cabinet .cb-outs { grid-template-columns:repeat(2, minmax(0,1fr)); gap:44px 14px; }
+@media (min-width:1100px) { .cb-rsplit { grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); } .cabinet .cb-rsplit .cb-outs { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width:560px) { .cabinet .cb-outs { grid-template-columns:minmax(0,1fr); } }

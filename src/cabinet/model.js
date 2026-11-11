@@ -1,16 +1,15 @@
 // Cabinet builder: pure state model. No React, no DOM, so it can be tested with `node --test`.
 //
 // First principles. The whole user-authored state is ONE serialisable value, the Plan:
-//   { v, arr, cs, os, cab:[id], out:[id], hold:{portfolio:id}, extra:[name] }
+//   { v, arr, cab:[id], out:[id], hold:{portfolio:id}, extra:[name] }
 //     arr   which governing arrangement (key into ARRS)
-//     cs/os target ministry sizes: Cabinet / outside Cabinet (targets and warnings, never hard limits)
 //     cab/out ordered minister ids (seniority first)
 //     hold  portfolio -> minister id (a map, so a portfolio can have at most one holder by construction)
 //     extra portfolios the user added
 // Everything else (ranks, per-minister portfolios, unassigned lists, warnings, party balance) is DERIVED.
 //
 // Invariants, enforced by normalize() after every transition and whenever the pool of MPs changes:
-//   I1 arr is a known arrangement; cs/os are integers in [0, MAX_SIZE]
+//   I1 arr is a known arrangement
 //   I2 cab and out hold unique ids, and no id is in both
 //   I3 every minister id is in the current pool and belongs to a party of the arrangement
 //   I4 extra holds unique (case-insensitive) trimmed names that are not base portfolios
@@ -20,7 +19,7 @@ import { MINISTRY } from '../ministry.js'
 
 export const PORTFOLIOS = [...new Set(MINISTRY.map(([p]) => p))]
 export const SENIOR = PORTFOLIOS.slice(0, 13) // headline portfolios, flagged if left empty
-export const MAX_SIZE = 60
+export const CAB_SIZE = 20 // Cabinet is always this big (the first CAB_SIZE ministers); outside Cabinet is whatever the user decides
 export const HISTORY = 60
 export const VERSION = 1
 
@@ -38,8 +37,7 @@ export const ARRS = (blocs) => [
 ]
 
 export const CURRENT_MINISTERS = new Set(MINISTRY.map(([, n]) => norm(n))).size
-export const DEF_CAB = 20
-export const DEF_OUT = Math.max(0, CURRENT_MINISTERS - DEF_CAB)
+export const DEF_OUT = Math.max(0, CURRENT_MINISTERS - CAB_SIZE) // how many sit outside Cabinet in the current ministry: used only to pre-populate
 
 // ctx = { byId: {id: person}, people: [person], arrs: [{key,label,parties,current}], seatsBy: {abbrev: seats} }
 export const partiesOf = (ctx, key) => ctx.arrs.find((a) => a.key === key)?.parties
@@ -47,13 +45,13 @@ export const baseAll = (plan) => [...PORTFOLIOS, ...plan.extra]
 export const ministerIds = (plan) => [...plan.cab, ...plan.out]
 
 export function emptyPlan(arr = 'govt') {
-  return { v: VERSION, arr, cs: DEF_CAB, os: DEF_OUT, cab: [], out: [], hold: {}, extra: [] }
+  return { v: VERSION, arr, cab: [], out: [], hold: {}, extra: [] }
 }
 
 // ---- Defaults -------------------------------------------------------------------------------------------------------
 
 // The current ministry for people who would sit in this Parliament, ordered by seniority (first portfolio in the list).
-export function currentMinistry(ctx, parties, cs) {
+export function currentMinistry(ctx, parties) {
   const hold = {}, order = []
   for (const [pf, name] of MINISTRY) {
     const person = ctx.people.find((x) => norm(x.name) === norm(name) && parties.includes(x.abbrev))
@@ -61,12 +59,12 @@ export function currentMinistry(ctx, parties, cs) {
     if (!order.includes(person.id)) order.push(person.id)
     hold[pf] = person.id
   }
-  return { cab: order.slice(0, cs), out: order.slice(cs), hold }
+  return { cab: order.slice(0, CAB_SIZE), out: order.slice(CAB_SIZE), hold }
 }
 
 // Other arrangements: Cabinet then outside Cabinet are filled with each party's top list-ranked MPs, shared out by seat
 // share (Sainte-Laguë), secure MPs before pending or marginal ones, leaders first.
-export function proportionalMinistry(ctx, parties, cs, os) {
+export function proportionalMinistry(ctx, parties) {
   const seatsBy = Object.fromEntries(parties.map((a) => [a, ctx.seatsBy[a] || 0]))
   const pool = {}
   for (const a of parties) pool[a] = ctx.people.filter((x) => x.abbrev === a).sort((x, y) => (x.marg || x.pend ? 1 : 0) - (y.marg || y.pend ? 1 : 0) || (x.list || 999) - (y.list || 999))
@@ -90,7 +88,7 @@ export function proportionalMinistry(ctx, parties, cs, os) {
     return picks.map((x) => x.id)
   }
   const used = new Set()
-  const cab = take(cs, used), out = take(os, used)
+  const cab = take(CAB_SIZE, used), out = take(DEF_OUT, used)
   const big = [...parties].sort((x, y) => seatsBy[y] - seatsBy[x])
   const hold = {}
   const lead = (a) => cab.find((id) => ctx.byId[id]?.abbrev === a)
@@ -100,14 +98,14 @@ export function proportionalMinistry(ctx, parties, cs, os) {
   return { cab, out, hold }
 }
 
-export function defaultsFor(ctx, arrKey, cs, os) {
+export function defaultsFor(ctx, arrKey) {
   const a = ctx.arrs.find((x) => x.key === arrKey) || ctx.arrs[0]
-  return a.current ? currentMinistry(ctx, a.parties, cs) : proportionalMinistry(ctx, a.parties, cs, os)
+  return a.current ? currentMinistry(ctx, a.parties) : proportionalMinistry(ctx, a.parties)
 }
 
 export function initialPlan(ctx, arr = 'govt') {
   const base = emptyPlan(arr)
-  return normalize({ ...base, ...defaultsFor(ctx, arr, base.cs, base.os) }, ctx).plan
+  return normalize({ ...base, ...defaultsFor(ctx, arr) }, ctx).plan
 }
 
 // ---- Validation and normalisation -----------------------------------------------------------------------------------
@@ -122,7 +120,7 @@ export function validPlan(raw) {
   const hold = {}
   if (holdRaw && typeof holdRaw === 'object' && !Array.isArray(holdRaw)) for (const [k, v] of Object.entries(holdRaw)) if (isStr(k) && isStr(v)) hold[k] = v
   const extra = Array.isArray(raw.extra ?? raw.x) ? (raw.extra ?? raw.x).filter(isStr) : []
-  return { v: VERSION, arr: isStr(raw.arr ?? raw.r) ? String(raw.arr ?? raw.r) : 'govt', cs: clampInt(raw.cs, 0, MAX_SIZE, DEF_CAB), os: clampInt(raw.os, 0, MAX_SIZE, DEF_OUT), cab, out, hold, extra }
+  return { v: VERSION, arr: isStr(raw.arr ?? raw.r) ? String(raw.arr ?? raw.r) : 'govt', cab, out, hold, extra }
 }
 
 const cleanName = (s) => String(s).replace(/\s+/g, ' ').trim().slice(0, 80)
@@ -147,7 +145,7 @@ export function normalize(plan, ctx) {
   for (const [pf, id] of Object.entries(plan.hold || {})) { if (known.has(pf) && mins.has(id)) hold[pf] = id; else droppedHolds++ }
 
   return {
-    plan: { v: VERSION, arr: key, cs: clampInt(plan.cs, 0, MAX_SIZE, DEF_CAB), os: clampInt(plan.os, 0, MAX_SIZE, DEF_OUT), cab, out, hold, extra },
+    plan: { v: VERSION, arr: key, cab, out, hold, extra },
     dropped: { ministers: Math.max(0, droppedMinisters), holds: droppedHolds },
   }
 }
@@ -161,14 +159,13 @@ const without = (plan, ids) => {
 
 function applyAction(plan, a, ctx) {
   switch (a.type) {
-    case 'SET_ARR': return { ...plan, arr: a.arr, ...defaultsFor(ctx, a.arr, plan.cs, plan.os) }
-    case 'RESET': return { ...plan, ...defaultsFor(ctx, plan.arr, plan.cs, plan.os) }
+    case 'SET_ARR': return { ...plan, arr: a.arr, ...defaultsFor(ctx, a.arr) }
+    case 'RESET': return { ...plan, ...defaultsFor(ctx, plan.arr) }
     case 'CLEAR': return { ...plan, cab: [], out: [], hold: {}, extra: [] }
-    case 'SET_SIZE': return { ...plan, [a.which === 'cab' ? 'cs' : 'os']: clampInt(a.value, 0, MAX_SIZE, 0) }
     case 'TOGGLE': {
       const id = String(a.id)
       if (plan.cab.includes(id) || plan.out.includes(id)) return without(plan, [id])
-      return plan.cab.length < plan.cs ? { ...plan, cab: [...plan.cab, id] } : { ...plan, out: [...plan.out, id] }
+      return plan.cab.length < CAB_SIZE ? { ...plan, cab: [...plan.cab, id] } : { ...plan, out: [...plan.out, id] }
     }
     case 'REMOVE': return without(plan, [String(a.id)])
     case 'NUDGE': {
@@ -230,7 +227,7 @@ export function reduce(state, action, ctx) {
     }
     case 'DISMISS': return { ...state, toast: null, notice: null }
     case 'INIT': { // first data arrived after an untouched empty start: load the defaults without an undo step
-      const { plan } = normalize({ ...state.plan, ...defaultsFor(ctx, state.plan.arr, state.plan.cs, state.plan.os) }, ctx)
+      const { plan } = normalize({ ...state.plan, ...defaultsFor(ctx, state.plan.arr) }, ctx)
       return { ...state, plan, seq }
     }
     case 'RECONCILE': { // the pool of MPs changed (new count): repair silently, but say so
@@ -283,5 +280,5 @@ const b64 = {
   enc: (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   dec: (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))),
 }
-export const encodePlan = (p) => b64.enc({ v: VERSION, r: p.arr, cs: p.cs, os: p.os, c: p.cab, o: p.out, h: p.hold, x: p.extra })
+export const encodePlan = (p) => b64.enc({ v: VERSION, r: p.arr, c: p.cab, o: p.out, h: p.hold, x: p.extra })
 export function decodePlan(s) { try { return validPlan(b64.dec(s)) } catch { return null } }

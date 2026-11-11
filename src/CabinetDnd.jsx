@@ -23,8 +23,8 @@ export function MinisterList({ title, kind, list, size, colorOf, nameOf, tags, o
   })
   return (
     <div className="cb-grp" data-dnd="minlist" data-kind={kind}>
-      <h4>{title} <span className={list.length > size ? 'cb-over' : 'muted'}>· {list.length} of {size}</span></h4>
-      <div className={`cb-meter${list.length > size ? ' over' : ''}`}><i style={{ width: `${Math.min(100, size ? (list.length / size) * 100 : 0)}%` }} /></div>
+      <h4>{title} <span className={size != null && list.length > size ? 'cb-over' : 'muted'}>· {size != null ? `${list.length} of ${size}` : list.length}</span></h4>
+      {size != null && <div className={`cb-meter${list.length > size ? ' over' : ''}`}><i style={{ width: `${Math.min(100, (list.length / size) * 100)}%` }} /></div>}
       <GridList aria-label={title} items={list} dragAndDropHooks={dragAndDropHooks} className="cb-ord" renderEmptyState={() => <p className="muted small">None yet. Click MPs in the list to add them, or drag them here.</p>}>
         {(m) => {
           const i = list.indexOf(m)
@@ -94,22 +94,20 @@ export function PortfolioBank({ free, onAssignMany, children }) {
   )
 }
 
-// ---- Pointer fallback -------------------------------------------------------------------------------------------------
-// The react-aria drag and drop above uses the browser's native drag events for the mouse. Some browsers and embedded views
-// never start those, and touch screens only drag after a long press, so dragging a ⋮⋮ handle also works with plain pointer
-// events: if the native drag has not started shortly after the pointer moves, this takes over. Keyboard drag (Enter on a
-// handle) stays with react-aria. Drop targets are marked with data-dnd (card / bank / minlist) in the markup.
-export function PointerDragFallback({ onAssign, onMove }) {
+// ---- Pointer drag ------------------------------------------------------------------------------------------------------
+// Mouse, touch and pen drag with plain pointer events, which behave the same in every browser; the browser's native drag
+// and drop (which is flaky in places) is switched off for these rows. A mouse can grab a row anywhere; touch and pen use the
+// ⋮⋮ handle so the page can still scroll. Keyboard drag (Enter on a handle) stays with react-aria. Drop targets are marked
+// with data-dnd (card / bank / minlist) in the markup.
+export function PointerDrag({ onAssign, onMove }) {
   const cb = useRef({ onAssign, onMove })
   cb.current = { onAssign, onMove }
   useEffect(() => {
-    let st = null // { row, kind, key, x, y, nativeStarted, active, ghost, over, pos, id }
+    let st = null // { pid, row, kind, key, x, y, active, ghost, over, pos, dx, dy }
     const clear = () => document.querySelectorAll('.dnd-over, .dnd-before, .dnd-after').forEach((e) => e.classList.remove('dnd-over', 'dnd-before', 'dnd-after'))
-    const onNative = () => { if (st) st.nativeStarted = true }
     const targetAt = (x, y) => {
       const el = document.elementFromPoint(x, y)
-      if (!el) return null
-      const t = el.closest('[data-dnd]')
+      const t = el && el.closest('[data-dnd]')
       if (!t) return null
       const row = el.closest('[role="row"][data-key]')
       return { t, row, rect: row ? row.getBoundingClientRect() : null }
@@ -122,12 +120,14 @@ export function PointerDragFallback({ onAssign, onMove }) {
       document.body.appendChild(ghost)
       st.row.style.opacity = '.4'
       st.ghost = ghost; st.dx = st.x - r.left; st.dy = st.y - r.top; st.active = true
-      document.body.style.userSelect = 'none'
+      document.body.style.userSelect = 'none'; document.body.style.cursor = 'grabbing'
     }
-    const move = (e) => {
+    const stop = () => {
+      document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', end, true); document.removeEventListener('pointercancel', end, true)
+    }
+    function move(e) {
       if (!st || e.pointerId !== st.pid) return
       if (!st.active) {
-        if (st.nativeStarted) { st = null; return }
         if (Math.hypot(e.clientX - st.x, e.clientY - st.y) < 5) return
         begin()
       }
@@ -140,18 +140,17 @@ export function PointerDragFallback({ onAssign, onMove }) {
         const ok = st.kind === 'pf' ? kind === 'card' || kind === 'bank' : kind === 'minlist'
         if (ok) {
           st.over = h
-          if (st.kind === 'min' && h.row && h.row !== st.row) { const after = e.clientY > h.rect.top + h.rect.height / 2; h.row.classList.add(after ? 'dnd-after' : 'dnd-before'); st.pos = after ? 'after' : 'before' } else h.t.classList.add('dnd-over')
+          if (st.kind === 'min' && h.row && h.row !== st.row) { const after = e.clientY >= h.rect.top + h.rect.height / 2; h.row.classList.add(after ? 'dnd-after' : 'dnd-before'); st.pos = after ? 'after' : 'before' } else { h.t.classList.add('dnd-over'); st.pos = null }
         }
       }
       if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14)
     }
-    const end = (e) => {
+    function end(e) {
       if (!st || e.pointerId !== st.pid) return
       const s0 = st; st = null
-      document.removeEventListener('pointermove', move, true); document.removeEventListener('pointerup', end, true); document.removeEventListener('pointercancel', end, true)
-      document.removeEventListener('dragstart', onNative, true)
+      stop()
       if (!s0.active) return
-      s0.ghost.remove(); s0.row.style.opacity = ''; document.body.style.userSelect = ''
+      s0.ghost.remove(); s0.row.style.opacity = ''; document.body.style.userSelect = ''; document.body.style.cursor = ''
       clear()
       const h = s0.over
       if (!h || e.type === 'pointercancel') return
@@ -161,17 +160,21 @@ export function PointerDragFallback({ onAssign, onMove }) {
     const down = (e) => {
       if (e.button > 0 || !e.target.closest) return
       const row = e.target.closest('[role="row"][data-key]')
-      const grip = row && row.querySelector('.cb-grip')
-      if (!grip) return
-      const g = grip.getBoundingClientRect() // react-aria makes the handle pointer-events:none, so hit-test by position
-      if (g.width === 0 || e.clientX < g.left - 6 || e.clientX > g.right + 6 || e.clientY < g.top - 6 || e.clientY > g.bottom + 6) return
-      if (e.pointerType !== 'mouse') e.stopPropagation() // touch / pen: skip react-aria's tap-to-pick-up mode, drag directly
-      st = { pid: e.pointerId, row, kind: row.classList.contains('cb-pf') ? 'pf' : 'min', key: row.dataset.key, x: e.clientX, y: e.clientY, nativeStarted: false, active: false }
+      if (!row || !row.closest('[data-dnd]')) return
+      if (e.target.closest('button, select, input, a')) return // the × / arrow buttons and menus keep their own clicks
+      if (e.pointerType !== 'mouse') {
+        const grip = row.querySelector('.cb-grip')
+        const g = grip && grip.getBoundingClientRect() // react-aria makes the handle pointer-events:none, so hit-test by position
+        if (!g || g.width === 0 || e.clientX < g.left - 8 || e.clientX > g.right + 8 || e.clientY < g.top - 8 || e.clientY > g.bottom + 8) return
+        e.stopPropagation() // skip react-aria's tap-to-pick-up mode: drag directly
+      }
+      st = { pid: e.pointerId, row, kind: row.classList.contains('cb-pf') ? 'pf' : 'min', key: row.dataset.key, x: e.clientX, y: e.clientY, active: false }
       document.addEventListener('pointermove', move, true); document.addEventListener('pointerup', end, true); document.addEventListener('pointercancel', end, true)
-      document.addEventListener('dragstart', onNative, true)
     }
+    const noNative = (e) => { if (e.target.closest && e.target.closest('[role="row"][data-key]') && e.target.closest('[data-dnd]')) { e.preventDefault(); e.stopPropagation() } }
     document.addEventListener('pointerdown', down, true)
-    return () => { document.removeEventListener('pointerdown', down, true); clear() }
+    document.addEventListener('dragstart', noNative, true)
+    return () => { document.removeEventListener('pointerdown', down, true); document.removeEventListener('dragstart', noNative, true); stop(); clear() }
   }, [])
   return null
 }

@@ -1,7 +1,7 @@
 // Run with: node --test scripts/cabinet-model.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ARRS, PORTFOLIOS, MAX_SIZE, derive, decodePlan, defaultsFor, encodePlan, initialPlan, initialState, normalize, partiesOf, reduce, validPlan } from '../src/cabinet/model.js'
+import { ARRS, CAB_SIZE, PORTFOLIOS, derive, decodePlan, defaultsFor, encodePlan, initialPlan, initialState, normalize, partiesOf, reduce, validPlan } from '../src/cabinet/model.js'
 
 const blocs = { govt: { abbrevs: ['ACT', 'NZF', 'NAT'] }, cross: { abbrevs: ['OPP'] }, opp: { abbrevs: ['LAB', 'TPMAO', 'GP'] } }
 const arrs = ARRS(blocs)
@@ -22,7 +22,6 @@ const rng = (seed) => () => { seed = (seed * 1664525 + 1013904223) % 4294967296;
 function assertInvariants(plan, c, where = '') {
   const parties = partiesOf(c, plan.arr)
   assert.ok(parties, `I1 arr known ${where}`)
-  for (const k of ['cs', 'os']) assert.ok(Number.isInteger(plan[k]) && plan[k] >= 0 && plan[k] <= MAX_SIZE, `I1 ${k} ${where}`)
   const all = [...plan.cab, ...plan.out]
   assert.equal(new Set(all).size, all.length, `I2 unique ${where}`)
   for (const id of all) { assert.ok(c.byId[id], `I3 in pool ${id} ${where}`); assert.ok(parties.includes(c.byId[id].abbrev), `I3 party ${id} ${where}`) }
@@ -38,8 +37,8 @@ test('initial plans satisfy the invariants for every arrangement', () => {
 })
 
 test('defaults: proportional arrangement tracks seat share and respects sizes', () => {
-  const d = defaultsFor(ctx, 'opp', 20, 7)
-  assert.equal(d.cab.length, 20); assert.equal(d.out.length, 7)
+  const d = defaultsFor(ctx, 'opp')
+  assert.equal(d.cab.length, CAB_SIZE); assert.equal(d.out.length, 7)
   const share = (abbrev) => d.cab.filter((id) => ctx.byId[id].abbrev === abbrev).length
   assert.ok(share('LAB') > share('GP') && share('GP') > share('TPMAO'))
   assert.equal(ctx.byId[d.hold['Prime Minister']].abbrev, 'LAB')
@@ -47,21 +46,22 @@ test('defaults: proportional arrangement tracks seat share and respects sizes', 
 })
 
 test('normalize repairs garbage', () => {
-  const dirty = { arr: 'nope', cs: -5, os: 9999, cab: ['NAT1', 'NAT1', 'GHOST', 'LAB1', 'ACT1'], out: ['ACT1', 'NZF1', 7], hold: { 'Prime Minister': 'LAB1', Finance: 'NZF1', 'Made up': 'NAT1', 'Minister of Health': 'GHOST' }, extra: ['  Space   Cadet ', 'space cadet', PORTFOLIOS[0], ''] }
+  const dirty = { arr: 'nope', cab: ['NAT1', 'NAT1', 'GHOST', 'LAB1', 'ACT1'], out: ['ACT1', 'NZF1', 7], hold: { 'Prime Minister': 'LAB1', Finance: 'NZF1', 'Made up': 'NAT1', 'Minister of Health': 'GHOST' }, extra: ['  Space   Cadet ', 'space cadet', PORTFOLIOS[0], ''] }
   const { plan, dropped } = normalize(dirty, ctx)
   assertInvariants(plan, ctx)
-  assert.equal(plan.arr, 'govt'); assert.equal(plan.cs, 0); assert.equal(plan.os, MAX_SIZE)
+  assert.equal(plan.arr, 'govt')
   assert.deepEqual(plan.cab, ['NAT1', 'ACT1']); assert.deepEqual(plan.out, ['NZF1'])
   assert.deepEqual(plan.extra, ['Space Cadet'])
   assert.ok(dropped.ministers >= 2 && dropped.holds >= 3)
 })
 
-test('TOGGLE fills Cabinet to its target, then outside', () => {
-  let s = initialState({ ...initialPlan(ctx), cab: [], out: [], hold: {}, cs: 2, os: 5 })
-  for (const id of ['NAT1', 'ACT1', 'NAT2', 'NZF1']) s = reduce(s, { type: 'TOGGLE', id }, ctx)
-  assert.deepEqual(s.plan.cab, ['NAT1', 'ACT1']); assert.deepEqual(s.plan.out, ['NAT2', 'NZF1'])
-  s = reduce(s, { type: 'TOGGLE', id: 'NAT1' }, ctx)
-  assert.deepEqual(s.plan.cab, ['ACT1'])
+test('TOGGLE fills Cabinet to its fixed size of 20, then outside Cabinet', () => {
+  let s = initialState({ ...initialPlan(ctx), cab: [], out: [], hold: {} })
+  const nat = people.filter((p) => p.abbrev === 'NAT' || p.abbrev === 'ACT').map((p) => p.id)
+  for (const id of nat.slice(0, 23)) s = reduce(s, { type: 'TOGGLE', id }, ctx)
+  assert.equal(s.plan.cab.length, CAB_SIZE); assert.deepEqual(s.plan.out, nat.slice(20, 23))
+  s = reduce(s, { type: 'TOGGLE', id: nat[0] }, ctx)
+  assert.ok(!s.plan.cab.includes(nat[0]))
 })
 
 test('removing a minister returns their portfolios to the unassigned list', () => {
@@ -156,7 +156,7 @@ test('fuzz: random action sequences never break the invariants, and undo walks a
         : t < .46 ? { type: 'SWAP', id: pick(ids) }
         : t < .56 ? { type: 'MOVE', ids: [pick(ids), pick(ids)], kind: pick(['cab', 'out']), target: r() < .5 ? null : { key: pick(ids), dropPosition: pick(['before', 'after']) } }
         : t < .76 ? { type: 'ASSIGN', pfs: [pick(pfs), pick(pfs)], holder: r() < .2 ? null : pick(ids) }
-        : t < .82 ? { type: 'SET_SIZE', which: pick(['cab', 'out']), value: pick([-3, 0, 5, 20, 99, 'x', 7.6]) }
+        : t < .82 ? { type: 'RECONCILE' }
         : t < .87 ? { type: 'ADD_PF', name: pick(['Custom A', ' custom a', 'Custom B', '', PORTFOLIOS[2]]) }
         : t < .90 ? { type: 'REMOVE_PF', name: pick(['Custom A', 'Custom B']) }
         : t < .93 ? { type: 'SET_ARR', arr: pick(arrs.map((x) => x.key)) }

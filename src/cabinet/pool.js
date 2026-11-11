@@ -83,6 +83,7 @@ export function buildPool(meta, leaders, rows, ent) {
     } else if (cand[cb] && !byId.has(cb)) addPerson(cb, { eid, key: 'listed', now: { text: `List #${cand[cb].listNo}`, list: true } })
   }
   for (const p of byId.values()) {
+    if (p.pend) p.marg = true // a close electorate race is just another kind of marginal
     p.list = cand[p.id]?.listNo || null
     p.where = p.pend ? `${elecName[p.pend.eid]} (${p.pend.margin >= 0 ? 'leads by' : 'trails by'} ${Math.abs(p.pend.margin).toLocaleString('en-NZ')})` : p.now ? p.now.text : p.eid ? `${elecName[p.eid]} electorate` : 'List'
   }
