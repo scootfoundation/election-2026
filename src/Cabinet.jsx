@@ -272,6 +272,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const Group = ({ title, list, size, kind }) => (
     <div key={kind} className="cb-grp">
       <h4>{title} <span className={list.length > size ? 'cb-over' : 'muted'}>· {list.length} of {size}</span></h4>
+      <div className={`cb-meter${list.length > size ? ' over' : ''}`}><i style={{ width: `${Math.min(100, size ? (list.length / size) * 100 : 0)}%` }} /></div>
       {!list.length && <p className="muted small">None yet. Click MPs in the list to add them.</p>}
       <ol className={`cb-ord${over === 'g' + kind ? ' over' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-minister')) { e.preventDefault(); setOver('g' + kind) } }} onDragLeave={() => setOver(null)} onDrop={(e) => dropMin(e, kind, null)}>
         {list.map((m, i) => (
@@ -361,19 +362,19 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending, unless the list would return them anyway; only one will sit. List MPs whose place would change if a party's vote moved by up to {SWING} points are marked Marginal. Chris Bishop is left out. The current coalition starts from the current ministry; the other arrangements start with each party's top list-ranked MPs, shared out by seat share. Your choices are saved in the page link, and you can change any step at any time.</p>
 
       <div className="cb-step">
-        <h3><span>1</span> Governing arrangement and ministry size</h3>
+        <div className="cb-sh"><h3><span>1</span> Governing arrangement and ministry size</h3><p>Who is in government, and how big the ministry is.</p><em>{cabSize + outSize} ministers</em></div>
         <div className="cb-arr" role="group" aria-label="Governing arrangement">
-          {arrs.map((o) => <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}>{o.label}</button>)}
+          {arrs.map((o) => <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}><span className="cb-dots">{o.parties.filter((a) => seatOf(a) > 0 || a === 'OPP').map((a) => <i key={a} style={{ background: colorOf(a) }} />)}</span><b>{o.label}</b></button>)}
         </div>
         <div className="cb-sizes">
-          <label>Ministers in Cabinet <input type="number" min="0" max="60" value={cabSize} onChange={num(cabSize, setCabSize)} /></label>
-          <label>Ministers outside Cabinet <input type="number" min="0" max="60" value={outSize} onChange={num(outSize, setOutSize)} /></label>
+          <div className="cb-stp"><span>Ministers in Cabinet</span><button type="button" aria-label="Fewer in Cabinet" onClick={() => setCabSize(Math.max(0, cabSize - 1))}>−</button><input type="number" min="0" max="60" value={cabSize} onChange={num(cabSize, setCabSize)} aria-label="Ministers in Cabinet" /><button type="button" aria-label="More in Cabinet" onClick={() => setCabSize(Math.min(60, cabSize + 1))}>+</button></div>
+          <div className="cb-stp"><span>Ministers outside Cabinet</span><button type="button" aria-label="Fewer outside Cabinet" onClick={() => setOutSize(Math.max(0, outSize - 1))}>−</button><input type="number" min="0" max="60" value={outSize} onChange={num(outSize, setOutSize)} aria-label="Ministers outside Cabinet" /><button type="button" aria-label="More outside Cabinet" onClick={() => setOutSize(Math.min(60, outSize + 1))}>+</button></div>
           <span className="muted small">{!current && <>Places are shared between the parties in proportion to their seats, taking each party's top list-ranked MPs. </>}Defaults: {DEF_CAB} in Cabinet and {DEF_OUT} outside, as in the current ministry ({CURRENT_MINISTERS} ministers).{notReturning > 0 && <> {notReturning} of them (for example those who retired, lost their seat or are left out) wouldn't be in the new Parliament, so those places start empty.</>}</span>
         </div>
       </div>
 
       <div className="cb-step">
-        <h3><span>2</span> Choose and order the ministers</h3>
+        <div className="cb-sh"><h3><span>2</span> Choose and order the ministers</h3><p>Pick MPs from the government parties, then rank them by seniority.</p><em>{ministers.length} chosen</em></div>
         <div className="cb-two">
           <div className="cb-pool">
             <input className="cb-search" type="search" placeholder="Search MPs" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search MPs" />
@@ -409,7 +410,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       </div>
 
       <div className="cb-step">
-        <h3><span>3</span> Assign portfolios</h3>
+        <div className="cb-sh"><h3><span>3</span> Assign portfolios</h3><p>Give each minister their portfolios.</p><em>{filled.length} of {portfolios.length} assigned</em></div>
         <div className="cb-two cb-two-pf">
           <div>
             {!ministers.length && <p className="muted small">Choose ministers in step 2 first.</p>}
@@ -432,7 +433,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       </div>
 
       <div className="cb-step" id="cb-result">
-        <h3><span>4</span> The ministry</h3>
+        <div className="cb-sh"><h3><span>4</span> The ministry</h3><p>The finished ministry, ready to share.</p></div>
         <div className="cb-result">
           <div className="cb-rhead">
             <b>{label}</b>
