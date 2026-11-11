@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MPS_2023 } from './mps2023.js'
 import { buildPeople, Avatar, display } from './Parliamentarians.jsx'
 import { MINISTRY } from './ministry.js'
+import { MinisterCard, MinisterList, PortfolioBank } from './CabinetDnd.jsx'
 import { SPOKES } from './spokes.js'
 
 // Cabinet builder, four stacked steps: arrangement and ministry size, ministers in order (inside / outside Cabinet),
@@ -185,7 +186,6 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const [more, setMore] = useState({})
   const [copied, setCopied] = useState('')
   const [newPf, setNewPf] = useState('')
-  const [over, setOver] = useState(null)
   const [pfq, setPfq] = useState('')
   const [undo, setUndo] = useState(null) // { label, state }
   useEffect(() => { if (!undo) return undefined; const t = setTimeout(() => setUndo(null), 12000); return () => clearTimeout(t) }, [undo])
@@ -221,18 +221,18 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
     if (j < 0 || j >= list.length) return
     const n = [...list]; [n[i], n[j]] = [n[j], n[i]]; set(n)
   }
-  const dragMin = (e, id) => { e.dataTransfer.setData('application/x-minister', id); e.dataTransfer.effectAllowed = 'move' }
-  const dropMin = (e, kind, beforeId) => {
-    const id = e.dataTransfer.getData('application/x-minister')
-    if (!id) return
-    e.preventDefault(); e.stopPropagation(); setOver(null)
-    if (id === beforeId) return
-    const c = cab.filter((x) => x !== id), o = out.filter((x) => x !== id)
-    const put = (list) => { const i = beforeId ? list.indexOf(beforeId) : -1; const n = [...list]; n.splice(i < 0 ? n.length : i, 0, id); return n }
-    if (kind === 'cab') { setCab(put(c)); setOut(o) } else { setOut(put(o)); setCab(c) }
+  const dropIds = (ids, kind, target) => {
+    if (target && ids.includes(String(target.key))) return
+    const c = cab.filter((x) => !ids.includes(x)), o = out.filter((x) => !ids.includes(x))
+    const list = kind === 'cab' ? c : o
+    let i = list.length
+    if (target && target.key != null) { const k = list.indexOf(String(target.key)); if (k >= 0) i = target.dropPosition === 'after' ? k + 1 : k }
+    const n = [...list]; n.splice(i, 0, ...ids.filter((id) => byId[id]))
+    if (kind === 'cab') { setCab(n); setOut(o) } else { setOut(n); setCab(c) }
   }
   const swapGroup = (id) => { if (cab.includes(id)) { setCab(cab.filter((x) => x !== id)); setOut([id, ...out]) } else { setOut(out.filter((x) => x !== id)); setCab([...cab, id]) } }
   const assign = (pf, id) => { const n = { ...asg }; if (id) n[pf] = id; else delete n[pf]; setAsg(n) }
+  const assignMany = (pfs, id) => { const n = { ...asg }; for (const pf of pfs) { if (!portfolios.includes(pf)) continue; if (id) n[pf] = id; else delete n[pf] }; setAsg(n) }
 
   const mCab = cab.map((id) => byId[id]).filter(Boolean), mOut = out.map((id) => byId[id]).filter(Boolean)
   const ministers = [...mCab, ...mOut]
@@ -257,62 +257,18 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
     try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(''), 1800) } catch { setCopied('failed') }
   }
 
-  // Drag and drop (portfolio rows onto minister cards); each card's "Add portfolio" menu is the touch alternative.
-  const drag = (e, pf) => { e.dataTransfer.setData('text/plain', pf); e.dataTransfer.effectAllowed = 'move' }
-  const dropOn = (e, id) => { e.preventDefault(); const pf = e.dataTransfer.getData('text/plain'); setOver(null); if (pf && portfolios.includes(pf)) assign(pf, id) }
-  const allow = (e, id) => { e.preventDefault(); setOver(id) }
-  const pfChip = (pf, onRemove) => (
-    <span key={pf} className="cb-pf" draggable onDragStart={(e) => drag(e, pf)}><span className="cb-grip" aria-hidden="true">⋮⋮</span><span className="cb-pft">{pf}</span>{onRemove && <button type="button" aria-label={`Remove ${pf}`} onClick={onRemove}>×</button>}</span>
-  )
   const where = (m) => (cab.includes(m.id) ? `Cabinet ${cab.indexOf(m.id) + 1}` : out.includes(m.id) ? `Outside ${out.indexOf(m.id) + 1}` : null)
   const tags = (m) => <>{m.pend && <span className="cb-tag">pending</span>}{m.marg && <span className="cb-tag marg">Marginal</span>}</>
   const poolTags = (m) => tags(m)
   const num = (v, set) => (e) => set(Math.max(0, Math.min(60, Math.round(Number(e.target.value) || 0))))
 
-  const Group = ({ title, list, size, kind }) => (
-    <div key={kind} className="cb-grp">
-      <h4>{title} <span className={list.length > size ? 'cb-over' : 'muted'}>· {list.length} of {size}</span></h4>
-      <div className={`cb-meter${list.length > size ? ' over' : ''}`}><i style={{ width: `${Math.min(100, size ? (list.length / size) * 100 : 0)}%` }} /></div>
-      {!list.length && <p className="muted small">None yet. Click MPs in the list to add them.</p>}
-      <ol className={`cb-ord${over === 'g' + kind ? ' over' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-minister')) { e.preventDefault(); setOver('g' + kind) } }} onDragLeave={() => setOver(null)} onDrop={(e) => dropMin(e, kind, null)}>
-        {list.map((m, i) => (
-          <li key={m.id} style={{ '--c': colorOf(m.abbrev) }} draggable onDragStart={(e) => dragMin(e, m.id)} onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-minister')) e.preventDefault() }} onDrop={(e) => dropMin(e, kind, m.id)}>
-            <span className="cb-grip" aria-hidden="true">⋮⋮</span>
-            <span className="cb-n">{i + 1}</span>
-            <Avatar p={m} colorOf={colorOf} />
-            <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}</small></span>
-            <span className="cb-btns">
-              <button type="button" className="cb-touch" onClick={() => move(m.id, -1)} disabled={i === 0} aria-label={`Move ${m.name} up`}>↑</button>
-              <button type="button" className="cb-touch" onClick={() => move(m.id, 1)} disabled={i === list.length - 1} aria-label={`Move ${m.name} down`}>↓</button>
-              <button type="button" className="cb-touch" onClick={() => swapGroup(m.id)} aria-label={kind === 'cab' ? `Move ${m.name} outside Cabinet` : `Move ${m.name} into Cabinet`} title={kind === 'cab' ? 'Move outside Cabinet' : 'Move into Cabinet'}>{kind === 'cab' ? '⇩' : '⇧'}</button>
-              <button type="button" onClick={() => remove(m.id)} aria-label={`Remove ${m.name}`}>×</button>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </div>
+  const ministerList = (title, list, size, kind) => (
+    <MinisterList key={kind} title={title} kind={kind} list={list} size={size} colorOf={colorOf} nameOf={nameOf} tags={tags} onDropIds={dropIds} onMove={move} onSwap={swapGroup} onRemove={remove} />
   )
-
-  const Card = ({ m }) => {
-    const mine = portfolios.filter((p) => asg[p] === m.id)
-    return (
-      <div key={m.id} className={`cb-card${over === m.id ? ' over' : ''}`} style={{ '--c': colorOf(m.abbrev) }} onDragOver={(e) => allow(e, m.id)} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, m.id)}>
-        <div className="cb-card-h">
-          <span className="cb-n">{(cab.includes(m.id) ? cab : out).indexOf(m.id) + 1}</span>
-          <Avatar p={m} colorOf={colorOf} />
-          <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {cab.includes(m.id) ? 'Cabinet' : 'Outside Cabinet'}{tags(m)}</small></span>
-        </div>
-        <div className="cb-drop">
-          {mine.map((pf) => pfChip(pf, () => assign(pf, null)))}
-          {!mine.length && <span className="muted small">Drop portfolios here</span>}
-        </div>
-        <select className="cb-addsel cb-touch" value="" onChange={(e) => e.target.value && assign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
-          <option value="">+ Add portfolio…</option>
-          {portfolios.filter((p) => asg[p] !== m.id).map((p) => <option key={p} value={p}>{p}{asg[p] ? ` (now ${byId[asg[p]]?.name})` : ''}</option>)}
-        </select>
-      </div>
-    )
-  }
+  const card = (m) => (
+    <MinisterCard key={m.id} m={m} group={cab.includes(m.id) ? 'Cabinet' : 'Outside Cabinet'} rank={(cab.includes(m.id) ? cab : out).indexOf(m.id) + 1} mine={portfolios.filter((p) => asg[p] === m.id)}
+      options={portfolios.filter((p) => asg[p] !== m.id).map((pf) => ({ pf, holder: asg[pf] ? byId[asg[pf]]?.name : null }))} colorOf={colorOf} nameOf={nameOf} tags={tags} onAssignMany={assignMany} onAssign={assign} />
+  )
 
   // The Cabinet table: the PM at the head, the rest alternating down each side, each with a box of portfolios.
   const slot = (m, side) => {
@@ -406,8 +362,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           </div>
           <div className="cb-ministry">
             <p className="muted small"><span className="cb-desk">Click an MP to add. Drag ⋮⋮ to reorder.</span><span className="cb-touch">Tap an MP to add; use the arrows to reorder and ⇩/⇧ to change group.</span></p>
-            {Group({ title: 'Cabinet', list: mCab, size: cabSize, kind: 'cab' })}
-            {Group({ title: 'Outside Cabinet', list: mOut, size: outSize, kind: 'out' })}
+            {ministerList('Cabinet', mCab, cabSize, 'cab')}
+            {ministerList('Outside Cabinet', mOut, outSize, 'out')}
           </div>
         </div>
       </div>
@@ -419,15 +375,15 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             {!ministers.length && <p className="muted small">Choose ministers in step 2 first.</p>}
             {ministers.length > 0 && seniorFree.length > 0 && <p className="cb-warn cb-senior">Senior portfolios empty: {seniorFree.join(', ')}.</p>}
             {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
-            <div className="cb-cards">{mCab.map((m) => Card({ m }))}</div>
+            <div className="cb-cards">{mCab.map(card)}</div>
             {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
-            <div className="cb-cards">{mOut.map((m) => Card({ m }))}</div>
+            <div className="cb-cards">{mOut.map(card)}</div>
           </div>
-          <div className="cb-bank" onDragOver={(e) => allow(e, 'bank')} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, null)} style={over === 'bank' ? { outline: '2px dashed var(--fg)' } : undefined}>
+          <div className="cb-bank">
             <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
             <p className="muted small cb-desk">Drag onto a minister.</p>
             <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
-            <div className="cb-bankchips">{free.map((pf) => pfChip(pf))}{!free.length && <span className="muted small">All assigned.</span>}</div>
+            <PortfolioBank free={free} onAssignMany={assignMany} />
             <form className="cb-add" onSubmit={(e) => { e.preventDefault(); const v = newPf.trim(); if (v && !portfolios.includes(v)) setExtra([...extra, v]); setNewPf('') }}>
               <input value={newPf} onChange={(e) => setNewPf(e.target.value)} placeholder="Add a portfolio" aria-label="Add a portfolio" /><button type="submit">Add</button>
             </form>

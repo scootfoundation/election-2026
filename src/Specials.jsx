@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Dialog, Modal, ModalOverlay } from 'react-aria-components'
 import Parliament from './Parliament.jsx'
 import { PUBLIC, YEARS, DEFAULTS, DEFAULT_PARAMS, SAME_DAY, project, runSim, perElection, paramsToModel, leeReplica, backtestPair, sameDayDecomposition } from './specialsModel.js'
 
@@ -47,14 +48,6 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
   const [alt, setAlt] = useState(null)
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
-  useEffect(() => {
-    if (!open) return undefined
-    const k = (e) => { if (e.key === 'Escape') setOpen(false) }
-    window.addEventListener('keydown', k)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', k); document.body.style.overflow = prev }
-  }, [open])
   const name = (a) => shortName({ abbrev: a, name: a })
   const specs = useMemo(() => (s23 && s20 && s17 && s14 ? { 2014: s14, 2017: s17, 2020: s20, 2023: s23 } : null), [s14, s17, s20, s23])
 
@@ -177,7 +170,9 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
 
       <button type="button" className="sp-edit" onClick={() => setOpen(true)}>Edit assumptions</button>
       <div className="sp-split">
-        {open && <div className="sp-modal" role="dialog" aria-modal="true" aria-label="Assumptions" onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
+        <ModalOverlay isOpen={open} onOpenChange={setOpen} isDismissable className="sp-modal">
+          <Modal className="sp-modalbox">
+            <Dialog aria-label="Assumptions" className="sp-dialog">
         <aside className={busy ? 'sp-params sp-busy' : 'sp-params'}>
           <div className="sp-params-head">
             <h3 className="sp-assume-h">Assumptions</h3>
@@ -259,7 +254,9 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
             <p className="sp-hist">Share of the special votes each party got in past elections: {MAIN.map((a) => `${name(a)} ${YEARS.map((y) => ((H[y].sp[a] || 0) * 100).toFixed(0)).join('/')}`).join('; ')} (2014/2017/2020/2023, %). An adjustment adds or removes that many points of the specials share for the party and rescales it in every electorate and for its candidates.</p>
           </fieldset>
         </aside>
-        </div>}
+            </Dialog>
+          </Modal>
+        </ModalOverlay>
         <div className="sp-results">
       {sim && (() => {
         // Three bar-chart cards: who can govern, overhang size, and the Government's majority.

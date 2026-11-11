@@ -1,4 +1,5 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
+import { Popover } from 'react-aria-components'
 
 // NZ debating-chamber horseshoe, modelled on the Wikipedia seating plan: straight
 // benches down both sides (3 seats wide), a curved block across the top, and the
@@ -59,10 +60,31 @@ const hires = (u) => u.replace(/width=\d+&height=\d+/, 'width=300&height=300').r
 
 const seatsOf = (p) => Math.max(0, Math.floor(Number(p && p.seats) || 0))
 
+// Hover / focus card: a large face over the top of the card, then name, party, list rank and electorate.
+function SeatCard({ p, mp }) {
+  const initials = mp ? mp.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('') : '?'
+  const big = mp && mp.img ? hires(mp.img) : null
+  return (
+    <div className="seatcard" style={{ '--c': p.color }}>
+      <span className="seatcard-face">
+        {big ? <img src={big} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
+      </span>
+      <div className="seatcard-body">
+        <b>{mp ? mp.name : 'MP not yet identified'}</b>
+        <div className="muted">{p.name}{mp && mp.list && mp.list < 999 ? ` · List #${mp.list}` : ''}</div>
+        {mp && <div>{mp.elec ? `${mp.elec} electorate` : 'List MP'}</div>}
+      </div>
+    </div>
+  )
+}
+
 export default function Parliament({ parties = [], groups, members }) {
   const uid = useId().replace(/:/g, '')
   const faces = !!members
-  const [tip, setTip] = useState(null) // seat index being hovered or tapped
+  const [tip, setTip] = useState(null) // seat index being hovered, focused or tapped
+  const seatEls = useRef(new Map())
+  const tipRef = useRef(null)
+  tipRef.current = tip != null ? seatEls.current.get(tip) || null : null
   const m = useMemo(() => {
     const allocated = parties.reduce((t, p) => t + seatsOf(p), 0)
     const total = Math.max(120, allocated)
@@ -93,7 +115,12 @@ export default function Parliament({ parties = [], groups, members }) {
           if (faces) {
             const initials = mp ? mp.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('') : ''
             return (
-              <g key={i} onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)} onClick={() => setTip(tip === i ? null : i)} style={{ cursor: p ? 'pointer' : 'default' }}>
+              <g key={i} ref={(el) => { if (el) seatEls.current.set(i, el); else seatEls.current.delete(i) }} role="img" aria-label={label} tabIndex={p ? 0 : -1}
+                onPointerEnter={(e) => { if (e.pointerType !== 'touch') setTip(i) }} onPointerLeave={(e) => { if (e.pointerType !== 'touch') setTip((c) => (c === i ? null : c)) }}
+                onPointerUp={(e) => { if (e.pointerType === 'touch') setTip((c) => (c === i ? null : i)) }}
+                onFocus={() => setTip(i)} onBlur={() => setTip((c) => (c === i ? null : c))}
+                onKeyDown={(e) => { if (e.key === 'Escape') setTip(null) }}
+                style={{ cursor: p ? 'pointer' : 'default', outline: 'none' }}>
                 <circle cx={x} cy={y} r={FACE_R} fill={p ? p.color : 'none'} stroke={p ? 'none' : HOLLOW} strokeWidth={p ? 0 : 1.4} />
                 {mp && mp.img && <image href={mp.img} x={x - FACE_R + 1.5} y={y - FACE_R + 1.5} width={(FACE_R - 1.5) * 2} height={(FACE_R - 1.5) * 2} preserveAspectRatio="xMidYMin slice" clipPath={`url(#face${uid})`} />}
                 {mp && !mp.img && <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="10" fontWeight="700" style={{ font: '700 10px var(--sans)', pointerEvents: 'none' }}>{initials}</text>}
@@ -107,25 +134,9 @@ export default function Parliament({ parties = [], groups, members }) {
           )
         })}
       </svg>
-      {faces && tip != null && m.seats[tip] && m.slots[tip] && (() => {
-        const s = m.seats[tip], p = m.slots[tip], mp = p.mp
-        const below = s.y < 140 // top-row seats: open the card downwards
-        const dx = s.x < CX * 0.45 ? '-12%' : s.x > CX * 1.55 ? '-88%' : '-50%'
-        const initials = mp ? mp.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('') : '?'
-        const big = mp && mp.img ? hires(mp.img) : null
-        return (
-          <div role="tooltip" className="chamber-tip" style={{ position: 'absolute', left: `${(s.x / W) * 100}%`, top: `${(s.y / H) * 100}%`, transform: below ? `translate(${dx}, ${FACE_R + 6}px)` : `translate(${dx}, calc(-100% - ${FACE_R + 6}px))`, pointerEvents: 'none', zIndex: 6, width: 190 }}>
-            <span style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 76, height: 76, borderRadius: '50%', border: `4px solid ${p.color}`, background: p.color, boxShadow: '0 0 0 3px var(--bg), 0 3px 10px rgba(0,0,0,.35)', overflow: 'hidden', display: 'grid', placeItems: 'center', zIndex: 2 }}>
-              {big ? <img src={big} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} /> : <span style={{ font: '700 1.3rem var(--sans)', color: '#fff' }}>{initials}</span>}
-            </span>
-            <div style={{ background: 'var(--bg)', color: 'var(--fg)', border: '1px solid var(--ln)', borderTop: `4px solid ${p.color}`, boxShadow: '0 4px 14px rgba(0,0,0,.25)', padding: '46px 12px 10px', textAlign: 'center', fontFamily: 'var(--sans)', fontSize: '0.78rem', lineHeight: 1.35, marginTop: 38 }}>
-              <b style={{ display: 'block', fontSize: '0.92rem' }}>{mp ? mp.name : 'MP not yet identified'}</b>
-              <div style={{ color: 'var(--mu)' }}>{p.name}{mp && mp.list && mp.list < 999 ? ` · List #${mp.list}` : ''}</div>
-              {mp && <div>{mp.elec ? `${mp.elec} electorate` : 'List MP'}</div>}
-            </div>
-          </div>
-        )
-      })()}
+      {faces && tip != null && m.slots[tip] && (
+        <Popover isOpen isNonModal triggerRef={tipRef} placement="top" offset={FACE_R + 2} onOpenChange={(o) => { if (!o) setTip(null) }} className="chamber-tip" aria-label={`${m.slots[tip].mp ? m.slots[tip].mp.name : 'Unidentified MP'}, ${m.slots[tip].name}`}>{SeatCard({ p: m.slots[tip], mp: m.slots[tip].mp })}</Popover>
+      )}
       <div
         className="chamber-key"
         style={{

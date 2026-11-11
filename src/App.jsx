@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
 import {
   loadParties, loadElectorates, loadCandidates, loadNational, fetchSummary, parseNational, loadElectorate, DATA_BASE,
 } from './api.js'
@@ -7,12 +7,13 @@ import NzMap from './NzMap.jsx'
 import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import Parliamentarians from './Parliamentarians.jsx'
-import Cabinet from './Cabinet.jsx'
 import { membersByParty } from './members.js'
 import Insights from './Insights.jsx'
-import Specials from './Specials.jsx'
 import { POLLS } from './polls.js'
 import './drawer.css'
+// Heavier pages load on demand, so the first screen stays small.
+const Cabinet = lazy(() => import('./Cabinet.jsx'))
+const Specials = lazy(() => import('./Specials.jsx'))
 
 const POLL_MS = 5 * 60_000 // refresh everything every 5 minutes
 const POLL_FINAL_MS = 15 * 60_000 // once every electorate is final only special votes change, so ease off
@@ -456,11 +457,11 @@ export default function App() {
       )}
 
       {page === 'specials' && (
-        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} members={members} />
+        <Suspense fallback={<p className="muted">Loading…</p>}><Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} members={members} /></Suspense>
       )}
 
       {page === 'cabinet' && (
-        <Cabinet meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} blocDefs={BLOCS} />
+        <Suspense fallback={<p className="muted">Loading…</p>}><Cabinet meta={meta} leaders={leaders} rows={rows} ent={ent} colorOf={colorOf} shortName={shortName} blocDefs={BLOCS} /></Suspense>
       )}
 
       {page === 'mps' && (
