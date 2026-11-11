@@ -8,6 +8,7 @@ import ElectorateDrawer from './ElectorateDrawer.jsx'
 import { NATIONAL_2023 } from './data2023.js'
 import Parliamentarians from './Parliamentarians.jsx'
 import Cabinet from './Cabinet.jsx'
+import { membersByParty } from './members.js'
 import Insights from './Insights.jsx'
 import Specials from './Specials.jsx'
 import { POLLS } from './polls.js'
@@ -277,6 +278,7 @@ export default function App() {
   if (typeof document !== 'undefined') document.title = `${headline} · NZ Election 2026`
   const baseline = Object.fromEntries(Object.entries(NATIONAL_2023.parties).map(([k, v]) => [k, v.pct]))
   const ent = entitlements(rows)
+  const members = started ? membersByParty(meta, leaders, rows, ent) : undefined // MPs by party, for the faces in the chamber
   // Everyone not named in the poll chart (includes Te Tai Tokerau Party and the parties below).
   const polled = Object.keys(POLLS.parties)
   const others = rows.filter((r) => !polled.includes(r.abbrev))
@@ -359,7 +361,7 @@ export default function App() {
               <span className="blocmark" style={{ left: `${(majority / parliamentSize) * 100}%` }} title={`${majority} seats for a majority`} />
             </div>
           )}
-          <Parliament parties={seated} groups={groups} />
+          <Parliament parties={seated} groups={groups} members={members} />
           {seated.length === 0 && (
             <p className="muted small">A party (or coalition) needs a majority of the seats to govern: 61 of 120, or more if there is an overhang.</p>
           )}
@@ -454,7 +456,7 @@ export default function App() {
       )}
 
       {page === 'specials' && (
-        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} />
+        <Specials meta={meta} leaders={leaders} colorOf={colorOf} shortName={shortName} onOpen={setSelectedId} blocDefs={BLOCS} members={members} />
       )}
 
       {page === 'cabinet' && (

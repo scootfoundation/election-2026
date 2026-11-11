@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 
 // NZ debating-chamber horseshoe, modelled on the Wikipedia seating plan: straight
 // benches down both sides (3 seats wide), a curved block across the top, and the
@@ -15,15 +15,16 @@ const ROW_GAP = 34
 const AISLE_GAP = 14 // half-width of the central aisle at the top (px)
 const CY = RING_R[RING_R.length - 1] + DOT_R + 8
 const HOLLOW = '#8a8f98'
+const FACE_R = 14.5 // seat radius when MPs' faces are shown
 
-function buildSeats(total) {
+function buildSeats(total, aisle = AISLE_GAP) {
   const extra = Math.max(0, total - 120)
   const rows = ARM_ROWS_BASE + Math.ceil(extra / 6)
   const seats = []
   // Top block: concentric half-rings, left end at angle pi, right end at angle 0.
   RING_R.forEach((r, k) => {
     const h = HALF_COUNTS[k]
-    const g = Math.asin(Math.min(1, AISLE_GAP / r)) // keep clear of the aisle at pi/2
+    const g = Math.asin(Math.min(1, aisle / r)) // keep clear of the aisle at pi/2
     const end = Math.PI / 2 + g
     for (let j = 0; j < h; j++) {
       const t = h === 1 ? end : Math.PI - (j * (Math.PI - end)) / (h - 1)
@@ -55,19 +56,21 @@ function buildSeats(total) {
 
 const seatsOf = (p) => Math.max(0, Math.floor(Number(p && p.seats) || 0))
 
-export default function Parliament({ parties = [], groups }) {
+export default function Parliament({ parties = [], groups, members }) {
+  const uid = useId().replace(/:/g, '')
+  const faces = !!members
   const m = useMemo(() => {
     const allocated = parties.reduce((t, p) => t + seatsOf(p), 0)
     const total = Math.max(120, allocated)
     const overhang = total - 120
-    const { seats, rows } = buildSeats(total)
+    const { seats, rows } = buildSeats(total, faces ? FACE_R + 2 : AISLE_GAP)
     const slots = []
-    for (const p of parties) for (let i = 0; i < seatsOf(p); i++) slots.push(p)
+    for (const p of parties) for (let i = 0; i < seatsOf(p); i++) slots.push({ ...p, mp: members && members[p.abbrev] ? members[p.abbrev][i] : null })
     const summary = parties.filter((p) => seatsOf(p) > 0).map((p) => `${p.name} ${seatsOf(p)}`)
     if (total - slots.length > 0) summary.push(`${total - slots.length} unallocated`)
     const bottom = CY + rows * ROW_GAP
     return { seats, slots, total, overhang, majority: Math.floor(total / 2) + 1, summary: summary.join(', '), rows, bottom }
-  }, [parties])
+  }, [parties, members, faces])
 
   const W = CX * 2
   const H = m.bottom + 14
@@ -77,11 +80,24 @@ export default function Parliament({ parties = [], groups }) {
   return (
     <div className="chamber" style={{ position: 'relative', width: '100%', maxWidth: 480, margin: '0 auto', containerType: 'inline-size' }}>
       <svg role="img" aria-label={label} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+        <defs><clipPath id={`face${uid}`} clipPathUnits="objectBoundingBox"><circle cx="0.5" cy="0.5" r="0.5" /></clipPath></defs>
         {m.seats.map((s, i) => {
           const p = m.slots[i]
+          const mp = p && p.mp
+          const x = Number(s.x.toFixed(1)), y = Number(s.y.toFixed(1))
+          const label = `${p ? p.name : 'Unallocated'}${mp ? ` — ${mp.name}` : ''}`
+          if (faces) {
+            return (
+              <g key={i}>
+                <title>{label}</title>
+                <circle cx={x} cy={y} r={FACE_R} fill={p ? p.color : 'none'} stroke={p ? 'none' : HOLLOW} strokeWidth={p ? 0 : 1.4} />
+                {mp && mp.img && <image href={mp.img} x={x - FACE_R + 1.5} y={y - FACE_R + 1.5} width={(FACE_R - 1.5) * 2} height={(FACE_R - 1.5) * 2} preserveAspectRatio="xMidYMin slice" clipPath={`url(#face${uid})`} />}
+              </g>
+            )
+          }
           return (
-            <circle key={i} cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={DOT_R} fill={p ? p.color : 'none'} stroke={p ? 'none' : HOLLOW} strokeWidth={p ? 0 : 1.4}>
-              <title>{`${p ? p.name : 'Unallocated'} — seat ${i + 1}`}</title>
+            <circle key={i} cx={x} cy={y} r={DOT_R} fill={p ? p.color : 'none'} stroke={p ? 'none' : HOLLOW} strokeWidth={p ? 0 : 1.4}>
+              <title>{label}</title>
             </circle>
           )
         })}

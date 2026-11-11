@@ -38,7 +38,7 @@ const WEIGHT_PRESETS = {
   'Last election only': { 2014: 0, 2017: 0, 2020: 0, 2023: 100 },
 }
 
-export default function Specials({ meta, leaders, colorOf, shortName, onOpen, blocDefs }) {
+export default function Specials({ meta, leaders, colorOf, shortName, onOpen, blocDefs, members }) {
   const s14 = useJson('specials2014.json'), s17 = useJson('specials2017.json'), s20 = useJson('specials2020.json'), s23 = useJson('specials2023.json')
   const map = useJson('specials-map.json')
   const published = useJson('specials-estimates.json') // optional: per-electorate estimates, if supplied
@@ -317,7 +317,7 @@ export default function Specials({ meta, leaders, colorOf, shortName, onOpen, bl
             {model.groups.filter((g) => g.seats > 0).map((g) => <i key={g.key} style={{ width: `${(g.seats / central.seats.size) * 100}%`, background: g.color }} />)}
             <span className="blocmark" style={{ left: `${(central.seats.majority / central.seats.size) * 100}%` }} title={`${central.seats.majority} seats for a majority`} />
           </div>
-          <Parliament parties={model.seated} groups={model.groups} />
+          <Parliament parties={model.seated} groups={model.groups} members={members} />
         </section>
         <section>
           <div className="kicker">Party vote</div>
