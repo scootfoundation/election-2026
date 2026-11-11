@@ -648,3 +648,31 @@ h2 { font-size:1.3rem; }
 .cabinet .cb-undo button { border-radius:999px; }
 .cabinet .cb-dropind[data-drop-target] { background:var(--accent); border-radius:2px; }
 .cabinet .cb-sh h3 span { border-radius:50%; display:inline-grid; place-items:center; line-height:1; }
+
+/* ===== Middle ground: keep the app polish, bring back party colour and weight ===== */
+/* MP cards: strong party stripe; chosen = solid party colour */
+.cabinet .cb-chip { border-left:6px solid var(--c); padding-left:10px; }
+.cabinet .cb-chip.sel { background:var(--c); color:#fff; border-color:var(--c); box-shadow:0 2px 8px color-mix(in srgb, var(--c) 45%, transparent); }
+.cabinet .cb-chip.sel .cb-role, .cabinet .cb-chip.sel .cb-ln, .cabinet .cb-chip.sel small { color:rgba(255,255,255,.88); }
+.cabinet .cb-chip.sel::after { background:#fff; color:var(--c); }
+.cabinet .cb-chip.sel .mp-ava { box-shadow:0 0 0 2px rgba(255,255,255,.95), 0 2px 6px rgba(0,0,0,.3); }
+.cabinet .cb-ph { border-left:0; font-size:1rem; }
+.cabinet .cb-ph::before { width:14px; height:14px; border-radius:4px; }
+/* Arrangement cards: bolder colour strip, ink outline when chosen */
+.cabinet .cb-dots { height:10px; border-radius:5px; }
+.cabinet .cb-arr button { border-top:0; }
+.cabinet .cb-arr button.on { border-color:var(--ink); box-shadow:0 0 0 2px var(--ink), var(--sh-lg); }
+.cabinet .cb-arr button b { font-size:.92rem; }
+/* Ministry rows and minister cards: party-tinted headers */
+.cabinet .cb-ordrow { border-left-width:6px; background:color-mix(in srgb, var(--c) 6%, var(--surf)); }
+.cabinet .cb-card { border-top-width:6px; }
+.cabinet .cb-card-h { background:color-mix(in srgb, var(--c) 9%, var(--surf)); padding:10px 12px 8px; }
+.cabinet .cb-drop { background:var(--surf); margin:8px; border:1px dashed var(--line); }
+.cabinet .cb-card-h .mp-ava, .cabinet .cb-ordrow .mp-ava { box-shadow:0 0 0 2px var(--surf), 0 2px 6px rgba(15,23,42,.22); }
+/* Step panels: a touch of weight in the heading */
+.cabinet .cb-step { border-top:4px solid var(--ink); }
+.cabinet .cb-sh h3 { font-size:1.15rem !important; font-weight:750 !important; }
+/* Result: party-coloured tops on outside cards and stronger stripes on the table boxes */
+.cabinet .cb-oc .cb-box { border-top-width:6px; }
+.cabinet .cb-slot.l .cb-box { border-right-width:6px; } .cabinet .cb-slot.r .cb-box, .cabinet .cb-head .cb-box { border-left-width:6px; }
+.cabinet .cb-box b { font-weight:750; }
