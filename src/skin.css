@@ -1,0 +1,95 @@
+/* App skin: the Cabinet builder's look applied site-wide. Sans type, a soft page with white rounded panels and
+   cards, pill controls, one accent, sentence-case labels. Party-colour stripes stay straight (square corners). */
+:root {
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:var(--sans);
+  --fg:#0f172a; --mu:#64748b; --ln:#e2e8f0; --card:#f1f5f9; --page:#f5f7fa; --accent:#2563eb;
+  --ac:#2563eb; /* kickers, links and the active tab use the one accent */
+  --sh:0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.08); --sh-lg:0 4px 14px rgba(15,23,42,.12);
+}
+body { background:var(--page); font-family:var(--sans); color:var(--fg); }
+main { padding-top:20px; }
+
+/* Header and navigation */
+.topbar .kicker { color:var(--mu); text-transform:none; letter-spacing:.01em; font-weight:600; font-size:.8rem; }
+.pill { background:#fef3c7; color:#92400e; border-radius:999px; padding:2px 10px; letter-spacing:.04em; }
+h1.sitetitle { font-weight:800; letter-spacing:-.02em; margin:2px 0 6px; }
+.shell > main > hr { display:none; }
+.refresh-btn { border-radius:999px; border:1px solid var(--ln); background:#fff; box-shadow:var(--sh); padding:6px 14px; }
+.refresh-btn:hover:not(:disabled) { background:var(--fg); color:#fff; border-color:var(--fg); }
+.pagenav { gap:4px; border-bottom:0; margin:10px 0 20px; padding:4px; background:#fff; border:1px solid var(--ln); border-radius:999px; box-shadow:var(--sh); display:inline-flex; max-width:100%; overflow-x:auto; }
+.pagenav a { font:600 .86rem var(--sans); letter-spacing:0; text-transform:none; padding:8px 16px; margin:0; border:0; border-radius:999px; white-space:nowrap; }
+.pagenav a:hover { background:var(--card); color:var(--fg); }
+.pagenav a.on { background:var(--fg); color:#fff; border:0; }
+.banner { background:#fff; border:1px solid var(--ln); border-left:4px solid #f59e0b; border-radius:0; box-shadow:var(--sh); }
+
+/* Panels: sections and the overview columns are white rounded cards */
+.sec, .layout > section, .pagenav + section.sec { background:#fff; border:1px solid var(--ln); border-radius:16px; box-shadow:var(--sh); padding:20px 22px 22px; margin-top:18px; }
+.sec.cabinet { background:none; border:0; box-shadow:none; padding:0; margin-top:0; }
+.layout { gap:18px; }
+.layout > section { margin-top:0; }
+.headline { font-size:1.6rem; letter-spacing:-.01em; margin:2px 0 4px; }
+.lede { font-size:.95rem; }
+.statbar { border:0; padding:0 0 4px; gap:12px; }
+.statbar > div { background:#fff; border:1px solid var(--ln); border-radius:12px; box-shadow:var(--sh); padding:12px 16px; }
+.statbar b { font-weight:750; }
+.layout .kicker, .sec .kicker { color:var(--mu); text-transform:none; letter-spacing:.01em; font-size:.8rem; font-weight:600; }
+
+/* Labels: sentence case rather than small caps */
+th, .subhead, .nzpane-title, .ins-k, .sp-assume-h, .sp-wtable th, .grouprow th, .ed-kicker { text-transform:none !important; letter-spacing:0 !important; }
+th { font-weight:600; color:var(--mu); }
+.subhead { font:650 .95rem var(--sans); border-top:1px solid var(--ln); color:var(--fg); }
+.grouprow th { border-bottom:1px solid var(--ln); color:var(--fg); }
+table { font-family:var(--sans); }
+tbody tr:hover { background:#f8fafc; }
+
+/* Controls */
+.stw-chips button, .mp-toggle, .sp-reset, .sp-presets button, .stw-sort select, .stw-controls select { border-radius:999px; border:1px solid var(--ln); background:#fff; box-shadow:var(--sh); }
+.stw-chips button:hover, .sp-presets button:hover, .mp-toggle:hover { border-color:#cbd5e1; background:var(--card); }
+.stw-chips button.on { background:var(--fg); border-color:var(--fg); color:#fff; box-shadow:none; }
+.mp-mode { border:1px solid var(--ln); border-radius:999px; overflow:hidden; background:#fff; box-shadow:var(--sh); }
+.mp-mode button { padding:7px 16px; } .mp-mode button.on { background:var(--fg); }
+.sp-edit, .sp-done { border-radius:999px; border-color:var(--fg); background:var(--fg); box-shadow:var(--sh); }
+.sp-num, .sp-wtable input, .sp-field input { border-radius:8px; border:1px solid var(--ln); }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+a { color:var(--accent); }
+.pagenav a { color:var(--mu); } .pagenav a.on { color:#fff; } .pagenav a:hover { color:var(--fg); }
+
+/* Cards */
+.stw-stats > button, .sp-stats > div, .sp-card, .sp-group, .sp-params, .sp-assume { border:1px solid var(--ln); border-radius:12px; box-shadow:var(--sh); background:#fff; }
+.sp-params { background:#fff; }
+.ins-card { border:1px solid var(--ln); border-top:4px solid var(--fg); border-radius:0; background:#fff; box-shadow:var(--sh); }
+.mp-row { border-bottom:1px solid var(--ln); }
+.mp-list { gap:2px 18px; }
+.mp-group h3.subhead { margin-top:18px; }
+.fc-more { background:var(--card); border-radius:12px; padding:6px 14px; }
+.fc-more[open] { background:var(--card); }
+
+/* Charts: rounded track ends where they are standalone bars */
+.chamber-key { border-radius:0; }
+.nzpane, .nzmaps { font-family:var(--sans); }
+
+/* Electorate drawer */
+.ed-drawer { font-family:var(--sans); box-shadow:-8px 0 30px rgba(15,23,42,.18); }
+.ed-head { background:#fff; }
+.ed-seg button, .ed-fsbtn, .ed-close { border-radius:999px; }
+.ed-close { border:1px solid var(--ln); background:#fff; }
+
+/* Footer */
+.foot { color:var(--mu); }
+
+/* Nested layouts inside a panel (Specials): no card in a card */
+.sec .layout > section { background:none; border:0; box-shadow:none; padding:0; border-radius:0; }
+.stw-stats > div, .mps-stats > div { border:1px solid var(--ln); border-radius:12px; background:#fff; box-shadow:var(--sh); padding:10px 14px; }
+@media (max-width:640px) { .sec, .layout > section, .pagenav + section.sec { padding:16px 14px 18px; border-radius:14px; } .pagenav { display:flex; } }
+
+/* Mobile nav scrolls sideways instead of wrapping into a tall pill */
+@media (max-width:760px) { .pagenav { flex-wrap:nowrap; display:flex; width:100%; } .pagenav a { flex:none; } }
+
+/* Drawer: softer dividers and rounded segmented controls */
+.ed-section { border-top:1px solid var(--ln) !important; }
+.ed-seg { border:1px solid var(--ln) !important; border-radius:999px !important; overflow:hidden; background:#fff; }
+.ed-seg button { border-radius:999px; }
+.ed-seg button.on { background:var(--fg); color:#fff; }
+.ed-kicker { color:var(--mu) !important; font-weight:650; font-size:.85rem; }
+.ed-title { font-weight:750; letter-spacing:-.01em; }
