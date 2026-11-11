@@ -281,9 +281,9 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             <Avatar p={m} colorOf={colorOf} />
             <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}</small></span>
             <span className="cb-btns">
-              <button type="button" onClick={() => move(m.id, -1)} disabled={i === 0} aria-label={`Move ${m.name} up`}>↑</button>
-              <button type="button" onClick={() => move(m.id, 1)} disabled={i === list.length - 1} aria-label={`Move ${m.name} down`}>↓</button>
-              <button type="button" onClick={() => swapGroup(m.id)} aria-label={kind === 'cab' ? `Move ${m.name} outside Cabinet` : `Move ${m.name} into Cabinet`} title={kind === 'cab' ? 'Move outside Cabinet' : 'Move into Cabinet'}>{kind === 'cab' ? '⇩' : '⇧'}</button>
+              <button type="button" className="cb-touch" onClick={() => move(m.id, -1)} disabled={i === 0} aria-label={`Move ${m.name} up`}>↑</button>
+              <button type="button" className="cb-touch" onClick={() => move(m.id, 1)} disabled={i === list.length - 1} aria-label={`Move ${m.name} down`}>↓</button>
+              <button type="button" className="cb-touch" onClick={() => swapGroup(m.id)} aria-label={kind === 'cab' ? `Move ${m.name} outside Cabinet` : `Move ${m.name} into Cabinet`} title={kind === 'cab' ? 'Move outside Cabinet' : 'Move into Cabinet'}>{kind === 'cab' ? '⇩' : '⇧'}</button>
               <button type="button" onClick={() => remove(m.id)} aria-label={`Remove ${m.name}`}>×</button>
             </span>
           </li>
@@ -297,14 +297,15 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
     return (
       <div key={m.id} className={`cb-card${over === m.id ? ' over' : ''}`} style={{ '--c': colorOf(m.abbrev) }} onDragOver={(e) => allow(e, m.id)} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, m.id)}>
         <div className="cb-card-h">
+          <span className="cb-n">{(cab.includes(m.id) ? cab : out).indexOf(m.id) + 1}</span>
           <Avatar p={m} colorOf={colorOf} />
-          <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)}{tags(m)}<span className="cb-tag in">{where(m)}</span></small></span>
+          <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {cab.includes(m.id) ? 'Cabinet' : 'Outside Cabinet'}{tags(m)}</small></span>
         </div>
         <div className="cb-drop">
           {mine.map((pf) => pfChip(pf, () => assign(pf, null)))}
           {!mine.length && <span className="muted small">Drop portfolios here</span>}
         </div>
-        <select className="cb-addsel" value="" onChange={(e) => e.target.value && assign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
+        <select className="cb-addsel cb-touch" value="" onChange={(e) => e.target.value && assign(e.target.value, m.id)} aria-label={`Add a portfolio for ${m.name}`}>
           <option value="">+ Add portfolio…</option>
           {portfolios.filter((p) => asg[p] !== m.id).map((p) => <option key={p} value={p}>{p}{asg[p] ? ` (now ${byId[asg[p]]?.name})` : ''}</option>)}
         </select>
@@ -355,9 +356,12 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                   <div className="cb-chips">
                     {list.map((p) => (
                       <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
-                        <span className="cb-ln">{p.list || '–'}</span>
                         <Avatar p={p} colorOf={colorOf} />
-                        <span className="cb-chip-t"><b>{p.name}</b><small>{p.pend ? p.where : roleText(p.name) || '\u00a0'}{poolTags(p)}</small></span>
+                        <span className="cb-chip-t">
+                          <span className="cb-chip-top"><b>{p.name}</b><span className="cb-ln" title="Position on the party list">#{p.list || '–'}</span></span>
+                          {(p.pend ? p.where : roleText(p.name)) && <span className="cb-role">{p.pend ? p.where : roleText(p.name)}</span>}
+                          {(p.pend || p.marg) && <span className="cb-tags">{tags(p)}</span>}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -367,7 +371,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             })}
           </div>
           <div className="cb-ministry">
-            <p className="muted small">Click an MP to add them (Cabinet first, then outside Cabinet once it is full). Order is seniority, top first: drag the ⋮⋮ handle (onto a row, or into the other group), or use the arrows.</p>
+            <p className="muted small">Click an MP to add them (Cabinet first, then outside Cabinet once it is full). Order is seniority, top first. <span className="cb-desk">Drag the ⋮⋮ handle to reorder, or into the other group.</span><span className="cb-touch">Use the arrows to reorder and ⇩/⇧ to change group.</span></p>
             {Group({ title: 'Cabinet', list: mCab, size: cabSize, kind: 'cab' })}
             {Group({ title: 'Outside Cabinet', list: mOut, size: outSize, kind: 'out' })}
           </div>
@@ -387,7 +391,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           </div>
           <div className="cb-bank" onDragOver={(e) => allow(e, 'bank')} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, null)} style={over === 'bank' ? { outline: '2px dashed var(--fg)' } : undefined}>
             <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
-            <p className="muted small">Drag onto a minister, or drop here to unassign.</p>
+            <p className="muted small cb-desk">Drag onto a minister, or drop here to unassign.</p><p className="muted small cb-touch">Use the menu on each minister's card to assign these.</p>
             <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
             <div className="cb-bankchips">{free.map((pf) => pfChip(pf))}{!free.length && <span className="muted small">All assigned.</span>}</div>
             <form className="cb-add" onSubmit={(e) => { e.preventDefault(); const v = newPf.trim(); if (v && !portfolios.includes(v)) setExtra([...extra, v]); setNewPf('') }}>
