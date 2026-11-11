@@ -271,10 +271,20 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                 </div>
               )
             })}</div>
-            </div>
-            </div>
+            <h4 className="cb-gh">Proportionality</h4>
             <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
-            <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} · {ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats</span>)}</div>
+            <div className="cb-prop">{byParty.map((x) => {
+              const pm = ministers.length ? Math.round((x.n / ministers.length) * 100) : 0
+              const ps = seats ? Math.round((seatOf(x.a) / seats) * 100) : 0
+              return (
+                <div key={x.a} className="cb-box" style={{ '--c': colorOf(x.a) }}>
+                  <b>{nameOf(x.a)}</b>
+                  <small>{x.n} {x.n === 1 ? 'minister' : 'ministers'} · {pm}% of ministers · {ps}% of seats</small>
+                </div>
+              )
+            })}</div>
+            </div>
+            </div>
             <div className="cb-shotcredit muted">NZ 2026 election dashboard · {label}</div>
             </div>
             {d.free.length > 0 && (

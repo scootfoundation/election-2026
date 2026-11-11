@@ -746,4 +746,7 @@ h2 { font-size:1.3rem; }
 
 .cb-shot { padding:12px; background:var(--bg, #fff); }
 .cb-shotcredit { font-size:.7rem; margin-top:8px; }
-.cb-rsplit + .cb-bar { margin-top:16px; }
+
+.cb-prop { display:grid; gap:8px; margin-top:10px; }
+.cb-prop .cb-box { border-left:4px solid var(--c); }
+.cb-r-out .cb-bar { margin-top:6px; }
