@@ -554,3 +554,4 @@ h2 { font-size:1.3rem; }
 .cb-empty { padding:6px 4px; display:block; }
 .cb-bankchips { display:block; max-height:calc(100vh - 260px); min-height:120px; overflow-y:auto; }
 .cb-ord[aria-label] .cb-empty, .cb-ord .muted { padding:4px 0; }
+.seatcard { padding-top:38px; } .seatcard-body { margin-top:0; }
