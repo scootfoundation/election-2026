@@ -313,6 +313,37 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
     )
   }
 
+  // The Cabinet table: the PM at the head, the rest alternating down each side, each with a box of portfolios.
+  const slot = (m, side) => {
+    if (!m) return <div className={`cb-slot ${side}`} />
+    const mine = portfolios.filter((p) => asg[p] === m.id)
+    const rank = cab.indexOf(m.id) + 1
+    return (
+      <div className={`cb-slot ${side}`} style={{ '--c': colorOf(m.abbrev) }}>
+        <div className="cb-box"><b>{m.name}</b><small>{rank} · {nameOf(m.abbrev)}{m.pend ? ' · pending seat' : ''}</small>{mine.length ? <ul>{mine.map((p) => <li key={p}>{p}</li>)}</ul> : <small className="muted">No portfolio</small>}</div>
+        <div className="cb-seat"><Avatar p={m} colorOf={colorOf} /></div>
+      </div>
+    )
+  }
+  const CabinetTable = () => {
+    const pm = mCab.find((m) => asg['Prime Minister'] === m.id) || mCab[0]
+    const rest = mCab.filter((m) => m !== pm)
+    const pairs = []
+    for (let i = 0; i < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]])
+    const mine = portfolios.filter((p) => asg[p] === pm.id)
+    return (
+      <div className="cb-table-wrap">
+        <div className="cb-head" style={{ '--c': colorOf(pm.abbrev) }}>
+          <div className="cb-seat big"><Avatar p={pm} colorOf={colorOf} /></div>
+          <div className="cb-box"><b>{pm.name}</b><small>{cab.indexOf(pm.id) + 1} · {nameOf(pm.abbrev)}</small>{mine.length ? <ul>{mine.map((p) => <li key={p}>{p}</li>)}</ul> : <small className="muted">No portfolio</small>}</div>
+        </div>
+        <div className="cb-trows">
+          {pairs.map(([l, r], i) => <div key={i} className="cb-trow">{slot(l, 'l')}<div className="cb-tcell" />{slot(r, 'r')}</div>)}
+        </div>
+      </div>
+    )
+  }
+
   const Tile = ({ m, i, big }) => {
     const mine = portfolios.filter((p) => asg[p] === m.id)
     return (
@@ -358,9 +389,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                       <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
                         <Avatar p={p} colorOf={colorOf} />
                         <span className="cb-chip-t">
-                          <span className="cb-chip-top"><b>{p.name}</b><span className="cb-ln" title="Position on the party list">#{p.list || '–'}</span></span>
-                          {(p.pend ? p.where : roleText(p.name)) && <span className="cb-role">{p.pend ? p.where : roleText(p.name)}</span>}
-                          {(p.pend || p.marg) && <span className="cb-tags">{tags(p)}</span>}
+                          <span className="cb-chip-top"><b>{p.name}</b>{(p.pend || p.marg) && <span className="cb-tags">{tags(p)}</span>}<span className="cb-ln" title="Position on the party list">#{p.list || '–'}</span></span>
+                          {roleText(p.name) && <span className="cb-role">{roleText(p.name)}</span>}
                         </span>
                       </button>
                     ))}
@@ -411,7 +441,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
           <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} ({ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats)</span>)}</div>
           {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
-          <div className="cb-tiles">{mCab.map((m, i) => <Tile key={m.id} m={m} i={i} big={asg['Prime Minister'] === m.id} />)}</div>
+          {mCab.length > 0 && CabinetTable()}
           {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
           <div className="cb-tiles cb-small">{mOut.map((m, i) => <Tile key={m.id} m={m} i={i} />)}</div>
           {portfolios.some((p) => !asg[p]) && (
