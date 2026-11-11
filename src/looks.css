@@ -121,6 +121,20 @@ html[data-look="a-folio"] .cabinet .cb-step { border-radius:10px; box-shadow:var
 html[data-look="a-folio"] tbody tr:hover { background:#fbf4e4; }
 html[data-look="a-folio"] .stw-chips button, html[data-look="a-folio"] .mp-toggle, html[data-look="a-folio"] .sp-reset, html[data-look="a-folio"] .sp-presets button, html[data-look="a-folio"] .refresh-btn, html[data-look="a-folio"] .mp-mode, html[data-look="a-folio"] .ed-seg { border-radius:8px !important; }
 
+/* a-flat: Paper's type, tabs and palette with Ledger's flatness. Open sections divided by rules, stat tiles as flat tinted panels, no shadows */
+html[data-look="a-flat"] { --page:#f6f2ea; --paper:#fffdf9; --ln:#ddd5c6; --card:#efe9dc; }
+html[data-look="a-flat"] .layout > section, html[data-look="a-flat"] .sp-card, html[data-look="a-flat"] .sp-group, html[data-look="a-flat"] .sp-params, html[data-look="a-flat"] .sp-assume { background:none; border:0; border-top:1px solid var(--fg); border-radius:0; box-shadow:none; padding:12px 0 0; }
+html[data-look="a-flat"] .ins-card { background:none; border:0; border-top:3px solid var(--fg); border-radius:0; box-shadow:none; padding:10px 0 0; }
+html[data-look="a-flat"] .statbar > div, html[data-look="a-flat"] .stw-stats > div, html[data-look="a-flat"] .stw-stats > button, html[data-look="a-flat"] .mps-stats > div, html[data-look="a-flat"] .sp-stats > div { background:var(--card); border:0; border-radius:4px; box-shadow:none; padding:12px 16px; }
+html[data-look="a-flat"] .banner { background:var(--card); border:0; border-left:3px solid var(--ac); border-radius:0; box-shadow:none; }
+html[data-look="a-flat"] .sec table { background:none; border-radius:0; }
+html[data-look="a-flat"] tbody tr:hover { background:rgba(239,233,220,.6); }
+html[data-look="a-flat"] .stw-chips button, html[data-look="a-flat"] .mp-toggle, html[data-look="a-flat"] .sp-reset, html[data-look="a-flat"] .sp-presets button, html[data-look="a-flat"] .refresh-btn, html[data-look="a-flat"] .mp-mode, html[data-look="a-flat"] .ed-seg { border-radius:4px !important; background:none; border-color:var(--fg); }
+html[data-look="a-flat"] .stw-chips button.on, html[data-look="a-flat"] .mp-mode button.on, html[data-look="a-flat"] .ed-seg button.on { background:var(--fg); color:#fff; }
+html[data-look="a-flat"] .cabinet .cb-step { background:none; border:0; border-top:1px solid var(--fg); border-radius:0; box-shadow:none; padding-left:0; padding-right:0; }
+html[data-look="a-flat"] .cb-box, html[data-look="a-flat"] .cb-unf { background:var(--paper); }
+html[data-look="a-flat"] .ed-drawer, html[data-look="a-flat"] .ed-head { background:var(--page); }
+
 /* switcher */
 #look-switch { position:fixed; left:10px; bottom:10px; z-index:9999; display:flex; gap:4px; background:#111; padding:4px; border-radius:8px; font:600 12px/1 system-ui,sans-serif; }
 #look-switch button { all:unset; cursor:pointer; color:#bbb; padding:6px 10px; border-radius:5px; }
