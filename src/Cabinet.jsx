@@ -21,6 +21,19 @@ const ARRS = (blocs) => [
   { key: 'oppx', label: 'Labour + Greens + Te Pāti Māori + Opportunity', parties: [...blocs.opp.abbrevs, ...blocs.cross.abbrevs] },
 ]
 
+// Sainte-Laguë over 120 seats among parties with >=5% of the party vote or an electorate seat (same as the overview).
+function entitlements(rows, seats = 120) {
+  const eligible = rows.filter((r) => r.pct >= 5 || r.candSeats >= 1)
+  const ent = Object.fromEntries(eligible.map((r) => [r.id, 0]))
+  for (let i = 0; i < seats && eligible.length; i++) {
+    let best = eligible[0]
+    for (const r of eligible) if (r.votes / (2 * ent[r.id] + 1) > best.votes / (2 * ent[best.id] + 1)) best = r
+    ent[best.id]++
+  }
+  return ent
+}
+const SWING = 2 // percentage points of party vote
+
 const b64 = {
   enc: (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   dec: (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))))),
@@ -37,25 +50,64 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const arrs = useMemo(() => ARRS(blocDefs), [blocDefs])
 
   const people = useMemo(() => {
+    const cand = meta.candidates
+    const abbrevOf = (c) => meta.parties[cand[c]?.party]?.abbrev || 'Ind.'
     const base = buildPeople(meta, leaders, rows, ent).filter((p) => ['kept', 'gain', 'newlist', 'tolist'].includes(p.key) && p.id && !EXCLUDE.includes(norm(p.name)))
-    const byId = new Map(base.map((p) => [String(p.id), { ...p, id: String(p.id), pend: null }]))
+    const byId = new Map(base.map((p) => [String(p.id), { ...p, id: String(p.id), pend: null, marg: false }]))
     const mpBy = new Map(MPS_2023.filter((m) => m.cno).map((m) => [String(m.cno), m]))
     const elecName = Object.fromEntries(meta.electorates.map((e) => [String(e.id), e.name]))
-    const abbrevOf = (c) => meta.parties[meta.candidates[c]?.party]?.abbrev || 'Ind.'
-    // Close electorate races: both of the top two candidates are offered until the specials are counted.
+    const won = new Set(Object.values(leaders).map((d) => d.cands?.[0]).filter((c) => c && c.votes > 0).map((c) => String(c.id)))
+
+    // List seats under the current count and when each party's vote moves by +/-SWING points (others scale to keep 100%).
+    const listN = (rs) => { const e = entitlements(rs); return Object.fromEntries(rs.map((r) => [r.abbrev, Math.max(0, (e[r.id] || 0) - r.candSeats)])) }
+    const now = listN(rows)
+    const lo = { ...now }, hi = { ...now }
+    for (const r of rows) {
+      for (const d of [-SWING, SWING]) {
+        const share = Math.max(0, Math.min(100, r.pct + d))
+        const scale = (100 - share) / (100 - r.pct || 1)
+        const T = rows.reduce((t, x) => t + x.votes, 0)
+        const mod = rows.map((x) => (x.id === r.id ? { ...x, pct: share, votes: (share / 100) * T } : { ...x, pct: x.pct * scale, votes: x.votes * scale }))
+        const n = listN(mod)
+        for (const a of Object.keys(n)) { lo[a] = Math.min(lo[a], n[a]); hi[a] = Math.max(hi[a], n[a]) }
+      }
+    }
+    // Each party's list order, skipping candidates who won an electorate.
+    const order = {}
+    for (const [c, x] of Object.entries(cand)) if (x.listNo && !won.has(c)) (order[abbrevOf(c)] ||= []).push([c, x.listNo])
+    const rankOf = {}
+    for (const a of Object.keys(order)) order[a].sort((p, q) => p[1] - q[1]).forEach(([c], i) => { rankOf[c] = i + 1 })
+    const addPerson = (c, patch) => {
+      const m = mpBy.get(c)
+      const name = m ? m.name : display(cand[c].name)
+      if (EXCLUDE.includes(norm(name))) return
+      byId.set(c, { id: c, eid: null, key: 'extra', name, img: m?.img, abbrev: abbrevOf(c), was: '', now: null, pend: null, marg: false, ...patch })
+    }
+    // List MPs whose place depends on the party-vote swing: in the pool, labelled Marginal.
+    for (const [a, list] of Object.entries(order)) {
+      const n0 = now[a] ?? 0, loN = lo[a] ?? n0, hiN = hi[a] ?? n0
+      list.forEach(([c], i) => {
+        const rank = i + 1
+        if (rank <= loN || rank > hiN) return
+        if (byId.has(c)) byId.get(c).marg = true
+        else addPerson(c, { marg: true, now: { text: `List #${cand[c].listNo}`, list: true } })
+      })
+    }
+    // Would this candidate be elected from the list even if they lost their electorate?
+    const listSafe = (c) => rankOf[c] != null ? rankOf[c] <= (lo[abbrevOf(c)] ?? 0) : (() => { const a = abbrevOf(c); const n = (order[a] || []).filter(([, ln]) => ln < (cand[c].listNo || 999)).length + 1; return !!cand[c].listNo && n <= (lo[a] ?? 0) })()
+    // Close electorate races: both of the top two candidates are offered, unless the list would return them anyway.
     for (const [eid, d] of Object.entries(leaders)) {
       const [a, b] = d.cands || []
       if (!a || !b || a.votes <= 0 || a.votes - b.votes >= PENDING_MARGIN) continue
-      const A = byId.get(String(a.id))
-      if (A) A.pend = { eid, margin: a.votes - b.votes }
-      const c = String(b.id)
-      const m = mpBy.get(c)
-      if (!byId.has(c) && meta.candidates[c] && !EXCLUDE.includes(norm(m ? m.name : display(meta.candidates[c].name)))) {
-        byId.set(c, { id: c, eid, key: 'pending', name: m ? m.name : display(meta.candidates[c].name), img: m?.img, abbrev: abbrevOf(c), was: '', now: null, pend: { eid, margin: -(a.votes - b.votes) } })
-      } else if (byId.get(c)) byId.get(c).pend = { eid, margin: -(a.votes - b.votes) }
+      const ca = String(a.id), cb = String(b.id), margin = a.votes - b.votes
+      if (byId.has(ca) && !listSafe(ca)) byId.get(ca).pend = { eid, margin }
+      if (cand[cb] && !listSafe(cb)) {
+        if (!byId.has(cb)) addPerson(cb, { eid, key: 'pending', pend: { eid, margin: -margin } })
+        else byId.get(cb).pend = { eid, margin: -margin }
+      } else if (cand[cb] && !byId.has(cb)) addPerson(cb, { eid, key: 'listed', now: { text: `List #${cand[cb].listNo}`, list: true } })
     }
     for (const p of byId.values()) {
-      p.list = meta.candidates[p.id]?.listNo || null
+      p.list = cand[p.id]?.listNo || null
       p.where = p.pend ? `${elecName[p.pend.eid]} (${p.pend.margin >= 0 ? 'leads by' : 'trails by'} ${Math.abs(p.pend.margin).toLocaleString('en-NZ')})` : p.now ? p.now.text : p.eid ? `${elecName[p.eid]} electorate` : 'List'
     }
     return [...byId.values()]
@@ -147,22 +199,20 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
   const allow = (e, id) => { e.preventDefault(); setOver(id) }
 
   const pfChip = (pf, onRemove) => (
-    <span key={pf} className="cb-pf" draggable onDragStart={(e) => drag(e, pf)}>{pf}{onRemove && <button type="button" aria-label={`Remove ${pf}`} onClick={onRemove}>×</button>}</span>
+    <span key={pf} className="cb-pf" draggable onDragStart={(e) => drag(e, pf)}><span className="cb-grip" aria-hidden="true">⋮⋮</span><span className="cb-pft">{pf}</span>{onRemove && <button type="button" aria-label={`Remove ${pf}`} onClick={onRemove}>×</button>}</span>
   )
 
   return (
     <section className="sec cabinet">
       <div className="kicker">Cabinet builder</div>
       <h2>Pick a government, choose ministers, assign portfolios</h2>
-      <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending; only one will sit. The two coalition options start from the current ministry. Chris Bishop is left out. Your selections are saved in the page link.</p>
+      <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending, unless the list would return them anyway; only one will sit. List MPs whose place would change if a party's vote moved by up to {SWING} points are included and marked Marginal. The two coalition options start from the current ministry. Chris Bishop is left out. Your selections are saved in the page link.</p>
 
       <div className="cb-arr" role="group" aria-label="Governing arrangement">
         {arrs.map((o) => {
-          const n = seatsOf(o.key)
-          return <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}>{o.label} <small>{n} seats{n >= majority ? ' ✓' : ''}</small></button>
+          return <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}>{o.label}</button>
         })}
       </div>
-      <p className="cb-seats"><b>{seats}</b> of {total} seats · {seats >= majority ? `majority (${majority})` : `${majority - seats} short of a majority (${majority})`}</p>
 
       <div className="cb-steps" role="tablist" aria-label="Steps">
         {[['1', 'Ministers'], ['2', 'Portfolios'], ['3', 'Summary']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={step === +k} className={step === +k ? 'on' : ''} onClick={() => setStep(+k)}>{k} · {l}</button>)}
@@ -184,7 +234,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                     <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
                       <span className="cb-ln">{p.list || '–'}</span>
                       <Avatar p={p} colorOf={colorOf} />
-                      <span className="cb-chip-t"><b>{p.name}</b><small>{p.where}{p.pend && <span className="cb-tag">pending</span>}</small></span>
+                      <span className="cb-chip-t"><b>{p.name}</b><small>{p.where}{p.pend && <span className="cb-tag">pending</span>}{p.marg && <span className="cb-tag marg">Marginal</span>}</small></span>
                     </button>
                   ))}
                 </div>
@@ -205,7 +255,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
                 <div key={m.id} className={`cb-card${over === m.id ? ' over' : ''}`} style={{ '--c': colorOf(m.abbrev) }} onDragOver={(e) => allow(e, m.id)} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, m.id)}>
                   <div className="cb-card-h">
                     <Avatar p={m} colorOf={colorOf} />
-                    <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {m.where}{m.pend && <span className="cb-tag">pending</span>}</small></span>
+                    <span className="cb-chip-t"><b>{m.name}</b><small>{nameOf(m.abbrev)} · {m.where}{m.pend && <span className="cb-tag">pending</span>}{m.marg && <span className="cb-tag marg">Marginal</span>}</small></span>
                     <button type="button" className="cb-x" aria-label={`Remove ${m.name} as a minister`} onClick={() => toggle(m.id)}>×</button>
                   </div>
                   <div className="cb-drop">

@@ -353,3 +353,14 @@ h2 { font-size:1.3rem; }
   .cb-next { display:inline-block; }
   .cb-seats { margin-left:0; }
 }
+
+.cb-tag.marg { color:#7a3fb0; }
+.cb-chip.sel .cb-tag.marg { color:#fff; }
+.cb-drop { flex-direction:column; align-items:stretch; gap:3px; }
+.cb-bankchips { flex-direction:column; flex-wrap:nowrap; gap:3px; }
+.cb-pf { border-radius:4px; padding:4px 8px 4px 4px; gap:6px; width:100%; background:var(--bg); }
+.cb-pf:hover { background:var(--card); }
+.cb-pft { flex:1; min-width:0; }
+.cb-pf button { margin-left:auto; }
+.cb-grip { font:700 .9rem/1 var(--sans); color:var(--mu); letter-spacing:-3px; padding:0 4px; cursor:grab; user-select:none; }
+.cb-pf:active { cursor:grabbing; }
