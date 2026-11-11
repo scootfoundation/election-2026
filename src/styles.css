@@ -320,7 +320,7 @@ h2 { font-size:1.3rem; }
 .cb-chip.sel { background:var(--c); color:#fff; } .cb-chip.sel small, .cb-chip.sel .cb-ln { color:rgba(255,255,255,.85); }
 .cb-chip.pend { border-style:dashed; border-left-style:solid; }
 .cb-ln { font:700 .68rem var(--sans); color:var(--mu); width:1.6em; text-align:right; flex:none; }
-.cb-tag { margin-left:6px; border:1px solid currentColor; border-radius:3px; padding:0 4px; font-size:.65rem; color:#b36b00; }
+.cb-tag { margin-left:6px; border:1px solid currentColor; border-radius:3px; padding:0 4px; font-size:.65rem; color:#8a4b00; }
 .cb-tag.marg { color:#7a3fb0; } .cb-chip.sel .cb-tag { color:#fff; }
 .cb-search, .cb-add input { width:100%; font:.85rem var(--sans); padding:6px 8px; border:1px solid var(--ln); margin-bottom:8px; background:var(--bg); color:var(--fg); }
 .cb-add { display:flex; gap:6px; margin-top:8px; } .cb-add input { margin:0; flex:1; }
@@ -329,12 +329,12 @@ h2 { font-size:1.3rem; }
 .cb-ord li { display:flex; align-items:center; gap:8px; border:1px solid var(--ln); border-left:5px solid var(--c); padding:4px 6px; background:var(--bg); }
 .cb-n { font:700 .75rem var(--sans); color:var(--mu); width:1.6em; text-align:center; flex:none; }
 .cb-btns { display:flex; gap:2px; } .cb-btns button { padding:2px 7px; font-size:.8rem; } .cb-btns button:disabled { opacity:.3; cursor:default; }
-.cb-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
+.cb-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; align-items:start; }
 .cb-card { border:1px solid var(--ln); border-left:5px solid var(--c); padding:6px 8px; background:var(--bg); }
 .cb-card.over { background:var(--card); outline:2px dashed var(--c); }
 .cb-card-h { display:flex; align-items:center; gap:8px; }
 .cb-drop { display:flex; flex-direction:column; gap:3px; min-height:30px; padding:6px 0; }
-.cb-bankchips { display:flex; flex-direction:column; gap:3px; max-height:520px; overflow-y:auto; }
+.cb-bankchips { display:flex; flex-direction:column; gap:3px; max-height:calc(100vh - 260px); min-height:120px; overflow-y:auto; }
 .cb-pf { display:flex; align-items:center; gap:6px; font:600 .76rem var(--sans); border:1px solid var(--ln); background:var(--bg); padding:4px 8px 4px 4px; border-radius:4px; cursor:grab; width:100%; }
 .cb-pf:hover { background:var(--card); } .cb-pf:active { cursor:grabbing; }
 .cb-pft { flex:1; min-width:0; }
@@ -355,3 +355,17 @@ h2 { font-size:1.3rem; }
 .cb-warn { color:#b36b00; font:.82rem var(--sans); margin:8px 0 0; }
 .cb-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; } .cb-actions button:disabled { opacity:.45; }
 @media (max-width:900px) { .cb-two, .cb-two-pf { grid-template-columns:minmax(0,1fr); } .cb-ministry, .cb-bank { position:static; } }
+
+.cb-tag.in { color:var(--fg); background:var(--card); border-color:var(--ln); } .cb-chip.sel .cb-tag.in, .cb-tile.big .cb-tag.in { color:#fff; background:rgba(255,255,255,.2); border-color:rgba(255,255,255,.6); }
+.cb-ord li { cursor:grab; } .cb-ord.over { outline:2px dashed var(--mu); outline-offset:2px; } .cb-ord li .cb-grip { cursor:grab; }
+.cb-senior { background:#fff6e5; border:1px solid #f0d9a8; padding:6px 10px; margin:0 0 10px; }
+.cb-unf { margin-top:10px; } .cb-chk { margin:0 0 8px; padding:0; list-style:none; font:.8rem var(--sans); columns:2 260px; }
+.cb-chk li::before { content:'☐ '; } .cb-unf summary { font:600 .8rem var(--sans); cursor:pointer; margin:6px 0; }
+.cb-bottom { position:sticky; bottom:0; z-index:20; margin:0 -16px; padding:0 16px 8px; pointer-events:none; }
+.cb-bottom > * { pointer-events:auto; }
+.cb-mini { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font:.82rem var(--sans); background:var(--bg); border:1px solid var(--fg); box-shadow:0 -2px 10px rgba(0,0,0,.12); padding:8px 12px; }
+.cb-mini a { margin-left:auto; color:var(--ac); font-weight:600; }
+.cb-minibar { display:flex; width:90px; height:10px; background:var(--card); } .cb-minibar i { display:block; }
+.cb-miniwarn { color:#8a4b00; font-weight:600; }
+.cb-undo { display:flex; align-items:center; gap:10px; background:var(--fg); color:var(--bg); font:.85rem var(--sans); padding:8px 12px; margin-bottom:6px; }
+.cb-undo button { font:600 .82rem var(--sans); border:1px solid currentColor; background:none; color:inherit; padding:2px 10px; cursor:pointer; } .cb-undo button:last-child { border:0; margin-left:auto; font-size:1rem; }
