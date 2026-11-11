@@ -440,8 +440,12 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           </div>
           <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
           <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} ({ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats)</span>)}</div>
+          <div className="cb-rsplit">
+          <div className="cb-r-cab">
           {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
           {mCab.length > 0 && CabinetTable()}
+          </div>
+          <div className="cb-r-out">
           {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
           <div className="cb-outs">{mOut.map((m, i) => {
             const mine = portfolios.filter((p) => asg[p] === m.id)
@@ -452,6 +456,8 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
               </div>
             )
           })}</div>
+          </div>
+          </div>
           {portfolios.some((p) => !asg[p]) && (
             <div className="cb-unf">
               {seniorFree.length > 0 && <><h4 className="cb-gh">Senior portfolios still empty</h4><ul className="cb-chk">{seniorFree.map((p) => <li key={p}>{p}</li>)}</ul></>}

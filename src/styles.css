@@ -457,3 +457,23 @@ h2 { font-size:1.3rem; }
   .cb-slot .cb-seat, .cb-slot.l .cb-seat, .cb-slot.r .cb-seat { margin:0; }
   .cb-head { margin-bottom:6px; } .cb-trows { padding-top:0; }
 }
+/* PM at the head of the table: avatar centred over the table, box to the right */
+.cb-head { display:grid; grid-template-columns:minmax(0,1fr) 128px minmax(0,1fr); align-items:center; gap:0; justify-content:stretch; }
+.cb-head .cb-seat { grid-column:2; grid-row:1; justify-self:center; margin:0; }
+.cb-head .cb-box { grid-column:3; grid-row:1; margin-left:14px; min-width:0; justify-self:start; max-width:300px; }
+@media (max-width:760px) {
+  .cb-head { display:flex; flex-direction:column; align-items:center; }
+  .cb-head .cb-seat { margin:0; } .cb-head .cb-box { margin:0; max-width:none; width:100%; justify-self:auto; }
+}
+@media (min-width:761px) {
+  .cb-head { align-items:start; margin-bottom:-6px; }
+  .cb-trows { padding-top:8px; }
+  .cb-trows .cb-trow:first-child .cb-tcell { margin-top:-46px; }
+}
+/* Desktop: Cabinet table on the left, outside-Cabinet cards on the right */
+@media (min-width:1100px) {
+  .cb-rsplit { display:grid; grid-template-columns:minmax(0,1.9fr) minmax(260px,1fr); gap:28px; align-items:start; }
+  .cb-rsplit .cb-table-wrap { max-width:none; margin-top:0; }
+  .cb-rsplit .cb-outs { grid-template-columns:minmax(0,1fr); padding-top:36px; }
+  .cb-r-out .cb-gh { margin-top:10px; }
+}
