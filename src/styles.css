@@ -511,3 +511,15 @@ h2 { font-size:1.3rem; }
 .cb-card-h { padding:10px 10px 6px; } .cb-card-h .mp-ava { width:40px; height:40px; }
 .cb-card-h b { font-size:.9rem; }
 .cb-pf { box-shadow:0 1px 2px rgba(0,0,0,.05); }
+/* Second pass: less text, calmer panels */
+.cb-lede { font:1rem var(--sans); margin:2px 0 6px; }
+.cb-how { font:.8rem/1.5 var(--sans); color:var(--mu); margin:0 0 14px; } .cb-how summary { cursor:pointer; font-weight:600; color:var(--fg); }
+.cb-how p { margin:6px 0 0; max-width:900px; }
+.cb-step { padding:16px 20px 20px; }
+.cb-sh { margin-bottom:12px; }
+.cb-sizes { margin-top:12px; align-items:center; } .cb-sizes > .muted { margin-left:auto; }
+.cb-ministry { background:var(--bg); padding:12px 14px 16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+.cb-ministry > .muted { margin:0 0 4px; }
+.cb-grp:first-of-type h4, .cb-grp h4 { margin-top:8px; }
+.cb-foot { max-width:900px; }
+.cb-ph b { font-size:.9rem; }

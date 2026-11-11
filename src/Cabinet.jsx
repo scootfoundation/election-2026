@@ -357,24 +357,27 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
 
   return (
     <section className="sec cabinet">
-      <div className="kicker">Cabinet builder</div>
-      <h2>Build a ministry in four steps</h2>
-      <p className="muted small">Ministers come from MPs who would be seated on the current count, in list order. In close electorate races still waiting on special votes (leads under {PENDING_MARGIN.toLocaleString('en-NZ')} votes) both of the top two candidates are offered and marked pending, unless the list would return them anyway; only one will sit. List MPs whose place would change if a party's vote moved by up to {SWING} points are marked Marginal. Chris Bishop is left out. The current coalition starts from the current ministry; the other arrangements start with each party's top list-ranked MPs, shared out by seat share. Your choices are saved in the page link, and you can change any step at any time.</p>
+      <div className="kicker">Ministry</div>
+      <h2>Cabinet builder</h2>
+      <p className="cb-lede">Build a ministry from the MPs the current count would seat.</p>
+      <details className="cb-how"><summary>How this works</summary>
+        <p>MPs are in list order. <span className="cb-tag">pending</span> marks a close electorate race still waiting on special votes (lead under {PENDING_MARGIN.toLocaleString('en-NZ')}) whose candidate the list wouldn't return anyway; both top candidates are offered and only one will sit. <span className="cb-tag marg">Marginal</span> marks a list MP whose place would change if a party's vote moved by {SWING} points. Chris Bishop is left out. The current coalition starts from the current ministry; other arrangements fill each party's top list-ranked MPs by seat share. Your choices are saved in the page link.</p>
+      </details>
 
       <div className="cb-step">
-        <div className="cb-sh"><h3><span>1</span> Governing arrangement and ministry size</h3><p>Who is in government, and how big the ministry is.</p><em>{cabSize + outSize} ministers</em></div>
+        <div className="cb-sh"><h3><span>1</span> Government</h3></div>
         <div className="cb-arr" role="group" aria-label="Governing arrangement">
           {arrs.map((o) => <button key={o.key} type="button" className={o.key === arr ? 'on' : ''} aria-pressed={o.key === arr} onClick={() => choose(o.key)}><span className="cb-dots">{o.parties.filter((a) => seatOf(a) > 0 || a === 'OPP').map((a) => <i key={a} style={{ background: colorOf(a) }} />)}</span><b>{o.label}</b></button>)}
         </div>
         <div className="cb-sizes">
           <div className="cb-stp"><span>Ministers in Cabinet</span><button type="button" aria-label="Fewer in Cabinet" onClick={() => setCabSize(Math.max(0, cabSize - 1))}>−</button><input type="number" min="0" max="60" value={cabSize} onChange={num(cabSize, setCabSize)} aria-label="Ministers in Cabinet" /><button type="button" aria-label="More in Cabinet" onClick={() => setCabSize(Math.min(60, cabSize + 1))}>+</button></div>
           <div className="cb-stp"><span>Ministers outside Cabinet</span><button type="button" aria-label="Fewer outside Cabinet" onClick={() => setOutSize(Math.max(0, outSize - 1))}>−</button><input type="number" min="0" max="60" value={outSize} onChange={num(outSize, setOutSize)} aria-label="Ministers outside Cabinet" /><button type="button" aria-label="More outside Cabinet" onClick={() => setOutSize(Math.min(60, outSize + 1))}>+</button></div>
-          <span className="muted small">{!current && <>Places are shared between the parties in proportion to their seats, taking each party's top list-ranked MPs. </>}Defaults: {DEF_CAB} in Cabinet and {DEF_OUT} outside, as in the current ministry ({CURRENT_MINISTERS} ministers).{notReturning > 0 && <> {notReturning} of them (for example those who retired, lost their seat or are left out) wouldn't be in the new Parliament, so those places start empty.</>}</span>
+          <span className="muted small">{current ? `Starts from the current ministry${notReturning > 0 ? `; ${notReturning} of its ministers aren't returning` : ''}.` : 'Places are shared by seat share.'}</span>
         </div>
       </div>
 
       <div className="cb-step">
-        <div className="cb-sh"><h3><span>2</span> Choose and order the ministers</h3><p>Pick MPs from the government parties, then rank them by seniority.</p><em>{ministers.length} chosen</em></div>
+        <div className="cb-sh"><h3><span>2</span> Ministers</h3></div>
         <div className="cb-two">
           <div className="cb-pool">
             <input className="cb-search" type="search" placeholder="Search MPs" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search MPs" />
@@ -384,7 +387,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
               const list = open ? all : all.filter((p, i) => i < SHOW || sel.has(p.id))
               return (
                 <div key={a} className="cb-party">
-                  <div className="cb-ph" style={{ '--c': colorOf(a) }}><b>{nameOf(a)}</b><span className="muted"> · {all.length} MPs · {all.filter((p) => sel.has(p.id)).length} chosen · by list position</span></div>
+                  <div className="cb-ph" style={{ '--c': colorOf(a) }}><b>{nameOf(a)}</b><span className="muted"> · {all.filter((p) => sel.has(p.id)).length} of {all.length} chosen</span></div>
                   <div className="cb-chips">
                     {list.map((p) => (
                       <button key={p.id} type="button" className={`cb-chip${sel.has(p.id) ? ' sel' : ''}${p.pend ? ' pend' : ''}`} style={{ '--c': colorOf(p.abbrev) }} aria-pressed={sel.has(p.id)} onClick={() => toggle(p.id)}>
@@ -402,7 +405,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
             })}
           </div>
           <div className="cb-ministry">
-            <p className="muted small">Click an MP to add them (Cabinet first, then outside Cabinet once it is full). Order is seniority, top first. <span className="cb-desk">Drag the ⋮⋮ handle to reorder, or into the other group.</span><span className="cb-touch">Use the arrows to reorder and ⇩/⇧ to change group.</span></p>
+            <p className="muted small"><span className="cb-desk">Click an MP to add. Drag ⋮⋮ to reorder.</span><span className="cb-touch">Tap an MP to add; use the arrows to reorder and ⇩/⇧ to change group.</span></p>
             {Group({ title: 'Cabinet', list: mCab, size: cabSize, kind: 'cab' })}
             {Group({ title: 'Outside Cabinet', list: mOut, size: outSize, kind: 'out' })}
           </div>
@@ -410,11 +413,11 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       </div>
 
       <div className="cb-step">
-        <div className="cb-sh"><h3><span>3</span> Assign portfolios</h3><p>Give each minister their portfolios.</p><em>{filled.length} of {portfolios.length} assigned</em></div>
+        <div className="cb-sh"><h3><span>3</span> Portfolios</h3><em>{filled.length} of {portfolios.length} assigned</em></div>
         <div className="cb-two cb-two-pf">
           <div>
             {!ministers.length && <p className="muted small">Choose ministers in step 2 first.</p>}
-            {ministers.length > 0 && seniorFree.length > 0 && <p className="cb-warn cb-senior">Senior portfolios still empty: {seniorFree.join(', ')}.</p>}
+            {ministers.length > 0 && seniorFree.length > 0 && <p className="cb-warn cb-senior">Senior portfolios empty: {seniorFree.join(', ')}.</p>}
             {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
             <div className="cb-cards">{mCab.map((m) => Card({ m }))}</div>
             {mOut.length > 0 && <h4 className="cb-gh">Outside Cabinet</h4>}
@@ -422,7 +425,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           </div>
           <div className="cb-bank" onDragOver={(e) => allow(e, 'bank')} onDragLeave={() => setOver(null)} onDrop={(e) => dropOn(e, null)} style={over === 'bank' ? { outline: '2px dashed var(--fg)' } : undefined}>
             <h4>Unassigned portfolios <span className="muted">· {free.length}</span></h4>
-            <p className="muted small cb-desk">Drag onto a minister, or drop here to unassign.</p><p className="muted small cb-touch">Use the menu on each minister's card to assign these.</p>
+            <p className="muted small cb-desk">Drag onto a minister.</p>
             <input className="cb-search" type="search" placeholder="Filter portfolios" value={pfq} onChange={(e) => setPfq(e.target.value)} aria-label="Filter portfolios" />
             <div className="cb-bankchips">{free.map((pf) => pfChip(pf))}{!free.length && <span className="muted small">All assigned.</span>}</div>
             <form className="cb-add" onSubmit={(e) => { e.preventDefault(); const v = newPf.trim(); if (v && !portfolios.includes(v)) setExtra([...extra, v]); setNewPf('') }}>
@@ -433,14 +436,14 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
       </div>
 
       <div className="cb-step" id="cb-result">
-        <div className="cb-sh"><h3><span>4</span> The ministry</h3><p>The finished ministry, ready to share.</p></div>
+        <div className="cb-sh"><h3><span>4</span> Result</h3></div>
         <div className="cb-result">
           <div className="cb-rhead">
             <b>{label}</b>
             <span className="muted"> · {mCab.length} in Cabinet · {mOut.length} outside · {filled.length} of {portfolios.length} portfolios assigned</span>
           </div>
           <div className="cb-bar" aria-label="Ministers by party">{byParty.filter((x) => x.n).map((x) => <i key={x.a} style={{ width: `${(x.n / total_n) * 100}%`, background: colorOf(x.a) }} title={`${nameOf(x.a)} ${x.n}`} />)}</div>
-          <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} ({ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats)</span>)}</div>
+          <div className="cb-legend">{byParty.map((x) => <span key={x.a}><span className="sw" style={{ background: colorOf(x.a) }} /> {nameOf(x.a)} {x.n} · {ministers.length ? Math.round((x.n / ministers.length) * 100) : 0}% of ministers, {seats ? Math.round((seatOf(x.a) / seats) * 100) : 0}% of seats</span>)}</div>
           <div className="cb-rsplit">
           <div className="cb-r-cab">
           {mCab.length > 0 && <h4 className="cb-gh">Cabinet</h4>}
@@ -461,11 +464,11 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           </div>
           {portfolios.some((p) => !asg[p]) && (
             <div className="cb-unf">
-              {seniorFree.length > 0 && <><h4 className="cb-gh">Senior portfolios still empty</h4><ul className="cb-chk">{seniorFree.map((p) => <li key={p}>{p}</li>)}</ul></>}
+              {seniorFree.length > 0 && <><h4 className="cb-gh">Senior portfolios empty</h4><ul className="cb-chk">{seniorFree.map((p) => <li key={p}>{p}</li>)}</ul></>}
               <details><summary>{portfolios.filter((p) => !asg[p] && !SENIOR.includes(p)).length} other portfolios unassigned</summary><ul className="cb-chk">{portfolios.filter((p) => !asg[p] && !SENIOR.includes(p)).map((p) => <li key={p}>{p}</li>)}</ul></details>
             </div>
           )}
-          {pendingPicked.length > 0 && <p className="cb-warn">⚠ {pendingPicked.length} minister{pendingPicked.length > 1 ? 's' : ''} in seats awaiting special votes: {pendingPicked.map((m) => m.name).join(', ')}.</p>}
+          {pendingPicked.length > 0 && <p className="cb-warn">⚠ Pending seat: {pendingPicked.map((m) => m.name).join(', ')}.</p>}
           {sameSeat.length > 0 && <p className="cb-warn">⚠ Both candidates chosen in {sameSeat.map((e) => meta.electorates.find((x) => String(x.id) === e)?.name).join(', ')}; only one can win.</p>}
           {idle.length > 0 && <p className="cb-warn">Without a portfolio: {idle.map((m) => m.name).join(', ')}.</p>}
           <div className="cb-actions">
@@ -484,7 +487,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           <a href="#cb-result" onClick={(e) => { e.preventDefault(); document.getElementById('cb-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>See the ministry ↓</a>
         </div>
       </div>
-      <p className="muted small">Ministers are drawn from MPs on the preliminary count, so list-seat holders could change when special votes are counted. The current ministry and portfolio names are from Wikipedia's page on the Sixth National Government (CC BY-SA) and may contain errors; the Cabinet / outside split of the current ministers is by seniority, not the official list. Names are matched to the Commission's candidate list.</p>
+      <p className="muted small cb-foot">Preliminary count; list places may change with special votes. Current ministry and portfolios: Wikipedia, Sixth National Government (CC BY-SA), which may contain errors; the Cabinet split is by seniority, not the official list.</p>
     </section>
   )
 }
