@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MPS_2023 } from './mps2023.js'
+import { HEADSHOTS } from './headshots.js'
 
 // "Parliamentarians": who is in, who is out, as the count stands. Sitting MPs (54th Parliament)
 // are matched to the 2026 candidate list; this view is provisional until counts are final.
@@ -68,7 +69,7 @@ export function Avatar({ p, colorOf }) {
   const initials = p.name.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('')
   return (
     <span className="mp-ava" style={{ borderColor: colorOf(p.abbrev), background: colorOf(p.abbrev) }}>
-      {p.img && !bad ? <img src={p.img} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(true)} /> : <span>{initials}</span>}
+      {(p.img || HEADSHOTS[p.name]) && !bad ? <img src={p.img || HEADSHOTS[p.name]} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(true)} /> : <span>{initials}</span>}
     </span>
   )
 }

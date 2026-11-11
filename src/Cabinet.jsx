@@ -487,7 +487,7 @@ export default function Cabinet({ meta, leaders, rows, ent, colorOf, shortName, 
           <a href="#cb-result" onClick={(e) => { e.preventDefault(); document.getElementById('cb-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>See the ministry ↓</a>
         </div>
       </div>
-      <p className="muted small cb-foot">Preliminary count; list places may change with special votes. Current ministry and portfolios: Wikipedia, Sixth National Government (CC BY-SA), which may contain errors; the Cabinet split is by seniority, not the official list.</p>
+      <p className="muted small cb-foot">Preliminary count; list places may change with special votes. Current ministry and portfolios: Wikipedia, Sixth National Government (CC BY-SA), which may contain errors; the Cabinet split is by seniority, not the official list. Headshots: Wikipedia and Wikimedia Commons, and the National and ACT websites.</p>
     </section>
   )
 }
