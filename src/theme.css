@@ -53,3 +53,7 @@ html:root .cabinet .cb-step { background:none; border:0; border-top:1px solid va
 html:root .cb-box, html:root .cb-unf { background:var(--paper); }
 html:root .ed-drawer, html:root .ed-head { background:var(--page); }
 
+
+/* Modal dialogs sit above the page, so they keep a solid surface (the flat rules above remove it from in-page sections) */
+html:root .sp-modal .sp-params { background:var(--paper); border:1px solid var(--ln); border-radius:6px; padding:14px 18px 18px; box-shadow:0 12px 40px rgba(0,0,0,.35); }
+html:root .sp-modal .sp-params-head { background:var(--paper); }
